@@ -53,7 +53,7 @@ export default async function DashboardPage({
     sort_by,
     type,
     search,
-    libraryIds
+    libraryIds,
   );
 
   return (

@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Server, deleteServer } from "@/lib/db";
-import { Loader2 } from "lucide-react";
 import { useRouter } from "nextjs-toploader/app";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -42,7 +41,7 @@ export const DeleteServer: React.FC<Props> = ({ server }) => {
   };
 
   return (
-    <div className="border p-4 rounded-lg flex flex-col gap-4 items-start">
+    <div className="border p-4 rounded-lg flex flex-col gap-4 items-start my-8">
       <p className="text-destructive">Danger area</p>
       <AlertDialog>
         <AlertDialogTrigger asChild>
@@ -53,7 +52,10 @@ export const DeleteServer: React.FC<Props> = ({ server }) => {
           <AlertDialogHeader>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the
-              server and remove all associated data.
+              server and remove all associated data from Streamyfin.
+              <br />
+              <br />
+              Note: this will not remove the server from Jellyfin.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -11,6 +11,7 @@
       ".expo",
       ".github",
       ".vscode",
+      ".next",
       "dist",
       "server"
     ]

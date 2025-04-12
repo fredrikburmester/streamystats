@@ -22,7 +22,8 @@ defmodule StreamystatServerWeb.ServerJSON do
       url: server.url,
       api_key: server.api_key,
       inserted_at: server.inserted_at,
-      updated_at: server.updated_at
+      updated_at: server.updated_at,
+      enabled_libraries: server.enabled_libraries
     }
   end
 end

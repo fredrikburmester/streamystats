@@ -35,11 +35,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQueryParams } from "@/hooks/useQueryParams";
 import { Server, UserPlaybackStatistics } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
-import { useRouter } from "nextjs-toploader/app";
-import { useQueryParams } from "@/hooks/useQueryParams";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useDebounce } from "use-debounce";
 
 export interface HistoryTableProps {
@@ -225,7 +225,7 @@ export function HistoryTable({
                 onClick={() => {
                   window.open(
                     `${server.url}/web/#/details?id=${playbackActivity.item_id}`,
-                    "_blank"
+                    "_blank",
                   );
                 }}
               >
@@ -234,7 +234,7 @@ export function HistoryTable({
               <DropdownMenuItem
                 onClick={() => {
                   router.push(
-                    `/servers/${server.id}/users/${playbackActivity.user_name}`
+                    `/servers/${server.id}/users/${playbackActivity.user_name}`,
                   );
                 }}
               >
@@ -248,7 +248,7 @@ export function HistoryTable({
   ];
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+    [],
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({
@@ -333,7 +333,7 @@ export function HistoryTable({
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   );
@@ -352,7 +352,7 @@ export function HistoryTable({
                     <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}

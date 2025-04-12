@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { tokenAtom } from "@/lib/atoms/tokenAtom";
 import { Server, login } from "@/lib/db";
 import { useAtom } from "jotai/react";
-import { Loader2 } from "lucide-react";
+import { Loader2, PlusCircle } from "lucide-react";
 import { useRouter } from "nextjs-toploader/app";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -132,13 +132,14 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
               <Button type="submit">{loading ? <Spinner /> : "Sign In"}</Button>
             </form>
           </Form>
+
           <div className="mt-6 space-y-4">
             <div className="flex items-center">
-              <div className="h-px flex-1 bg-border"></div>
+              <div className="h-px flex-1 bg-border" />
               <span className="px-2 text-xs text-muted-foreground">
                 Or select another server
               </span>
-              <div className="h-px flex-1 bg-border"></div>
+              <div className="h-px flex-1 bg-border" />
             </div>
 
             <div className="space-y-2">
@@ -164,6 +165,27 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
                   </p>
                 )}
               </div>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center">
+              <div className="h-px flex-1 bg-border" />
+              <span className="px-2 text-xs text-muted-foreground">
+                Or create a new server
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                className="flex w-full items-center justify-center gap-2 rainbow-border-glow"
+                onClick={() => router.push("/setup")}
+              >
+                <PlusCircle className="h-4 w-4" />
+                <span>Add New Jellyfin Server</span>
+              </Button>
             </div>
           </div>
         </CardContent>

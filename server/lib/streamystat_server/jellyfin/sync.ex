@@ -69,7 +69,7 @@ defmodule StreamystatServer.Jellyfin.Sync do
   def sync_libraries(server) do
     Logger.info("Starting library sync for server #{server.name}")
 
-    case Client.get_libraries(server) do
+    case get_libraries_to_sync(server) do
       {:ok, jellyfin_libraries} ->
         libraries = Enum.map(jellyfin_libraries, &map_jellyfin_library(&1, server.id))
 
@@ -106,13 +106,8 @@ defmodule StreamystatServer.Jellyfin.Sync do
   end
 
   def sync_items(server, user_options \\ %{}) do
-
     start_time = System.monotonic_time(:millisecond)
-
-
     options = Map.merge(@sync_options, user_options)
-
-
     metrics = %{
       libraries_processed: 0,
       items_processed: 0,
@@ -122,13 +117,13 @@ defmodule StreamystatServer.Jellyfin.Sync do
       start_time: DateTime.utc_now()
     }
 
-
     {:ok, metrics_agent} = Agent.start_link(fn -> metrics end)
 
-    Logger.info("Starting item sync for all libraries")
+    Logger.info("Starting item sync for server #{server.name}")
 
-    result = case Client.get_libraries(server) do
+    result = case get_libraries_to_sync(server) do
       {:ok, libraries} ->
+        Logger.info("Syncing #{length(libraries)} libraries for server #{server.name}")
 
         max_concurrency = options.max_library_concurrency
 
@@ -136,15 +131,9 @@ defmodule StreamystatServer.Jellyfin.Sync do
           Task.async_stream(
             libraries,
             fn library ->
-
               update_metrics(metrics_agent, %{api_requests: 1})
-
-
               result = sync_library_items(server, library["Id"], metrics_agent, options)
-
-
               update_metrics(metrics_agent, %{libraries_processed: 1})
-
               result
             end,
             max_concurrency: max_concurrency,
@@ -154,7 +143,6 @@ defmodule StreamystatServer.Jellyfin.Sync do
 
         total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
         total_errors = Enum.flat_map(results, fn {_, _, errors} -> errors end)
-
 
         update_metrics(metrics_agent, %{items_processed: total_count, errors: total_errors})
 
@@ -178,14 +166,11 @@ defmodule StreamystatServer.Jellyfin.Sync do
         {:error, reason}
     end
 
-
     end_time = System.monotonic_time(:millisecond)
     duration_ms = end_time - start_time
 
-
     final_metrics = Agent.get(metrics_agent, & &1)
     Agent.stop(metrics_agent)
-
 
     Logger.info("""
     Sync completed for server #{server.name}
@@ -197,19 +182,34 @@ defmodule StreamystatServer.Jellyfin.Sync do
     Errors: #{length(final_metrics.errors)}
     """)
 
-
     {result, final_metrics}
   end
 
+  # New function to get libraries to sync based on enabled_libraries
+  defp get_libraries_to_sync(server) do
+    case Client.get_libraries(server) do
+      {:ok, all_libraries} ->
+        # If enabled_libraries is empty or nil, sync all libraries
+        libraries_to_sync = if Enum.empty?(server.enabled_libraries || []) do
+          all_libraries
+        else
+          # Otherwise, only sync enabled libraries
+          Enum.filter(all_libraries, fn library ->
+            Enum.member?(server.enabled_libraries, library["Id"])
+          end)
+        end
+
+        {:ok, libraries_to_sync}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   def sync_activities(server, user_options \\ %{}) do
-
     start_time = System.monotonic_time(:millisecond)
-
-
     options = Map.merge(@sync_options, %{batch_size: 5000})
     options = Map.merge(options, user_options)
-
-
     metrics = %{
       activities_processed: 0,
       activities_inserted: 0,
@@ -219,54 +219,33 @@ defmodule StreamystatServer.Jellyfin.Sync do
       start_time: DateTime.utc_now()
     }
 
-
     {:ok, metrics_agent} = Agent.start_link(fn -> metrics end)
-
     Logger.info("Starting full activity sync for server #{server.name}")
-
 
     result =
       Stream.resource(
-
         fn -> {0, 0} end,
-
-
         fn {start_index, total_synced} ->
-
           update_metrics(metrics_agent, %{api_requests: 1})
-
           case Client.get_activities(server, start_index, options.batch_size) do
             {:ok, []} ->
-
               {:halt, {start_index, total_synced}}
-
             {:ok, activities} ->
-
               batch_size = length(activities)
               update_metrics(metrics_agent, %{activities_processed: batch_size})
-
-
               {[{activities, start_index}],
                {start_index + options.batch_size, total_synced + batch_size}}
-
             {:error, reason} ->
-
               Logger.error("Failed to fetch activities: #{inspect(reason)}")
               update_metrics(metrics_agent, %{errors: [reason]})
               {:halt, {start_index, total_synced}}
           end
         end,
-
-
         fn _ -> :ok end
       )
       |> Stream.map(fn {activities, _index} ->
-
         new_activities = Enum.map(activities, &map_activity(&1, server))
-
-
         update_metrics(metrics_agent, %{database_operations: 1})
-
         try do
           {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
           update_metrics(metrics_agent, %{activities_inserted: inserted})
@@ -279,26 +258,20 @@ defmodule StreamystatServer.Jellyfin.Sync do
         end
       end)
       |> Enum.reduce(
-
         {:ok, 0, []},
-
         fn
           {:ok, count}, {:ok, total, errors} ->
             {:ok, total + count, errors}
-
           {:error, error}, {_, total, errors} ->
             {:error, total, [error | errors]}
         end
       )
 
-
     end_time = System.monotonic_time(:millisecond)
     duration_ms = end_time - start_time
 
-
     final_metrics = Agent.get(metrics_agent, & &1)
     Agent.stop(metrics_agent)
-
 
     Logger.info("""
     Activity sync completed for server #{server.name}

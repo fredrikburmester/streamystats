@@ -9,7 +9,7 @@ export default async function HistoryPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string;  }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { id } = await params;
   const { page } = await searchParams;

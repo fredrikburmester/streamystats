@@ -223,7 +223,6 @@ defmodule StreamystatServer.Workers.SyncTask do
   end
 
   defp perform_full_sync(server) do
-    # Run each sync operation and collect results
     # Users
     {users_result, _} = Sync.sync_users(server)
     Logger.info("Users sync completed with result: #{inspect(users_result)}")
