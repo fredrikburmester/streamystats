@@ -60,7 +60,7 @@ const LibraryDropdown = ({ libraries }: LibraryDropdownProps) => {
     const allSelected =
       newSelectedIds.length === libraries.length &&
       libraries.every((lib) =>
-        newSelectedIds.includes(Number.parseInt(lib.id))
+        newSelectedIds.includes(Number.parseInt(lib.id)),
       );
 
     // If no libraries are selected, remove the parameter (same as all selected)

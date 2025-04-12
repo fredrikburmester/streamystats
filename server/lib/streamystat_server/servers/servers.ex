@@ -80,6 +80,22 @@ defmodule StreamystatServer.Servers.Servers do
     |> Repo.update()
   end
 
+  def update_server(id, attrs) when is_binary(id) or is_integer(id) do
+    case get_server(id) do
+      nil ->
+        {:error, :not_found}
+      server ->
+        case update_server(server, attrs) do
+          {:ok, updated_server} ->
+            # Trigger a full sync after successful update
+            StreamystatServer.Workers.SyncTask.full_sync(updated_server.id)
+            {:ok, updated_server}
+          error ->
+            error
+        end
+    end
+  end
+
   def delete_server(%Server{} = server) do
     Repo.delete(server)
   end

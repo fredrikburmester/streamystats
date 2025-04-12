@@ -36,6 +36,7 @@ defmodule StreamystatServerWeb.Router do
       pipe_through(:admin_auth)
 
       delete("/servers/:server_id", ServerController, :delete)
+      put("/servers/:server_id", ServerController, :update)
       post("/servers/:server_id/sync/full", SyncController, :full_sync)
       post("/servers/:server_id/sync/users", SyncController, :sync_users)
       post("/servers/:server_id/sync/libraries", SyncController, :sync_libraries)

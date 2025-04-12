@@ -1,12 +1,14 @@
 "use server";
 
 import { Container } from "@/components/Container";
-import { getLibraries, getServer, getUser, getUsers } from "@/lib/db";
+import { getServer, getUser } from "@/lib/db";
+import { getLibrariesDirectlyFromJellyfin } from "@/lib/jellyfin";
 import { getMe } from "@/lib/me";
 import { redirect } from "next/navigation";
+import { DeleteServer } from "./DeleteServer";
 import JellystatsImport from "./JellystatsImport";
+import LibrarySettings from "./LibrarySettings";
 import { Tasks } from "./Tasks";
-import { TautulliMappingModal } from "./TautulliMappingModal";
 
 export default async function Settings({
   params,
@@ -23,6 +25,8 @@ export default async function Settings({
     redirect("/setup");
   }
 
+  const jellyfinLibraries = await getLibrariesDirectlyFromJellyfin(server);
+
   // const users = await getUsers(server.id);
   // const libraries = await getLibraries(server.id);
 
@@ -32,6 +36,7 @@ export default async function Settings({
       {user?.is_administrator ? (
         <>
           <Tasks server={server} />
+          <LibrarySettings server={server} libraries={jellyfinLibraries} />
           <div className="mt-8">
             <h2 className="text-2xl font-semibold mb-4">Jellystat import</h2>
 
@@ -57,6 +62,7 @@ export default async function Settings({
       ) : (
         <p>You are not an administrator of this server.</p>
       )}
+      <DeleteServer server={server} />
     </Container>
   );
 }

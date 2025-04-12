@@ -19,7 +19,6 @@ export const Tasks: React.FC<TasksProps> = ({ server }) => {
       <UsersSyncTask server={server} />
       <LibrariesSyncTask server={server} />
       <Separator className="my-8" />
-      <DeleteServer server={server} />
     </div>
   );
 };

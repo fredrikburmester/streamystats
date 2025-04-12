@@ -83,7 +83,7 @@ export function ItemWatchStatsTable({
   }, [debouncedSearch]);
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+    [],
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -213,7 +213,7 @@ export function ItemWatchStatsTable({
                 onClick={() => {
                   window.open(
                     `${server.url}/web/#/details?id=${playbackActivity.item_id}`,
-                    "_blank"
+                    "_blank",
                   );
                 }}
               >
@@ -293,7 +293,7 @@ export function ItemWatchStatsTable({
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   );
@@ -380,5 +380,5 @@ const MemoizedTableRow = React.memo(
   (prevProps, nextProps) => {
     // Only re-render if row data has changed
     return prevProps.row.original.item_id === nextProps.row.original.item_id;
-  }
+  },
 );
