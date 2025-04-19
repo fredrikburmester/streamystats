@@ -56,7 +56,6 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
               tickLine={false}
               tickMargin={10}
               axisLine={false}
-              tickFormatter={(date) => new Date(date).toLocaleDateString()}
             />
             <ChartTooltip
               cursor={false}

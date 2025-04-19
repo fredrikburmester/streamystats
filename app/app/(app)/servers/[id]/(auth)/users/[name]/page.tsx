@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { HistoryTable } from "../../history/HistoryTable";
 import { GenreStatsGraph } from "./GenreStatsGraph";
 import UserBadges from "./UserBadges";
-import { WatchTimePerDay } from "./WatchTimePerDay.tsx";
+import { WatchTimePerDay } from "./WatchTimePerDay";
 
 export default async function User({
   params,
