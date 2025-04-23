@@ -56,15 +56,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push Phoenix
-        uses: docker/build-push-action@v5
-        with:
-          context: ./server
-          file: ./server/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          build-args: VERSION=${{ github.ref_name }}
-          tags: ${{ steps.meta_phx.outputs.tags }}
-          labels: ${{ steps.meta_phx.outputs.labels }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # - name: Build & push Phoenix
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./server
+      #     file: ./server/Dockerfile
+      #     platforms: linux/amd64,linux/arm64
+      #     build-args: VERSION=${{ github.ref_name }}
+      #     tags: ${{ steps.meta_phx.outputs.tags }}
+      #     labels: ${{ steps.meta_phx.outputs.labels }}
+      #     push: true
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
