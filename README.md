@@ -1,4 +1,4 @@
-# Streamystats
+# Streamystats Test
 
 Streamystats is a statistics service for Jellyfin, providing analytics and data visualization. 📈 Built with modern advanced frameworks.
 
