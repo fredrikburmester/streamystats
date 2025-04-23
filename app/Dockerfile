@@ -44,9 +44,12 @@ COPY --from=base /app/public ./public
 COPY --from=base /app/.next/standalone ./
 COPY --from=base /app/.next/static ./.next/static
 
+# port / host
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
 # Expose port
 EXPOSE 3000
-ENV HOST=0.0.0.0
 
 # Start the application
 CMD ["node", "server.js"]
