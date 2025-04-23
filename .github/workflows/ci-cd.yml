@@ -25,7 +25,7 @@ jobs:
       - id: meta_next
         uses: docker/metadata-action@v5
         with:
-          images: fredrikburmester/streamystats-nextjs
+          images: alvitali/streamystats-nextjs
           tags: |
             type=edge,branch=main
             type=semver,pattern={{version}},event=tag   # vX.Y.Z
@@ -34,7 +34,7 @@ jobs:
       - id: meta_phx
         uses: docker/metadata-action@v5
         with:
-          images: fredrikburmester/streamystats-phoenix
+          images: alvitali/streamystats-phoenix
           tags: |
             type=edge,branch=main
             type=semver,pattern={{version}},event=tag
