@@ -11,6 +11,8 @@ config :streamystat_server,
   ecto_repos: [StreamystatServer.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+config :streamystat_server, StreamystatServer.Repo, types: StreamystatServer.PostgrexTypes
+
 # Configures the endpoint
 config :streamystat_server, StreamystatServerWeb.Endpoint,
   url: [host: "localhost"],
@@ -38,6 +40,8 @@ config :logger, :console,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+
+config :streamystat_server, :embedding_provider, StreamystatServer.EmbeddingProvider.OpenAI
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

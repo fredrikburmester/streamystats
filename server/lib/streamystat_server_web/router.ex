@@ -34,6 +34,7 @@ defmodule StreamystatServerWeb.Router do
     scope "/admin", as: :admin do
       pipe_through(:admin_auth)
 
+      patch("/servers/:id/settings", ServerController, :update_settings)
       delete("/servers/:server_id", ServerController, :delete)
       post("/servers/:server_id/sync/full", SyncController, :full_sync)
       post("/servers/:server_id/sync/users", SyncController, :sync_users)
@@ -69,6 +70,19 @@ defmodule StreamystatServerWeb.Router do
       get("/statistics/items/:item_id", UserStatisticsController, :item_details)
       get("/statistics/library", UserStatisticsController, :library_stats)
       get("/statistics/unwatched", StatisticsController, :unwatched)
+      get("/statistics/recommendations/me", RecommendationController, :for_me)
+
+      get(
+        "/statistics/recommendations/similar_to/:item_id",
+        RecommendationController,
+        :similar_to
+      )
+
+      get(
+        "/statistics/recommendations/current_session/:session_id",
+        RecommendationController,
+        :current_session
+      )
 
       # get("/me", UserController, :me)
       resources("/libraries", LibraryController, only: [:index, :show])

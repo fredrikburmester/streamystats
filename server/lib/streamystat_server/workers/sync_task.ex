@@ -20,6 +20,7 @@ defmodule StreamystatServer.Workers.SyncTask do
     {:ok, task_supervisor} = Task.Supervisor.start_link()
     schedule_full_sync()
     schedule_recently_added_sync()
+    schedule_embedding_job()
     {:ok, %{task_supervisor: task_supervisor}}
   end
 
@@ -106,6 +107,16 @@ defmodule StreamystatServer.Workers.SyncTask do
   end
 
   @impl true
+  def handle_info(:run_embeddings, %{task_supervisor: supervisor} = state) do
+    Task.Supervisor.async_nolink(supervisor, fn ->
+      try_embed_items()
+    end)
+
+    schedule_embedding_job()
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(:sync, %{task_supervisor: supervisor} = state) do
     Task.Supervisor.async_nolink(supervisor, fn ->
       Servers.list_servers()
@@ -121,6 +132,13 @@ defmodule StreamystatServer.Workers.SyncTask do
   @impl true
   def handle_info({:DOWN, _ref, :process, _pid, _reason}, state) do
     {:noreply, state}
+  end
+
+  # Private functions
+
+  defp schedule_embedding_job do
+    # Run every hour
+    Process.send_after(self(), :run_embeddings, 60 * 60 * 1000)
   end
 
   defp perform_sync(sync_type, server_id) do
@@ -175,15 +193,19 @@ defmodule StreamystatServer.Workers.SyncTask do
                 # New format with unchanged items count
                 {{:ok, inserted, _updated, _unchanged}, _metrics} ->
                   {:ok, inserted}
+
                 # Original format for backward compatibility
                 {{:ok, inserted, _updated}, _metrics} ->
                   {:ok, inserted}
+
                 # New partial format with unchanged items count
                 {{:partial, inserted, _updated, _unchanged, _errors}, _metrics} ->
                   {:partial, inserted}
+
                 # Original partial format for backward compatibility
                 {{:partial, inserted, _updated, _errors}, _metrics} ->
                   {:partial, inserted}
+
                 {{:error, reason}, _metrics} ->
                   {:error, reason}
 
@@ -211,6 +233,8 @@ defmodule StreamystatServer.Workers.SyncTask do
               {:error, :unknown_sync_type}
           end
 
+        embedding_result = try_embed_items()
+
         # Store result details in the sync log
         status =
           case result do
@@ -221,6 +245,12 @@ defmodule StreamystatServer.Workers.SyncTask do
           end
 
         Logger.info("#{sync_type} completed for server #{server.name} with status: #{status}")
+
+        if embedding_result != :ok do
+          Logger.warning("Embeddings generation had some issues after sync")
+        end
+
+        Logger.info("#{sync_type} completed for server #{server.name} with status: #{status}")
         update_sync_log(sync_log, status)
         {:ok, server}
       rescue
@@ -229,6 +259,23 @@ defmodule StreamystatServer.Workers.SyncTask do
           update_sync_log(sync_log, :failed)
           {:error, :sync_failed}
       end
+    end
+  end
+
+  defp try_embed_items do
+    try do
+      StreamystatServer.BatchEmbedder.embed_all_items()
+      :ok
+    rescue
+      e ->
+        Logger.error("Error during embedding generation: #{inspect(e)}")
+        Logger.error(Exception.format_stacktrace())
+        :error
+    catch
+      kind, reason ->
+        Logger.error("Caught #{kind} in embedding process: #{inspect(reason)}")
+        Logger.error(Exception.format_stacktrace())
+        :error
     end
   end
 

@@ -189,7 +189,8 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Recent do
       :primary_image_aspect_ratio,
       :series_primary_image_tag,
       :primary_image_thumb_tag,
-      :primary_image_logo_tag
+      :primary_image_logo_tag,
+      :people
     ]
 
     # Separate items into inserts and updates

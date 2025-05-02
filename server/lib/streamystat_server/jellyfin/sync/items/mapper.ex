@@ -71,6 +71,8 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Mapper do
           valid_name
       end
 
+    people = jellyfin_item["People"]
+
     %{
       jellyfin_id: jellyfin_item["Id"],
       name: name,
@@ -118,7 +120,8 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Mapper do
       primary_image_aspect_ratio: Utils.parse_float(jellyfin_item["PrimaryImageAspectRatio"]),
       series_primary_image_tag: Utils.sanitize_string(jellyfin_item["SeriesPrimaryImageTag"]),
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
-      updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
+      people: people
     }
   end
 end

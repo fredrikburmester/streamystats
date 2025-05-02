@@ -36,7 +36,6 @@ defmodule StreamystatServer.MixProject do
       {:phoenix, "~> 1.7.14"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.10"},
-      {:postgrex, ">= 0.0.0"},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:swoosh, "~> 1.5"},
       {:finch, "~> 0.13"},
@@ -49,7 +48,10 @@ defmodule StreamystatServer.MixProject do
       {:httpoison, "~> 2.0"},
       {:scrivener_ecto, "~> 3.0.1"},
       {:temp, "~> 0.4"},
-      {:exqlite, "~> 0.29"}
+      {:exqlite, "~> 0.29"},
+      {:pgvector, "~> 0.3.0"},
+      {:postgrex, ">= 0.0.0"},
+      {:dotenv, "~> 3.0.0", only: [:dev, :test]}
     ]
   end
 

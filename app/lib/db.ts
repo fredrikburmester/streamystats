@@ -11,6 +11,7 @@ export type Server = {
   url: string;
   admin_id: string;
   api_key: string;
+  open_ai_api_token?: string;
 };
 
 export type SyncTask = {

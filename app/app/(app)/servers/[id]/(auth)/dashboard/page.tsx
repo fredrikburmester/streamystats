@@ -10,6 +10,8 @@ import { ActiveSessions } from "./ActiveSessions";
 import Graph from "./Graph";
 import StatsWithSuspense from "./StatsWithSuspense";
 import { getTranscodingStatistics } from "@/lib/db/transcoding-statistics";
+import { getSimilarStatistics } from "@/lib/db/similar-statistics";
+import { SimilarStatstics } from "./SimilarStatstics";
 
 export default async function DashboardPage({
   params,

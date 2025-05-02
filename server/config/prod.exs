@@ -11,3 +11,7 @@ config :logger, level: :info
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
+
+config :streamystat_server, StreamystatServer.Repo,
+  adapter: Postgrex,
+  types: StreamystatServer.PostgrexTypes

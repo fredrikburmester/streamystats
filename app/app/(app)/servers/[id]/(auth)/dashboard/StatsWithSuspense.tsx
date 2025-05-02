@@ -9,6 +9,8 @@ import { getTranscodingStatistics } from "@/lib/db/transcoding-statistics";
 import Graph from "./Graph";
 import { UserLeaderboard } from "./UserLeaderboard";
 import { isUserAdmin } from "@/lib/me";
+import { SimilarStatstics } from "./SimilarStatstics";
+import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 
 export async function StatsWithSuspense({
   server,
@@ -22,6 +24,7 @@ export async function StatsWithSuspense({
   const data = await getStatistics(server.id, startDate, endDate);
   const ts = await getTranscodingStatistics(server.id);
   const isAdmin = await isUserAdmin();
+  const similarItems = await getSimilarStatistics(server.id);
 
   if (!data) {
     return <p>No data available</p>;
@@ -33,6 +36,8 @@ export async function StatsWithSuspense({
         <MostWatchedDate data={data.most_watched_date} />
       </div>
       <MostWatchedItems data={data.most_watched_items} server={server} />
+      <SimilarStatstics data={similarItems} server={server} />
+
       {/* <WatchTimePerWeekDay
         data={data.average_watchtime_per_week_day}
         title="Average Watch Time Per Day of Week"

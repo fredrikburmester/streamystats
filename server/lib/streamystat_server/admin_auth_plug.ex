@@ -9,7 +9,7 @@ defmodule StreamystatServerWeb.AdminAuthPlug do
 
   def call(conn, _opts) do
     auth_header = get_req_header(conn, "authorization")
-    server_id = get_in(conn.path_params, ["server_id"])
+    server_id = get_in(conn.path_params, ["server_id"]) || get_in(conn.path_params, ["id"])
 
     # Then try to get the server
     server_result =

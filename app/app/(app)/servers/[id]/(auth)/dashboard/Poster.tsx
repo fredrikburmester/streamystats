@@ -1,11 +1,10 @@
 "use client";
 
-import { JellyfinSession } from "@/app/api/Sessions/route";
 import { Item, Server } from "@/lib/db";
+import { Film, Tv } from "lucide-react";
 import Image from "next/image";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Blurhash } from "react-blurhash";
-import { Film, Tv } from "lucide-react";
 
 // Define the possible image types that can be requested
 export type ImageType = "Primary" | "Backdrop" | "Thumb" | "Logo";
@@ -24,8 +23,8 @@ export type ImageType = "Primary" | "Backdrop" | "Thumb" | "Logo";
  */
 const getImageDimensions = (type: ImageType, isEpisode: boolean) => {
   const x = 32;
-  let y;
-  let aspectRatio;
+  let y: number | undefined;
+  let aspectRatio: string | undefined;
 
   if ((!isEpisode && type === "Primary") || (type === "Logo" && !isEpisode)) {
     y = Math.round(x * (3 / 2));
@@ -63,8 +62,13 @@ const PosterComponent = ({
   const [blurHash, setBlurHash] = useState<string | null>(null);
 
   const isEpisode = item.type === "Episode";
-  const { blurhashX, blurhashY, aspectRatio } = getImageDimensions(preferredImageType, isEpisode);
-  const containerClassName = `relative ${size === "large" ? "w-24" : "w-16"} ${className} overflow-hidden rounded-md bg-muted`;
+  const { blurhashX, blurhashY, aspectRatio } = getImageDimensions(
+    preferredImageType,
+    isEpisode
+  );
+  const containerClassName = `relative ${
+    size === "large" ? "w-24" : "w-16"
+  } ${className} overflow-hidden rounded-md bg-muted`;
 
   // Memoize the image URL calculation
   const imageUrl = useMemo(() => {
@@ -76,11 +80,8 @@ const PosterComponent = ({
         case "Primary":
           if (item.primary_image_tag) {
             return `${server.url}/Items/${item.jellyfin_id}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.primary_image_tag}`;
-          } else if (
-            isEpisode &&
-            item.series_id &&
-            item.series_primary_image_tag
-          ) {
+          }
+          if (isEpisode && item.series_id && item.series_primary_image_tag) {
             return `${server.url}/Items/${item.series_id}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.series_primary_image_tag}`;
           }
           return null;
@@ -88,7 +89,8 @@ const PosterComponent = ({
         case "Backdrop":
           if (item.backdrop_image_tags && item.backdrop_image_tags.length > 0) {
             return `${server.url}/Items/${item.jellyfin_id}/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.backdrop_image_tags[0]}`;
-          } else if (
+          }
+          if (
             isEpisode &&
             item.parent_backdrop_item_id &&
             item.parent_backdrop_image_tags &&
@@ -101,7 +103,8 @@ const PosterComponent = ({
         case "Thumb":
           if (item?.primary_image_thumb_tag) {
             return `${server.url}/Items/${item?.jellyfin_id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primary_image_thumb_tag}`;
-          } else if (
+          }
+          if (
             isEpisode &&
             item?.parent_thumb_item_id &&
             item?.parent_thumb_image_tag

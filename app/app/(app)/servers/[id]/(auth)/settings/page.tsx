@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import DatabaseBackupRestore from "./DatabaseBackupRestore";
+import { OpenAIAPI } from "./OpenAIAPI";
 
 export default async function Settings({
   params,
@@ -32,6 +33,10 @@ export default async function Settings({
     <Container className="">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
       <Tasks server={server} />
+      <OpenAIAPI
+        serverId={server.id}
+        initialApiKey={server.open_ai_api_token}
+      />
       <Accordion type="single" collapsible className="mb-4">
         <AccordionItem value="jellystat-import">
           <AccordionTrigger className="text-2xl font-semibold">

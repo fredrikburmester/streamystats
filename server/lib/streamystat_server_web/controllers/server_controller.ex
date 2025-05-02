@@ -35,6 +35,30 @@ defmodule StreamystatServerWeb.ServerController do
     end
   end
 
+  def update_settings(conn, %{"id" => id} = params) do
+    settings_params = Map.drop(params, ["id"])
+
+    case Servers.get_server(id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(StreamystatServerWeb.ErrorJSON)
+        |> render("404.json", %{})
+
+      server ->
+        case Servers.update_server(server, settings_params) do
+          {:ok, updated_server} ->
+            render(conn, :show, server: updated_server)
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> put_view(json: StreamystatServerWeb.ChangesetJSON)
+            |> render(:error, changeset: changeset)
+        end
+    end
+  end
+
   def delete(conn, %{"server_id" => id}) do
     case Servers.delete_server(id) do
       {:ok, _} ->
