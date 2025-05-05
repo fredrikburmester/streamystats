@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { getMe, UserMe } from "./me";
 import { getToken } from "./token";
-import { ItemStatistics } from "@/components/ItemDetails";
+import { ItemStatistics } from "@/app/(app)/servers/[id]/(auth)/library/[libraryId]/[itemSlug]/ItemDetailsTable";
 
 export type Server = {
   id: number;
@@ -955,15 +955,19 @@ export const syncLibrariesTask = (serverId: number): Promise<void> => {
 
 export const getItemBySlug = async (
   serverId: number | string,
+  libraryId: number | string,
   slug: string,
-  page?: string
+  searchParams?: { page?: string; search?: string }
 ): Promise<{
   item: Item;
   statistics: ItemStatistics;
 } | null> => {
   const queryParams = new URLSearchParams();
-  if (page) {
-    queryParams.append("page", page);
+  if (searchParams?.page) {
+    queryParams.append("page", searchParams.page);
+  }
+  if (searchParams?.search) {
+    queryParams.append("search", searchParams.search);
   }
 
   const res = await fetch(

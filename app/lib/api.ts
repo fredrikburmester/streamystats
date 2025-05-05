@@ -1,4 +1,4 @@
-import { ItemStatistics } from "@/components/ItemDetails";
+import { ItemStatistics } from "@/app/(app)/servers/[id]/(auth)/library/[libraryId]/[itemSlug]/ItemDetailsTable";
 
 export async function getItemDetails(serverId: string, itemId: string): Promise<ItemStatistics> {
   const response = await fetch(`/api/servers/${serverId}/statistics/items/${itemId}`, {

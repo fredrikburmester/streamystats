@@ -169,7 +169,7 @@ defmodule StreamystatServer.Statistics.Statistics do
     }
   end
 
-  def get_item_details_statistics(server_id, item_id, user_id \\ nil, page \\ 1, per_page \\ 20) do
+  def get_item_details_statistics(server_id, item_id, user_id \\ nil, page \\ 1, search \\ nil) do
     # First check if the item exists
     item =
       from(i in Item,
@@ -203,6 +203,8 @@ defmodule StreamystatServer.Statistics.Statistics do
           # For regular items we can directly query using the item_id
           true ->
             from(ps in PlaybackSession,
+              join: u in User,
+              on: ps.user_id == u.id,
               where: ps.server_id == ^server_id and ps.item_jellyfin_id == ^item_id
             )
         end
@@ -221,10 +223,36 @@ defmodule StreamystatServer.Statistics.Statistics do
         |> Repo.one()
 
       # Get paginated watch history
+      per_page = 20
       offset = (page - 1) * per_page
 
+      # Add search filter if provided
+      watch_history_query =
+        if search do
+          search_term = "%#{search}%"
+          from(ps in subquery(base_playback_query),
+            join: u in User,
+            on: ps.user_id == u.id,
+            where: ilike(u.name, ^search_term) or
+                   ilike(ps.device_name, ^search_term) or
+                   ilike(ps.client_name, ^search_term)
+          )
+        else
+          base_playback_query
+        end
+
+      # Get total items for pagination
+      total_items =
+        from(ps in subquery(watch_history_query),
+          select: count(ps.id)
+        )
+        |> Repo.one()
+
+      total_pages = div(total_items + per_page - 1, per_page)
+
+      # Get paginated watch history
       watch_history =
-        from(ps in subquery(base_playback_query),
+        from(ps in subquery(watch_history_query),
           join: u in User,
           on: ps.user_id == u.id,
           order_by: [desc: ps.start_time],
@@ -234,7 +262,7 @@ defmodule StreamystatServer.Statistics.Statistics do
             id: ps.id,
             user_id: ps.user_id,
             user_name: u.name,
-            jellyfin_id: ps.user_jellyfin_id,
+            jellyfin_id: u.jellyfin_id,
             start_time: ps.start_time,
             play_duration: ps.play_duration,
             percent_complete: ps.percent_complete,
@@ -254,16 +282,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         )
         |> Repo.all()
 
-      # Get total count for pagination
-      total_history_count =
-        base_playback_query
-        |> exclude(:order_by)
-        |> exclude(:preload)
-        |> exclude(:select)
-        |> select(count())
-        |> Repo.one()
-
-      # Get unique users who watched this item
+      # Get users who have watched this item
       users_watched =
         from(ps in subquery(base_playback_query),
           join: u in User,
@@ -282,43 +301,41 @@ defmodule StreamystatServer.Statistics.Statistics do
       # Get watch count by month
       watch_count_by_month =
         from(ps in subquery(base_playback_query),
-          group_by: fragment("date_trunc('month', ?)", ps.start_time),
+          group_by: [fragment("date_trunc('month', ?)", ps.start_time)],
           select: %{
-            month: fragment("to_char(date_trunc('month', ?), 'Mon YYYY')", ps.start_time),
+            month: fragment("date_trunc('month', ?)", ps.start_time),
             view_count: count(ps.id),
             total_watch_time: sum(ps.play_duration)
           },
-          order_by: fragment("date_trunc('month', ?)", ps.start_time)
+          order_by: [asc: fragment("date_trunc('month', ?)", ps.start_time)]
         )
         |> Repo.all()
 
-      # Get first and last watched dates
-      first_watched =
-        from(ps in subquery(base_playback_query),
-          select: min(ps.start_time)
-        )
-        |> Repo.one()
-
-      last_watched =
-        from(ps in subquery(base_playback_query),
-          select: max(ps.start_time)
-        )
-        |> Repo.one()
-
       # Calculate completion rate
-      completed_views =
-        from(ps in subquery(base_playback_query),
-          where: ps.percent_complete >= ^90.0,
-          select: count(ps.id)
-        )
-        |> Repo.one()
-
       completion_rate =
         if total_stats.watch_count > 0 do
-          (completed_views / total_stats.watch_count) * 100
+          completed_count =
+            from(ps in subquery(base_playback_query),
+              where: ps.completed == true,
+              select: count(ps.id)
+            )
+            |> Repo.one()
+
+          (completed_count / total_stats.watch_count * 100)
+          |> Float.round(1)
         else
-          0
+          0.0
         end
+
+      # Get first and last watched dates
+      first_last_watched =
+        from(ps in subquery(base_playback_query),
+          select: %{
+            first_watched: min(ps.start_time),
+            last_watched: max(ps.start_time)
+          }
+        )
+        |> Repo.one()
 
       %{
         item: item,
@@ -328,13 +345,13 @@ defmodule StreamystatServer.Statistics.Statistics do
           users_watched: users_watched,
           watch_history: watch_history,
           watch_count_by_month: watch_count_by_month,
-          first_watched: first_watched,
-          last_watched: last_watched,
+          first_watched: first_last_watched.first_watched,
+          last_watched: first_last_watched.last_watched,
           completion_rate: completion_rate,
           page: page,
           per_page: per_page,
-          total_items: total_history_count,
-          total_pages: div(total_history_count + per_page - 1, per_page)
+          total_items: total_items,
+          total_pages: total_pages
         }
       }
     end
@@ -1117,10 +1134,10 @@ defmodule StreamystatServer.Statistics.Statistics do
     |> Enum.sort_by(& &1.count, :desc)
   end
 
-  def get_item_details_statistics_by_slug(server_id, slug, user_id \\ nil) do
+  def get_item_details_statistics_by_slug(server_id, slug, user_id \\ nil, page \\ 1, search \\ nil) do
     item = Repo.get_by(Item, server_id: server_id, slug: slug)
     if item do
-      get_item_details_statistics(server_id, item.jellyfin_id, user_id)
+      get_item_details_statistics(server_id, item.jellyfin_id, user_id, page, search)
     else
       %{
         item: nil,

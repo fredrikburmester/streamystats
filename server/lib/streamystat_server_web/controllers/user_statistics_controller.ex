@@ -337,14 +337,27 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     render(conn, :transcoding_statistics, stats: stats)
   end
 
-  def item_by_slug(conn, %{"server_id" => server_id, "slug" => slug}) do
+  def item_by_slug(conn, %{"server_id" => server_id, "slug" => slug} = params) do
     current_user = conn.assigns.current_user
+
+    page =
+      case Integer.parse(params["page"] || "1") do
+        {page, _} when page > 0 -> page
+        _ -> 1
+      end
+
+    search =
+      case params["search"] do
+        nil -> nil
+        "" -> nil
+        search -> String.trim(search)
+      end
 
     item_stats =
       if is_admin?(current_user) do
-        Statistics.get_item_details_statistics_by_slug(server_id, slug)
+        Statistics.get_item_details_statistics_by_slug(server_id, slug, nil, page, search)
       else
-        Statistics.get_item_details_statistics_by_slug(server_id, slug, current_user["Id"])
+        Statistics.get_item_details_statistics_by_slug(server_id, slug, current_user["Id"], page, search)
       end
 
     case item_stats do
