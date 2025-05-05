@@ -88,3 +88,12 @@ export const formatDate = (s: string): string => {
     timeStyle: "short",
   });
 };
+
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphens
+    .replace(/^-+|-+$/g, "");    // Remove leading/trailing hyphens
+}

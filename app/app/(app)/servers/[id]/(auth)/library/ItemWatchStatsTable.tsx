@@ -26,7 +26,7 @@ import {
   Library,
   Server,
 } from "@/lib/db";
-import { formatDuration } from "@/lib/utils";
+import { formatDuration, slugify } from "@/lib/utils";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -39,13 +39,14 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, ChevronDown, MoreHorizontal, ExternalLink } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "nextjs-toploader/app";
 import * as React from "react";
 import { useDebounce } from "use-debounce";
 import { Poster } from "../dashboard/Poster";
 import LibraryDropdown from "./LibraryDropdown";
+import Link from "next/link";
 
 export interface ItemWatchStatsTableProps {
   server: Server;
@@ -129,17 +130,28 @@ export function ItemWatchStatsTable({
         </Button>
       ),
       cell: ({ row }) => (
-        <a
-          href={`${server.url}/web/index.html#!/details?id=${row.original.item.jellyfin_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex flex-row items-center gap-4 group"
-        >
+        <div className="flex flex-row items-center gap-4 group">
           <div className="shrink-0 rounded overflow-hidden transition-transform duration-200 group-hover:scale-110">
             <Poster item={row.original.item} server={server} />
           </div>
-          <div>
-            <p className="capitalize transition-colors duration-200 group-hover:text-primary">{row.getValue("name")}</p>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/servers/${server.id}/library/${row.original.item.library_id}/${row.original.item.slug || slugify(row.original.item.name)}`}
+                className="capitalize transition-colors duration-200 group-hover:text-primary"
+              >
+                {row.getValue("name")}
+              </Link>
+              <a
+                href={`${server.url}/web/index.html#!/details?id=${row.original.item.jellyfin_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-primary transition-colors"
+                title="Open in Jellyfin"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
             <p className="text-sm text-muted-foreground">
               {row.original.item.type}
               {row.original.item.production_year && ` • ${row.original.item.production_year}`}
@@ -147,7 +159,7 @@ export function ItemWatchStatsTable({
               {row.original.item.season_name && ` • ${row.original.item.season_name}`}
             </p>
           </div>
-        </a>
+        </div>
       ),
       size: 320,
       minSize: 220,

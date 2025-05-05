@@ -1162,4 +1162,13 @@ defmodule StreamystatServer.Statistics.Statistics do
     end)
     |> Enum.sort_by(& &1.count, :desc)
   end
+
+  def get_item_details_statistics_by_slug(server_id, slug, user_id \\ nil) do
+    item = Repo.get_by(Item, server_id: server_id, slug: slug)
+    if item do
+      get_item_details_statistics(server_id, item.jellyfin_id, user_id)
+    else
+      nil
+    end
+  end
 end

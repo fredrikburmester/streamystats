@@ -26,6 +26,7 @@ export type Item = {
   id?: number;
   jellyfin_id: string | null;
   name: string;
+  slug: string;
   type: "Episode" | "Movie" | "Series";
   original_title?: string | null;
   etag?: string | null;
@@ -950,4 +951,28 @@ export const syncUsersTask = (serverId: number): Promise<void> => {
 
 export const syncLibrariesTask = (serverId: number): Promise<void> => {
   return executeSyncTask(serverId, "/libraries");
+};
+
+export const getItemBySlug = async (
+  serverId: number | string,
+  slug: string
+): Promise<{
+  item: Item;
+  statistics: ItemStatistics;
+} | null> => {
+  const res = await fetch(
+    `${process.env.API_URL}/servers/${serverId}/statistics/items/slug/${slug}`,
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  if (!res.ok) {
+    return null;
+  }
+  const data = await res.json();
+  return data.data;
 };
