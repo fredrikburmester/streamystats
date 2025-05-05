@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.7.0](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.6.0...streamystat-v1.7.0) (2025-05-05)
+
+
+### Features
+
+* add average watch time and longest streak columns to UserTable with sorting functionality ([52bec4c](https://github.com/fredrikburmester/streamystats/commit/52bec4c96cf31aa76590d4f609f39297fb574cec))
+* add size prop to Poster component and implement fallback for missing images ([d6ce62a](https://github.com/fredrikburmester/streamystats/commit/d6ce62ae97d0e38e6349603f0434bb38fe4df3a6))
+* add utility function to format time since last activity in ActiveSessions component ([59695d2](https://github.com/fredrikburmester/streamystats/commit/59695d2b785e91be432d02948de9cd571c2fbc98))
+* enhance ActiveSessions component with improved layout, additional session details, and IP address display ([157ab07](https://github.com/fredrikburmester/streamystats/commit/157ab07f0c38a24cd9aa380a28bf3b21ca097b08))
+* enhance ActiveSessions component with playback method badge and update session mapping for transcoding info ([0ce49fa](https://github.com/fredrikburmester/streamystats/commit/0ce49fa3aa33f41f92d7b32f6e71d410d61758f2))
+* enhance dashboard cards to display percentage labels and improve responsiveness for better data visualization ([ea2311d](https://github.com/fredrikburmester/streamystats/commit/ea2311dcb436dfcab6ff59fb44063059f37c90ea))
+* enhance dashboard cards with custom labels and filter out zero counts for better data representation ([c2ed475](https://github.com/fredrikburmester/streamystats/commit/c2ed47544c7f3359539db5c5d3a6be90fe17864b))
+* enhance ItemWatchStatsTable with improved sorting, additional item details, and responsive layout adjustments ([0cd9a31](https://github.com/fredrikburmester/streamystats/commit/0cd9a3176786ffab5894e1a28a19710bffd9c0df))
+* enhance user activity tables with links to user profiles and improve chart responsiveness ([89e943c](https://github.com/fredrikburmester/streamystats/commit/89e943c6c24de52a5a453c3b8b94f413b7971323))
+* enhance user interface with improved hover effects and link functionality across activity and user tables ([9df24e1](https://github.com/fredrikburmester/streamystats/commit/9df24e1271b96627ea399160e5a8b602a726b1a5))
+* enhance user interface with JellyfinAvatar component and improve session display ([df93e51](https://github.com/fredrikburmester/streamystats/commit/df93e519f1e7ccda12295d5f75ccd807d7af8f19))
+* integrate Poster component into HistoryTable and ItemWatchStatsTable for improved item display ([6f696a5](https://github.com/fredrikburmester/streamystats/commit/6f696a5b7e273a76e0a582c1c8d4632963a5d86b))
+* pwa ([f59f6b5](https://github.com/fredrikburmester/streamystats/commit/f59f6b526693deae1328969500ba01e11fa10a9c))
+* replace Avatar component with JellyfinAvatar for user display in UserLeaderboardTable ([cd1994b](https://github.com/fredrikburmester/streamystats/commit/cd1994b8b1bc098e51d4aa85f174fb82a019d476))
+* user leaderboard on dashboard ([9b4f4cb](https://github.com/fredrikburmester/streamystats/commit/9b4f4cbd993f9908e3b215049116e84a3ee45777)), closes [#52](https://github.com/fredrikburmester/streamystats/issues/52)
+
+
+### Bug Fixes
+
+* add parent and index numbers to session mapping ([9440f5c](https://github.com/fredrikburmester/streamystats/commit/9440f5cd093e936cf412ed93eddc723d71fa5856))
+* improve resize observer handling in ChartContainer to prevent potential memory leaks ([b2f27cd](https://github.com/fredrikburmester/streamystats/commit/b2f27cda0b0fdb9ccf14d2c96c4e92114b18d801))
+* update user page to handle optional searchParams and improve HistoryTable props ([8a215d0](https://github.com/fredrikburmester/streamystats/commit/8a215d08bf85fb5fb380c5906888d39572a6011c))
+
 ## [1.6.0](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.5.0...streamystat-v1.6.0) (2025-04-26)
 
 

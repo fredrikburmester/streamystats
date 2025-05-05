@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.7.0](https://github.com/fredrikburmester/streamystats/compare/v1.6.0...v1.7.0) (2025-05-05)
+
+
+### Features
+
+* add removed_at field to Item model and implement logic for marking items as removed during sync ([56e91b7](https://github.com/fredrikburmester/streamystats/commit/56e91b76a125303ac1e757df8c88fc4efbb3e2ed))
+* add removed_at field to Library model and update synchronization logic to mark libraries as removed ([0be4b08](https://github.com/fredrikburmester/streamystats/commit/0be4b08986092a410ee0cac0b20b9e58f7ccc5a4))
+* enhance library queries by integrating active library checks and improving performance ([192dbb9](https://github.com/fredrikburmester/streamystats/commit/192dbb9d86bb17aad3c8cd119ce786f92ee0b6d3))
+* enhance SQLite configuration for adaptive caching and memory storage based on system resources during playback session export ([9990724](https://github.com/fredrikburmester/streamystats/commit/9990724647ed427396d47fc0ca828cd972f17ae3))
+* enhance user activity tables with links to user profiles and improve chart responsiveness ([89e943c](https://github.com/fredrikburmester/streamystats/commit/89e943c6c24de52a5a453c3b8b94f413b7971323))
+* enhance user interface with improved hover effects and link functionality across activity and user tables ([9df24e1](https://github.com/fredrikburmester/streamystats/commit/9df24e1271b96627ea399160e5a8b602a726b1a5))
+* improve library and statistics queries by using subqueries for active library checks and adding documentation ([0667c73](https://github.com/fredrikburmester/streamystats/commit/0667c73907a26dc3f3a10bad8f63992106a4f7ea))
+* increase transaction timeout for large exports and schedule temporary file deletion after response ([3a7deb0](https://github.com/fredrikburmester/streamystats/commit/3a7deb06ed3b07595526af1b3ea47169f4ef1abc))
+* update database configuration to use environment variables and enhance .env.example file ([36c0b8c](https://github.com/fredrikburmester/streamystats/commit/36c0b8cc1ab3f578d56a64fadc85dd7ce459cfb5))
+
+
+### Bug Fixes
+
+* adjust sync start time with a 5-second buffer and improve logging for removed items ([6ecfe39](https://github.com/fredrikburmester/streamystats/commit/6ecfe393dfaa26485a0099d636010963cc60532b))
+* ensure resource cleanup after export failure in backup_controller to prevent resource leaks ([fdcaba0](https://github.com/fredrikburmester/streamystats/commit/fdcaba09c34a1ac90f5d96738c59a8a0c20f3819))
+* implement orphaned item cleanup and enhance library processing in Jellyfin sync ([83a357a](https://github.com/fredrikburmester/streamystats/commit/83a357a68fdcacf0946bff24b82686b6f2d3fb92))
+* improve error handling in configure_sqlite function to log failures when executing system command and parsing memory info ([ebd851a](https://github.com/fredrikburmester/streamystats/commit/ebd851a1d9364b68fcc275f9df11982b9044a82c))
+* update user page to handle optional searchParams and improve HistoryTable props ([8a215d0](https://github.com/fredrikburmester/streamystats/commit/8a215d08bf85fb5fb380c5906888d39572a6011c))
+
 ## [1.6.0](https://github.com/fredrikburmester/streamystats/compare/v1.5.0...v1.6.0) (2025-04-26)
 
 
