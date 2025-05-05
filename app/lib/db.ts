@@ -955,13 +955,19 @@ export const syncLibrariesTask = (serverId: number): Promise<void> => {
 
 export const getItemBySlug = async (
   serverId: number | string,
-  slug: string
+  slug: string,
+  page?: string
 ): Promise<{
   item: Item;
   statistics: ItemStatistics;
 } | null> => {
+  const queryParams = new URLSearchParams();
+  if (page) {
+    queryParams.append("page", page);
+  }
+
   const res = await fetch(
-    `${process.env.API_URL}/servers/${serverId}/statistics/items/slug/${slug}`,
+    `${process.env.API_URL}/servers/${serverId}/statistics/items/slug/${slug}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
     {
       cache: "no-store",
       headers: {

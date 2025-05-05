@@ -169,7 +169,7 @@ defmodule StreamystatServer.Statistics.Statistics do
     }
   end
 
-  def get_item_details_statistics(server_id, item_id, user_id \\ nil) do
+  def get_item_details_statistics(server_id, item_id, user_id \\ nil, page \\ 1, per_page \\ 20) do
     # First check if the item exists
     item =
       from(i in Item,
@@ -214,174 +214,128 @@ defmodule StreamystatServer.Statistics.Statistics do
       total_stats =
         from(ps in subquery(base_playback_query),
           select: %{
-            total_views: count(ps.id),
+            watch_count: count(ps.id),
             total_watch_time: sum(ps.play_duration)
           }
         )
         |> Repo.one()
 
-      # Completion rate (percentage of views that completed at least 90%)
-      completion_query =
+      # Get paginated watch history
+      offset = (page - 1) * per_page
+
+      watch_history =
         from(ps in subquery(base_playback_query),
+          join: u in User,
+          on: ps.user_id == u.id,
+          order_by: [desc: ps.start_time],
+          limit: ^per_page,
+          offset: ^offset,
           select: %{
-            completed_views: fragment("COUNT(CASE WHEN percent_complete >= 90 THEN 1 END)"),
-            total_views: count(ps.id)
+            id: ps.id,
+            user_id: ps.user_id,
+            user_name: u.name,
+            jellyfin_id: ps.user_jellyfin_id,
+            start_time: ps.start_time,
+            play_duration: ps.play_duration,
+            percent_complete: ps.percent_complete,
+            completed: ps.completed,
+            client_name: ps.client_name,
+            device_name: ps.device_name,
+            transcoding_is_video_direct: ps.transcoding_is_video_direct,
+            transcoding_is_audio_direct: ps.transcoding_is_audio_direct,
+            transcoding_video_codec: ps.transcoding_video_codec,
+            transcoding_audio_codec: ps.transcoding_audio_codec,
+            transcoding_bitrate: ps.transcoding_bitrate,
+            play_method: ps.play_method,
+            transcoding_width: ps.transcoding_width,
+            transcoding_height: ps.transcoding_height,
+            transcoding_audio_channels: ps.transcoding_audio_channels
           }
+        )
+        |> Repo.all()
+
+      # Get total count for pagination
+      total_history_count =
+        base_playback_query
+        |> exclude(:order_by)
+        |> exclude(:preload)
+        |> exclude(:select)
+        |> select(count())
+        |> Repo.one()
+
+      # Get unique users who watched this item
+      users_watched =
+        from(ps in subquery(base_playback_query),
+          join: u in User,
+          on: ps.user_id == u.id,
+          group_by: [ps.user_id, u.name],
+          select: %{
+            user_id: ps.user_id,
+            user_name: u.name,
+            view_count: count(ps.id),
+            total_watch_time: sum(ps.play_duration),
+            last_watched: max(ps.start_time)
+          }
+        )
+        |> Repo.all()
+
+      # Get watch count by month
+      watch_count_by_month =
+        from(ps in subquery(base_playback_query),
+          group_by: fragment("date_trunc('month', ?)", ps.start_time),
+          select: %{
+            month: fragment("to_char(date_trunc('month', ?), 'Mon YYYY')", ps.start_time),
+            view_count: count(ps.id),
+            total_watch_time: sum(ps.play_duration)
+          },
+          order_by: fragment("date_trunc('month', ?)", ps.start_time)
+        )
+        |> Repo.all()
+
+      # Get first and last watched dates
+      first_watched =
+        from(ps in subquery(base_playback_query),
+          select: min(ps.start_time)
+        )
+        |> Repo.one()
+
+      last_watched =
+        from(ps in subquery(base_playback_query),
+          select: max(ps.start_time)
+        )
+        |> Repo.one()
+
+      # Calculate completion rate
+      completed_views =
+        from(ps in subquery(base_playback_query),
+          where: ps.percent_complete >= ^90.0,
+          select: count(ps.id)
         )
         |> Repo.one()
 
       completion_rate =
-        if completion_query.total_views > 0 do
-          completion_query.completed_views / completion_query.total_views * 100 / 1
+        if total_stats.watch_count > 0 do
+          (completed_views / total_stats.watch_count) * 100
         else
-          # Explicitly use a float
-          0.0
+          0
         end
 
-      # First and last watched dates
-      watch_dates =
-        from(ps in subquery(base_playback_query),
-          select: %{
-            first_watched: min(ps.start_time),
-            last_watched: max(ps.start_time)
-          }
-        )
-        |> Repo.one()
-
-      # Users watched - should include only the current user if non-admin, or all users if admin
-      users_watched_query =
-        if is_nil(user_id) do
-          # Admin can see all users
-          from(ps in subquery(base_playback_query),
-            join: u in User,
-            on: ps.user_id == u.id,
-            group_by: u.id,
-            select: %{
-              user_id: u.id,
-              jellyfin_user_id: u.jellyfin_id,
-              user_name: u.name,
-              view_count: count(ps.id),
-              total_watch_time: sum(ps.play_duration),
-              last_watched: max(ps.start_time)
-            }
-          )
-        else
-          # Non-admin can only see themselves
-          from(ps in subquery(base_playback_query),
-            join: u in User,
-            on: ps.user_id == u.id,
-            where: u.id == ^user_id or u.jellyfin_id == ^user_id,
-            group_by: u.id,
-            select: %{
-              user_id: u.id,
-              jellyfin_user_id: u.jellyfin_id,
-              user_name: u.name,
-              view_count: count(ps.id),
-              total_watch_time: sum(ps.play_duration),
-              last_watched: max(ps.start_time)
-            }
-          )
-        end
-
-      users_watched = Repo.all(users_watched_query)
-
-      # Watch history - similar filter as for users_watched
-      watch_history_query =
-        if is_nil(user_id) do
-          # Admin can see all history
-          from(ps in subquery(base_playback_query),
-            join: u in User,
-            on: ps.user_id == u.id,
-            order_by: [desc: ps.start_time],
-            select: %{
-              id: ps.id,
-              user_id: u.id,
-              user_name: u.name,
-              start_time: ps.start_time,
-              play_duration: ps.play_duration,
-              percent_complete: ps.percent_complete,
-              completed: ps.completed,
-              client_name: ps.client_name,
-              device_name: ps.device_name,
-              jellyfin_user_id: u.jellyfin_id,
-              jellyfin_item_id: ps.item_jellyfin_id,
-              jellyfin_series_id: ps.series_jellyfin_id,
-              jellyfin_season_id: ps.season_jellyfin_id
-            }
-          )
-        else
-          # Non-admin can only see their own history
-          from(ps in subquery(base_playback_query),
-            join: u in User,
-            on: ps.user_id == u.id,
-            where: u.id == ^user_id or u.jellyfin_id == ^user_id,
-            order_by: [desc: ps.start_time],
-            select: %{
-              id: ps.id,
-              user_id: u.id,
-              user_name: u.name,
-              start_time: ps.start_time,
-              play_duration: ps.play_duration,
-              percent_complete: ps.percent_complete,
-              completed: ps.completed,
-              client_name: ps.client_name,
-              device_name: ps.device_name,
-              jellyfin_user_id: u.jellyfin_id,
-              jellyfin_item_id: ps.item_jellyfin_id,
-              jellyfin_series_id: ps.series_jellyfin_id,
-              jellyfin_season_id: ps.season_jellyfin_id
-            }
-          )
-        end
-
-      watch_history = Repo.all(watch_history_query)
-
-      # Watch count by month - filtered similarly
-      watch_count_by_month =
-        from(ps in subquery(base_playback_query),
-          group_by: [fragment("date_trunc('month', ?)", ps.start_time)],
-          order_by: [asc: fragment("date_trunc('month', ?)", ps.start_time)],
-          select: %{
-            month: fragment("date_trunc('month', ?)", ps.start_time),
-            view_count: count(ps.id),
-            total_watch_time: sum(ps.play_duration)
-          }
-        )
-        |> Repo.all()
-        |> Enum.map(fn stat ->
-          # Fix: Handle both DateTime and NaiveDateTime properly
-          month_date =
-            case stat.month do
-              %DateTime{} ->
-                DateTime.to_date(stat.month)
-
-              %NaiveDateTime{} ->
-                NaiveDateTime.to_date(stat.month)
-
-              other ->
-                # Log unexpected format and return a fallback
-                Logger.error("Unexpected datetime format: #{inspect(other)}")
-                Date.utc_today()
-            end
-
-          %{
-            month: Date.to_iso8601(month_date),
-            view_count: stat.view_count,
-            total_watch_time: stat.total_watch_time
-          }
-        end)
-
-      # Combine all statistics
       %{
         item: item,
-        total_views: total_stats.total_views || 0,
-        total_watch_time: total_stats.total_watch_time || 0,
-        completion_rate: Float.round(completion_rate, 1),
-        first_watched: watch_dates.first_watched,
-        last_watched: watch_dates.last_watched,
-        users_watched: users_watched,
-        watch_history: watch_history,
-        watch_count_by_month: watch_count_by_month
+        statistics: %{
+          total_watch_time: total_stats.total_watch_time || 0,
+          watch_count: total_stats.watch_count || 0,
+          users_watched: users_watched,
+          watch_history: watch_history,
+          watch_count_by_month: watch_count_by_month,
+          first_watched: first_watched,
+          last_watched: last_watched,
+          completion_rate: completion_rate,
+          page: page,
+          per_page: per_page,
+          total_items: total_history_count,
+          total_pages: div(total_history_count + per_page - 1, per_page)
+        }
       }
     end
   end
@@ -1168,7 +1122,23 @@ defmodule StreamystatServer.Statistics.Statistics do
     if item do
       get_item_details_statistics(server_id, item.jellyfin_id, user_id)
     else
-      nil
+      %{
+        item: nil,
+        statistics: %{
+          total_watch_time: 0,
+          watch_count: 0,
+          users_watched: [],
+          watch_history: [],
+          watch_count_by_month: [],
+          first_watched: nil,
+          last_watched: nil,
+          completion_rate: 0,
+          page: 1,
+          per_page: 20,
+          total_items: 0,
+          total_pages: 0
+        }
+      }
     end
   end
 end

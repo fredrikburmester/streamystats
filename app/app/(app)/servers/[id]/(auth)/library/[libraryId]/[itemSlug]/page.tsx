@@ -12,12 +12,16 @@ interface Props {
     libraryId: string;
     itemSlug: string;
   };
+  searchParams: {
+    page?: string;
+    search?: string;
+  };
 }
 
-export default async function ItemPage({ params }: Props) {
+export default async function ItemPage({ params, searchParams }: Props) {
   try {
     const [itemData, server] = await Promise.all([
-      getItemBySlug(params.id, params.itemSlug),
+      getItemBySlug(params.id, params.itemSlug, searchParams.page),
       getServer(params.id)
     ]);
     
