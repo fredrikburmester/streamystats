@@ -353,6 +353,12 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
               <CardTitle>Item Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {item.overview && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">{item.overview}</p>
+                  </div>
+                )}
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-muted-foreground">Type</h3>
@@ -400,13 +406,6 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
                       </Badge>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {item.overview && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-muted-foreground">Overview</h3>
-                  <p className="text-sm text-muted-foreground">{item.overview}</p>
                 </div>
               )}
             </CardContent>

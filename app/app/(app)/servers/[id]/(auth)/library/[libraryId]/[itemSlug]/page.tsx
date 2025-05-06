@@ -32,7 +32,7 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
     <Container>
       <PageTitle
         title={itemData.item.name}
-        subtitle="View detailed statistics for this item."
+        // subtitle="View detailed statistics for this item."
       />
       <Suspense fallback={<Skeleton className="h-[500px]" />}>
         <ItemDetailsTable
@@ -43,4 +43,4 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
       </Suspense>
     </Container>
   );
-} 
+}
