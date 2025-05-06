@@ -79,27 +79,24 @@ export const WatchTimePerHour: React.FC<Props> = ({
             />
             <ChartTooltip
               cursor={false}
-              content={
-                <ChartTooltipContent
-                  formatter={(m, _, entry) => {
-                    const rawHour = entry?.payload?.rawHour;
-                    const formattedHour =
-                      rawHour !== undefined ? formatHour(rawHour, true) : "";
-
-                    return (
-                      <div className="flex flex-col gap-1">
-                        <div className="text-sm font-medium">
-                          {formattedHour}
-                        </div>
-                        <div className="flex flex-row items-center justify-between w-full">
-                          <p>{formatDuration(Number(m), "minutes")}</p>
-                        </div>
+              content={({ label, payload }) => {
+                if (!payload || !payload.length) return null;
+                return (
+                  <div className="p-2 rounded bg-background border border-border shadow min-w-[140px]">
+                    <div className="font-semibold mb-1">{label}</div>
+                    {payload.map((entry, idx) => (
+                      <div key={idx} className="flex items-center gap-2 mb-1">
+                        <span
+                          className="inline-block w-3 h-3 rounded"
+                          style={{ background: entry.color }}
+                        />
+                        <span className="flex-1">{entry.name}</span>
+                        <span className="font-mono ml-2">{entry.value}</span>
                       </div>
-                    );
-                  }}
-                  hideLabel
-                />
-              }
+                    ))}
+                  </div>
+                );
+              }}
             />
             <Bar
               dataKey="minutes"

@@ -17,6 +17,12 @@ import { PlaybackMethodBadge } from "@/components/PlaybackMethodBadge";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import Link from "next/link";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import {
+  ChartContainer,
+  ChartTooltipContent,
+  ChartLegendContent,
+  ChartTooltip,
+} from "@/components/ui/chart";
 
 interface WatchHistoryItem {
   id: number;
@@ -75,6 +81,16 @@ interface ItemDetailsTableProps {
   serverUrl?: string;
 }
 
+// Utility to format hours as 'Xh Ym'
+function formatHoursMinutes(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  if (m > 0) return `${m}m`;
+  return '0m';
+}
+
 export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTableProps) {
   const searchParams = useSearchParams();
   const { updateQueryParams } = useQueryParams();
@@ -99,6 +115,8 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
   // Format monthly stats data for the graph
   const monthlyStatsData = statistics.watch_count_by_month.map(stat => ({
     ...stat,
+    // Format month as 'MMM yyyy' for x-axis
+    monthLabel: new Date(stat.month).toLocaleString("en-US", { month: "short", year: "numeric" }),
     total_watch_time: Math.round(stat.total_watch_time / 3600), // Convert to hours
   }));
 
@@ -253,18 +271,70 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyStatsData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--primary))" />
-                    <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--secondary))" />
-                    <Tooltip />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="view_count" name="Watch Count" fill="hsl(var(--primary))" />
-                    <Bar yAxisId="right" dataKey="total_watch_time" name="Watch Time (hours)" fill="hsl(var(--secondary))" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <ChartContainer
+                  config={{
+                    total_watch_time: {
+                      label: "Watch Time",
+                      color: "hsl(var(--chart-1))",
+                    },
+                    view_count: {
+                      label: "Watch Count",
+                      color: "hsl(var(--chart-2))",
+                    },
+                  }}
+                  className="h-[300px] w-full"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyStatsData}>
+                      <CartesianGrid vertical={false} />
+                      <XAxis
+                        dataKey="monthLabel"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        minTickGap={32}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <ChartTooltip
+                        cursor={false}
+                        content={({ label, payload }) => {
+                          if (!payload || !payload.length) return null;
+                          return (
+                            <div className="p-2 rounded bg-background border border-border shadow min-w-[140px]">
+                              <div className="font-semibold mb-1">{label}</div>
+                              {payload.map((entry: any, idx: number) => (
+                                <div key={idx} className="flex items-center gap-2 mb-1">
+                                  <span
+                                    className="inline-block w-3 h-3 rounded"
+                                    style={{ background: entry.color }}
+                                  />
+                                  <span className="flex-1">{entry.name}</span>
+                                  <span className="font-mono ml-2">
+                                    {entry.dataKey === "total_watch_time"
+                                      ? formatDuration(entry.value, "hours")
+                                      : entry.value}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }}
+                      />
+                      <Bar
+                        dataKey="total_watch_time"
+                        fill="hsl(var(--chart-1))"
+                        radius={[4, 4, 0, 0]}
+                        name="Watch Time"
+                      />
+                      <Bar
+                        dataKey="view_count"
+                        fill="hsl(var(--chart-2))"
+                        radius={[4, 4, 0, 0]}
+                        name="Watch Count"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
               </div>
             </CardContent>
           </Card>
@@ -367,4 +437,4 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
       </div>
     </div>
   );
-} 
+}
