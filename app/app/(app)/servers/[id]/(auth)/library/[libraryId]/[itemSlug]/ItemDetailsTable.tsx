@@ -5,7 +5,7 @@ import { formatDuration, formatDate, formatCompletionRate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, Users, Star, Film, ExternalLink } from "lucide-react";
+import { Calendar, Clock, Users, Star, Film, ExternalLink, ChevronDown, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -23,6 +23,24 @@ import {
   ChartLegendContent,
   ChartTooltip,
 } from "@/components/ui/chart";
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface WatchHistoryItem {
   id: number;
@@ -95,6 +113,10 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
   const searchParams = useSearchParams();
   const { updateQueryParams } = useQueryParams();
   const [searchInput, setSearchInput] = useState("");
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [sorting, setSorting] = useState<SortingState>([]);
+
   const debouncedSearch = useDebouncedCallback((value: string) => {
     updateQueryParams({
       search: value,
@@ -119,6 +141,132 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
     monthLabel: new Date(stat.month).toLocaleString("en-US", { month: "short", year: "numeric" }),
     total_watch_time: Math.round(stat.total_watch_time / 3600), // Convert to hours
   }));
+
+  const columns: ColumnDef<WatchHistoryItem>[] = [
+    {
+      accessorKey: "user_name",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          User
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <JellyfinAvatar
+            user={{ id: row.original.user_id.toString(), name: row.original.user_name, jellyfin_id: row.original.jellyfin_id }}
+            serverUrl={serverUrl}
+            className="h-6 w-6"
+          />
+          <Link
+            href={`/servers/${item.server_id}/users/${row.original.user_id}`}
+            className="font-medium hover:text-primary transition-colors"
+          >
+            {row.original.user_name || 'Unknown User'}
+          </Link>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "start_time",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Date
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => formatDate(row.original.start_time),
+    },
+    {
+      accessorKey: "play_duration",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Duration
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => formatDuration(row.original.play_duration),
+    },
+    {
+      accessorKey: "percent_complete",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Progress
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => `${row.original.percent_complete.toFixed(1)}%`,
+    },
+    {
+      accessorKey: "device_name",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Device
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => row.original.device_name,
+    },
+    {
+      accessorKey: "play_method",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Play Method
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <PlaybackMethodBadge
+          isVideoDirect={row.original.transcoding_is_video_direct}
+          isAudioDirect={row.original.transcoding_is_audio_direct}
+          videoCodec={row.original.transcoding_video_codec}
+          audioCodec={row.original.transcoding_audio_codec}
+          bitrate={row.original.transcoding_bitrate}
+          playMethod={row.original.play_method}
+          width={row.original.transcoding_width}
+          height={row.original.transcoding_height}
+          audioChannels={row.original.transcoding_audio_channels}
+        />
+      ),
+    },
+  ];
+
+  const table = useReactTable({
+    data: statistics.watch_history,
+    columns,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onSortingChange: setSorting,
+    state: {
+      columnFilters,
+      columnVisibility,
+      sorting,
+    },
+    manualPagination: true,
+    pageCount: statistics.total_pages,
+  });
 
   return (
     <div className="grid gap-6">
@@ -345,7 +493,7 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
               <CardTitle>Watch History</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Input
                     placeholder="Search..."
@@ -357,58 +505,84 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
                     className="h-8 w-[200px]"
                   />
                 </div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Progress</TableHead>
-                    <TableHead>Device</TableHead>
-                    <TableHead>Play Method</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {statistics.watch_history.map((watch) => (
-                    <TableRow key={watch.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <JellyfinAvatar
-                            user={{ id: watch.user_id.toString(), name: watch.user_name, jellyfin_id: watch.jellyfin_id }}
-                            serverUrl={serverUrl}
-                            className="h-6 w-6"
-                          />
-                          <Link
-                            href={`/servers/${item.server_id}/users/${watch.user_id}`}
-                            className="font-medium hover:text-primary transition-colors"
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="ml-auto">
+                      Columns <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {table
+                      .getAllColumns()
+                      .filter((column) => column.getCanHide())
+                      .map((column) => {
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={column.id}
+                            className="capitalize"
+                            checked={column.getIsVisible()}
+                            onCheckedChange={(value) =>
+                              column.toggleVisibility(!!value)
+                            }
                           >
-                            {watch.user_name || 'Unknown User'}
-                          </Link>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDate(watch.start_time)}</TableCell>
-                      <TableCell>{formatDuration(watch.play_duration)}</TableCell>
-                      <TableCell>{watch.percent_complete.toFixed(1)}%</TableCell>
-                      <TableCell>{watch.device_name}</TableCell>
-                      <TableCell>
-                        <PlaybackMethodBadge
-                          isVideoDirect={watch.transcoding_is_video_direct}
-                          isAudioDirect={watch.transcoding_is_audio_direct}
-                          videoCodec={watch.transcoding_video_codec}
-                          audioCodec={watch.transcoding_audio_codec}
-                          bitrate={watch.transcoding_bitrate}
-                          playMethod={watch.play_method}
-                          width={watch.transcoding_width}
-                          height={watch.transcoding_height}
-                          audioChannels={watch.transcoding_audio_channels}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="flex items-center justify-between">
+                            {column.id}
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => {
+                          return (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
+                            </TableHead>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          className="h-24 text-center"
+                        >
+                          No results.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
                   Page {statistics.page} of {statistics.total_pages}
                 </div>
