@@ -1,7 +1,7 @@
 "use client";
 
 import { Item } from "@/lib/db";
-import { formatDuration, formatDate } from "@/lib/utils";
+import { formatDuration, formatDate, formatCompletionRate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -184,7 +184,7 @@ export function ItemDetailsTable({ item, statistics, serverUrl }: ItemDetailsTab
                 <Star className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{statistics.completion_rate.toFixed(1)}%</div>
+                <div className="text-2xl font-bold">{formatCompletionRate(statistics.completion_rate)}</div>
               </CardContent>
             </Card>
             <Card>

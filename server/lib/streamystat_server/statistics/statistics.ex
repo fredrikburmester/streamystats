@@ -314,15 +314,67 @@ defmodule StreamystatServer.Statistics.Statistics do
       # Calculate completion rate
       completion_rate =
         if total_stats.watch_count > 0 do
-          completed_count =
+          # Get all sessions with their completion data
+          sessions_query =
             from(ps in subquery(base_playback_query),
-              where: ps.completed == true,
-              select: count(ps.id)
+              select: %{
+                user_id: ps.user_id,
+                play_duration: ps.play_duration,
+                percent_complete: ps.percent_complete,
+                completed: ps.completed
+              }
             )
-            |> Repo.one()
 
-          (completed_count / total_stats.watch_count * 100)
-          |> Float.round(1)
+          sessions = Repo.all(sessions_query)
+
+          # Group sessions by user
+          sessions_by_user = Enum.group_by(sessions, & &1.user_id)
+
+          # Calculate weighted completion rate for each user
+          user_completion_rates =
+            Enum.map(sessions_by_user, fn {_user_id, user_sessions} ->
+              # Filter out sessions with nil values
+              valid_sessions = Enum.filter(user_sessions, fn session ->
+                session.play_duration != nil && session.percent_complete != nil
+              end)
+
+              if Enum.empty?(valid_sessions) do
+                nil
+              else
+                # Calculate total duration for this user's sessions
+                total_duration = Enum.sum(Enum.map(valid_sessions, & &1.play_duration))
+
+                if total_duration > 0 do
+                  # Calculate weighted completion based on session durations
+                  weighted_completion =
+                    Enum.reduce(valid_sessions, 0, fn session, acc ->
+                      # Weight each session by its duration relative to total duration
+                      weight = session.play_duration / total_duration
+                      acc + (session.percent_complete * weight)
+                    end)
+
+                  # Only count users who have watched a significant portion
+                  # (more than 5 minutes or more than 10% of any session)
+                  has_significant_watch_time =
+                    Enum.any?(valid_sessions, fn session ->
+                      (session.play_duration > 300) || (session.percent_complete > 10)
+                    end)
+
+                  if has_significant_watch_time, do: weighted_completion, else: nil
+                else
+                  nil
+                end
+              end
+            end)
+            |> Enum.reject(&is_nil/1)
+
+          if Enum.empty?(user_completion_rates) do
+            0.0
+          else
+            # Calculate final completion rate as average of user completion rates
+            Enum.sum(user_completion_rates) / length(user_completion_rates)
+            |> Float.round(1)
+          end
         else
           0.0
         end
