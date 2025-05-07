@@ -106,7 +106,24 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
             <XAxis dataKey="count" type="number" hide />
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
+              content={({ label, payload }) => {
+                if (!payload || !payload.length) return null;
+                return (
+                  <div className="p-2 rounded bg-background border border-border shadow min-w-[140px]">
+                    <div className="font-semibold mb-1">{label}</div>
+                    {payload.map((entry, idx) => (
+                      <div key={idx} className="flex items-center gap-2 mb-1">
+                        <span
+                          className="inline-block w-3 h-3 rounded"
+                          style={{ background: entry.color }}
+                        />
+                        <span className="flex-1">{entry.name}</span>
+                        <span className="font-mono ml-2">{entry.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }}
             />
             <Bar
               dataKey="count"

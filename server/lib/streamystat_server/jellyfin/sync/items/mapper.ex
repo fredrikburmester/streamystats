@@ -4,6 +4,9 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Mapper do
   """
 
   alias StreamystatServer.Jellyfin.Sync.Utils
+  alias StreamystatServer.Repo
+  alias StreamystatServer.Jellyfin.Models.Item
+  import Ecto.Query
 
   @doc """
   Maps a Jellyfin item JSON object to a map suitable for database insertion.
@@ -71,10 +74,30 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Mapper do
           valid_name
       end
 
+    type = Utils.sanitize_string(jellyfin_item["Type"])
+
+    # Get existing item to check if name changed
+    existing_item = Repo.get_by(Item, jellyfin_id: jellyfin_item["Id"], server_id: server_id)
+
+    # Generate new slug if:
+    # 1. Item is a movie or series
+    # 2. Either there's no existing item or the name has changed
+    slug =
+      if type in ["Movie", "Series"] do
+        if existing_item && existing_item.name == name do
+          # Keep existing slug if name hasn't changed
+          existing_item.slug
+        else
+          # Generate new slug from name
+          base_slug = generate_base_slug(name)
+          generate_unique_slug(base_slug, server_id, existing_item && existing_item.id)
+        end
+      end
+
     %{
       jellyfin_id: jellyfin_item["Id"],
       name: name,
-      type: Utils.sanitize_string(jellyfin_item["Type"]),
+      type: type,
       original_title: Utils.sanitize_string(jellyfin_item["OriginalTitle"]),
       etag: Utils.sanitize_string(jellyfin_item["Etag"]),
       date_created: Utils.parse_datetime_to_utc(jellyfin_item["DateCreated"]),
@@ -118,7 +141,50 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Mapper do
       primary_image_aspect_ratio: Utils.parse_float(jellyfin_item["PrimaryImageAspectRatio"]),
       series_primary_image_tag: Utils.sanitize_string(jellyfin_item["SeriesPrimaryImageTag"]),
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
-      updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
+      slug: slug
     }
+  end
+
+  # Private helper functions
+
+  defp generate_base_slug(name) do
+    name
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/, "-")
+    |> String.trim("-")
+  end
+
+  defp generate_unique_slug(base_slug, server_id, current_item_id) do
+    # Check if this slug already exists for this server
+    query =
+      from(i in Item,
+        where: i.server_id == ^server_id and i.slug == ^base_slug,
+        select: i.slug
+      )
+
+    # If we're updating an existing item, exclude it from the duplicate check
+    query = if current_item_id, do: from(q in query, where: q.id != ^current_item_id), else: query
+
+    existing_slugs = Repo.all(query)
+
+    if Enum.empty?(existing_slugs) do
+      # No duplicates, use the base slug
+      base_slug
+    else
+      # Find the highest number suffix
+      max_suffix =
+        existing_slugs
+        |> Enum.map(fn slug ->
+          case Regex.run(~r/--(\d+)$/, slug) do
+            [_, num] -> String.to_integer(num)
+            nil -> 0
+          end
+        end)
+        |> Enum.max(fn -> 0 end)
+
+      # Append the next number
+      "#{base_slug}--#{max_suffix + 1}"
+    end
   end
 end

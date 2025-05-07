@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { getMe, UserMe } from "./me";
 import { getToken } from "./token";
-import { ItemStatistics } from "@/components/ItemDetails";
+import { ItemStatistics } from "@/app/(app)/servers/[id]/(auth)/library/[libraryId]/[itemSlug]/ItemDetailsTable";
 
 export type Server = {
   id: number;
@@ -26,6 +26,7 @@ export type Item = {
   id?: number;
   jellyfin_id: string | null;
   name: string;
+  slug: string;
   type: "Episode" | "Movie" | "Series";
   original_title?: string | null;
   etag?: string | null;
@@ -950,4 +951,38 @@ export const syncUsersTask = (serverId: number): Promise<void> => {
 
 export const syncLibrariesTask = (serverId: number): Promise<void> => {
   return executeSyncTask(serverId, "/libraries");
+};
+
+export const getItemBySlug = async (
+  serverId: number | string,
+  libraryId: number | string,
+  slug: string,
+  searchParams?: { page?: string; search?: string }
+): Promise<{
+  item: Item;
+  statistics: ItemStatistics;
+} | null> => {
+  const queryParams = new URLSearchParams();
+  if (searchParams?.page) {
+    queryParams.append("page", searchParams.page);
+  }
+  if (searchParams?.search) {
+    queryParams.append("search", searchParams.search);
+  }
+
+  const res = await fetch(
+    `${process.env.API_URL}/servers/${serverId}/statistics/items/slug/${slug}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  if (!res.ok) {
+    return null;
+  }
+  const data = await res.json();
+  return data.data;
 };

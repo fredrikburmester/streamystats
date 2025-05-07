@@ -88,3 +88,22 @@ export const formatDate = (s: string): string => {
     timeStyle: "short",
   });
 };
+
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphens
+    .replace(/^-+|-+$/g, "");    // Remove leading/trailing hyphens
+}
+
+/**
+ * Formats a completion rate as a percentage with one decimal place
+ * @param rate The completion rate as a number between 0 and 100
+ * @returns A formatted string with the percentage
+ */
+export function formatCompletionRate(rate: number): string {
+  if (isNaN(rate)) return "0.0%";
+  return `${rate.toFixed(1)}%`;
+}

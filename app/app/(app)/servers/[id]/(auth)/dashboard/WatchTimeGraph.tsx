@@ -153,19 +153,24 @@ function WatchTimeChartView({
         />
         <ChartTooltip
           cursor={false}
-          formatter={(value, name, item) => (
-            <div className="flex flex-row items-center w-full">
-              <div
-                className="w-2 h-2 rounded-[2px] mr-2"
-                style={{ backgroundColor: item.color }}
-              ></div>
-              <p className="">{name}</p>
-              <p className="ml-auto">
-                {formatDuration(Number(value), "minutes")}
-              </p>
-            </div>
-          )}
-          content={<ChartTooltipContent indicator="dashed" />}
+          content={({ label, payload }) => {
+            if (!payload || !payload.length) return null;
+            return (
+              <div className="p-2 rounded bg-background border border-border shadow min-w-[140px]">
+                <div className="font-semibold mb-1">{label}</div>
+                {payload.map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-2 mb-1">
+                    <span
+                      className="inline-block w-3 h-3 rounded"
+                      style={{ background: entry.color }}
+                    />
+                    <span className="flex-1">{entry.name}</span>
+                    <span className="font-mono ml-2">{formatDuration(Number(entry.value), "minutes")}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          }}
         />
         <Bar
           dataKey="Episode"

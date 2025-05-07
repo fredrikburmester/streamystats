@@ -10,6 +10,7 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
              :id,
              :jellyfin_id,
              :name,
+             :slug,
              :type,
              :original_title,
              :etag,
@@ -61,6 +62,7 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
   schema "jellyfin_items" do
     field(:jellyfin_id, :string)
     field(:name, :string)
+    field(:slug, :string)
     field(:type, :string)
     field(:original_title, :string)
     field(:etag, :string)
@@ -109,6 +111,41 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
     timestamps()
   end
 
+  defp slugify(name) do
+    name
+    |> String.downcase()
+    |> String.trim()
+    |> String.replace(~r/[^a-zA-Z0-9]+/, "-")
+    |> String.replace(~r/^-+|-+$/, "")
+  end
+
+  defp generate_unique_slug(base_slug, server_id, id \\ nil) do
+    import Ecto.Query
+    alias StreamystatServer.Jellyfin.Models.Item
+    query = from i in Item,
+      where: i.server_id == ^server_id and not is_nil(i.slug) and (is_nil(^id) or i.id != ^id) and like(i.slug, ^"#{base_slug}%"),
+      select: i.slug
+    existing_slugs = StreamystatServer.Repo.all(query)
+    if base_slug not in existing_slugs do
+      base_slug
+    else
+      # Find the next available suffix
+      suffix =
+        existing_slugs
+        |> Enum.map(fn
+          ^base_slug -> 1
+          slug ->
+            case Regex.run(~r/^#{Regex.escape(base_slug)}--(\d+)$/, slug) do
+              [_, n] -> String.to_integer(n)
+              _ -> 1
+            end
+        end)
+        |> Enum.max(fn -> 1 end)
+        |> Kernel.+(1)
+      "#{base_slug}--#{suffix}"
+    end
+  end
+
   def changeset(item, attrs) do
     attrs =
       Map.update(attrs, :name, "Untitled Item", fn
@@ -117,10 +154,23 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
         existing -> existing
       end)
 
+    type = attrs[:type] || attrs["type"]
+    name = attrs[:name] || attrs["name"]
+    server_id = attrs[:server_id] || attrs["server_id"]
+    id = item.id
+
+    slug =
+      case type do
+        "Movie" -> generate_unique_slug(slugify(name), server_id, id)
+        "Series" -> generate_unique_slug(slugify(name), server_id, id)
+        _ -> nil
+      end
+
     item
     |> cast(attrs, [
       :jellyfin_id,
       :name,
+      :slug,
       :type,
       :library_id,
       :server_id,
@@ -166,7 +216,9 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
       :primary_image_logo_tag,
       :removed_at
     ])
+    |> put_change(:slug, slug)
     |> validate_required([:jellyfin_id, :name, :type, :library_id, :server_id])
+    |> unique_constraint([:server_id, :slug])
     |> unique_constraint([:jellyfin_id, :library_id])
     |> foreign_key_constraint(:library_id)
     |> foreign_key_constraint(:server_id)
