@@ -69,6 +69,7 @@ defmodule StreamystatServerWeb.Router do
       get("/statistics/items/:item_id", UserStatisticsController, :item_details)
       get("/statistics/library", UserStatisticsController, :library_stats)
       get("/statistics/unwatched", StatisticsController, :unwatched)
+      get("/statistics/items/slug/:slug", UserStatisticsController, :item_by_slug)
 
       # get("/me", UserController, :me)
       resources("/libraries", LibraryController, only: [:index, :show])

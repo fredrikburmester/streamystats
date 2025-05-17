@@ -80,14 +80,18 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
           primary_image_aspect_ratio: item_stats.item.primary_image_aspect_ratio
         },
         statistics: %{
-          total_views: item_stats.total_views,
-          total_watch_time: item_stats.total_watch_time,
-          completion_rate: item_stats.completion_rate,
-          last_watched: item_stats.last_watched,
-          first_watched: item_stats.first_watched,
-          users_watched: item_stats.users_watched,
-          watch_history: item_stats.watch_history,
-          watch_count_by_month: item_stats.watch_count_by_month
+          total_watch_time: item_stats.statistics.total_watch_time,
+          watch_count: item_stats.statistics.watch_count,
+          completion_rate: item_stats.statistics.completion_rate,
+          last_watched: item_stats.statistics.last_watched,
+          first_watched: item_stats.statistics.first_watched,
+          users_watched: item_stats.statistics.users_watched,
+          watch_history: item_stats.statistics.watch_history,
+          watch_count_by_month: item_stats.statistics.watch_count_by_month,
+          page: item_stats.statistics.page,
+          per_page: item_stats.statistics.per_page,
+          total_items: item_stats.statistics.total_items,
+          total_pages: item_stats.statistics.total_pages
         }
       }
     }

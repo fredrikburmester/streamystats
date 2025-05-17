@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { getMe, UserMe } from "../me";
 import { getToken } from "../token";
-import { ItemStatistics } from "@/components/ItemDetails";
+import { ItemStatistics } from "@/app/(app)/servers/[id]/(auth)/library/[libraryId]/[itemSlug]/ItemDetailsTable";
 
 export interface CategoryStat {
   value: string | boolean | null;

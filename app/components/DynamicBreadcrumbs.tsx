@@ -1,6 +1,6 @@
 "use client";
 
-import { House, Slash } from "lucide-react";
+import { House } from "lucide-react";
 import { useParams, usePathname } from "next/navigation";
 import React from "react";
 import {
@@ -23,9 +23,7 @@ const dynamicSegments = [
 
 export const DynamicBreadcrumbs: React.FC = () => {
   const params = useParams();
-
   const { id } = params as { id: string };
-
   const pathname = usePathname();
   const pathSegments = pathname
     .split("/")
