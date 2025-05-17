@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.2](https://github.com/fredrikburmester/streamystats/compare/v1.7.1...v1.7.2) (2025-05-17)
+
+
+### Bug Fixes
+
+* correct extension name ([3579dfb](https://github.com/fredrikburmester/streamystats/commit/3579dfb5cd200110b70903d05b93af0c1c10e476))
+* remove dotenv ([8ae1182](https://github.com/fredrikburmester/streamystats/commit/8ae1182925146912eddefe7746d134860be043f3))
+
 ## [1.7.1](https://github.com/fredrikburmester/streamystats/compare/v1.7.0...v1.7.1) (2025-05-17)
 
 
