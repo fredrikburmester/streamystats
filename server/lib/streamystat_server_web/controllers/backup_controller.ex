@@ -749,6 +749,19 @@ defmodule StreamystatServerWeb.BackupController do
         {:skipped, :duplicate}
 
       nil ->
+        # Look up user by jellyfin_id
+        user_id =
+          if session.user_jellyfin_id do
+            case Repo.one(from u in User, where: u.jellyfin_id == ^session.user_jellyfin_id and u.server_id == ^server_id, select: u.id) do
+              nil ->
+                Logger.debug("User with jellyfin_id #{session.user_jellyfin_id} not found for server_id #{server_id}")
+                nil
+              id -> id
+            end
+          else
+            nil
+          end
+
         # Convert string timestamps to DateTime
         start_time = parse_datetime(session.start_time)
         end_time = parse_datetime(session.end_time)
@@ -813,6 +826,7 @@ defmodule StreamystatServerWeb.BackupController do
           transcoding_audio_channels: session.transcoding_audio_channels,
           transcoding_hardware_acceleration_type: session.transcoding_hardware_acceleration_type,
           transcoding_reasons: transcoding_reasons,
+          user_id: user_id,
           server_id: server_id,
           inserted_at: inserted_at,
           updated_at: updated_at
