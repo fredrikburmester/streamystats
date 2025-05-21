@@ -135,6 +135,33 @@ defmodule StreamystatServerWeb.BackupController do
       runtime_ticks INTEGER,
       percent_complete FLOAT,
       completed BOOLEAN,
+      is_paused BOOLEAN,
+      is_muted BOOLEAN,
+      volume_level INTEGER,
+      audio_stream_index INTEGER,
+      subtitle_stream_index INTEGER,
+      media_source_id TEXT,
+      repeat_mode TEXT,
+      playback_order TEXT,
+      remote_end_point TEXT,
+      session_id TEXT,
+      user_name TEXT,
+      last_activity_date TEXT,
+      last_playback_check_in TEXT,
+      application_version TEXT,
+      is_active BOOLEAN,
+      transcoding_audio_codec TEXT,
+      transcoding_video_codec TEXT,
+      transcoding_container TEXT,
+      transcoding_is_video_direct BOOLEAN,
+      transcoding_is_audio_direct BOOLEAN,
+      transcoding_bitrate INTEGER,
+      transcoding_completion_percentage FLOAT,
+      transcoding_width INTEGER,
+      transcoding_height INTEGER,
+      transcoding_audio_channels INTEGER,
+      transcoding_hardware_acceleration_type TEXT,
+      transcoding_reasons TEXT,
       inserted_at TEXT,
       updated_at TEXT
     )
@@ -152,8 +179,16 @@ defmodule StreamystatServerWeb.BackupController do
       item_jellyfin_id, item_name, series_jellyfin_id, series_name,
       season_jellyfin_id, play_duration, play_method, start_time,
       end_time, position_ticks, runtime_ticks, percent_complete,
-      completed, inserted_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      completed, is_paused, is_muted, volume_level, audio_stream_index,
+      subtitle_stream_index, media_source_id, repeat_mode, playback_order,
+      remote_end_point, session_id, user_name, last_activity_date,
+      last_playback_check_in, application_version, is_active,
+      transcoding_audio_codec, transcoding_video_codec, transcoding_container,
+      transcoding_is_video_direct, transcoding_is_audio_direct, transcoding_bitrate,
+      transcoding_completion_percentage, transcoding_width, transcoding_height,
+      transcoding_audio_channels, transcoding_hardware_acceleration_type,
+      transcoding_reasons, inserted_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """)
   end
 
@@ -195,6 +230,33 @@ defmodule StreamystatServerWeb.BackupController do
       session.runtime_ticks,
       session.percent_complete,
       session.completed,
+      session.is_paused,
+      session.is_muted,
+      session.volume_level,
+      session.audio_stream_index,
+      session.subtitle_stream_index,
+      session.media_source_id,
+      session.repeat_mode,
+      session.playback_order,
+      session.remote_end_point,
+      session.session_id,
+      session.user_name,
+      if(session.last_activity_date, do: DateTime.to_iso8601(session.last_activity_date), else: nil),
+      if(session.last_playback_check_in, do: DateTime.to_iso8601(session.last_playback_check_in), else: nil),
+      session.application_version,
+      session.is_active,
+      session.transcoding_audio_codec,
+      session.transcoding_video_codec,
+      session.transcoding_container,
+      session.transcoding_is_video_direct,
+      session.transcoding_is_audio_direct,
+      session.transcoding_bitrate,
+      session.transcoding_completion_percentage,
+      session.transcoding_width,
+      session.transcoding_height,
+      session.transcoding_audio_channels,
+      session.transcoding_hardware_acceleration_type,
+      Enum.join(session.transcoding_reasons || [], ","),
       NaiveDateTime.to_iso8601(session.inserted_at),
       NaiveDateTime.to_iso8601(session.updated_at)
     ]
@@ -318,7 +380,7 @@ defmodule StreamystatServerWeb.BackupController do
     end
   end
 
-    defp open_sqlite_db(file_path) do
+  defp open_sqlite_db(file_path) do
     try do
       Logger.debug("Opening SQLite database: #{file_path}")
 
@@ -384,7 +446,7 @@ defmodule StreamystatServerWeb.BackupController do
     if File.exists?(file_path), do: :ok, else: {:error, "Database file not found: #{file_path}"}
   end
 
-    defp find_playback_sessions_table(db) do
+  defp find_playback_sessions_table(db) do
     Logger.debug("Looking for playback_sessions table in the database file")
 
     # Try multiple approaches to find tables
@@ -690,8 +752,18 @@ defmodule StreamystatServerWeb.BackupController do
         # Convert string timestamps to DateTime
         start_time = parse_datetime(session.start_time)
         end_time = parse_datetime(session.end_time)
+        last_activity_date = parse_datetime(session.last_activity_date)
+        last_playback_check_in = parse_datetime(session.last_playback_check_in)
         inserted_at = parse_datetime(session.inserted_at)
         updated_at = parse_datetime(session.updated_at)
+
+        # Convert transcoding_reasons string to list if it exists
+        transcoding_reasons =
+          if is_binary(session.transcoding_reasons) && String.trim(session.transcoding_reasons) != "" do
+            String.split(session.transcoding_reasons, ",")
+          else
+            nil
+          end
 
         # Create session with converted timestamps
         %PlaybackSession{}
@@ -714,6 +786,33 @@ defmodule StreamystatServerWeb.BackupController do
           runtime_ticks: session.runtime_ticks,
           percent_complete: session.percent_complete,
           completed: parse_bool(session.completed),
+          is_paused: parse_bool(session.is_paused),
+          is_muted: parse_bool(session.is_muted),
+          volume_level: session.volume_level,
+          audio_stream_index: session.audio_stream_index,
+          subtitle_stream_index: session.subtitle_stream_index,
+          media_source_id: session.media_source_id,
+          repeat_mode: session.repeat_mode,
+          playback_order: session.playback_order,
+          remote_end_point: session.remote_end_point,
+          session_id: session.session_id,
+          user_name: session.user_name,
+          last_activity_date: last_activity_date,
+          last_playback_check_in: last_playback_check_in,
+          application_version: session.application_version,
+          is_active: parse_bool(session.is_active),
+          transcoding_audio_codec: session.transcoding_audio_codec,
+          transcoding_video_codec: session.transcoding_video_codec,
+          transcoding_container: session.transcoding_container,
+          transcoding_is_video_direct: parse_bool(session.transcoding_is_video_direct),
+          transcoding_is_audio_direct: parse_bool(session.transcoding_is_audio_direct),
+          transcoding_bitrate: session.transcoding_bitrate,
+          transcoding_completion_percentage: session.transcoding_completion_percentage,
+          transcoding_width: session.transcoding_width,
+          transcoding_height: session.transcoding_height,
+          transcoding_audio_channels: session.transcoding_audio_channels,
+          transcoding_hardware_acceleration_type: session.transcoding_hardware_acceleration_type,
+          transcoding_reasons: transcoding_reasons,
           server_id: server_id,
           inserted_at: inserted_at,
           updated_at: updated_at
