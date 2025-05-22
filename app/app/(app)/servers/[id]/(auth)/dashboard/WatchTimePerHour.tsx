@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/chart";
 import { formatDuration } from "@/lib/utils";
 import { Statistics } from "@/lib/db";
-import { utcHourToLocalHour } from "@/lib/timezone";
+import { utcHourToLocalHour, TIMEZONE } from "@/lib/timezone";
 
 const chartConfig = {
   minutes: {
@@ -34,8 +34,6 @@ interface Props {
   subtitle: string;
   data: Statistics["watchtime_per_hour"];
 }
-
-const TIMEZONE = process.env.TZ || "Europe/London";
 
 export const WatchTimePerHour: React.FC<Props> = ({
   title,
