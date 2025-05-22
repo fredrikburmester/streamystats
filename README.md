@@ -37,9 +37,10 @@ This project now uses a Vector-enabled Postgres version (`pgvector/pgvector:pg16
 2. Copy the `docker-compose.yml` file to your desired location. Use tag `:edge` (read more below in [Version Tags](#version-tags).
 3. Change any ports if needed. Default web port is `3000`.
 4. Change the `SECRET_KEY_BASE` in the `docker-compose.yml` file to a random string. You can generate one with `openssl rand -hex 64`.
-5. Start the application with `docker-compose up -d`
-6. Open your browser and navigate to `http://localhost:3000`
-7. Follow the setup wizard to connect your Jellyfin server.
+5. You can configure the timezone in the `docker-compose.yml` file by setting both `TZ` and `NEXT_PUBLIC_TIMEZONE` environment variables for the app service. This ensures correct time display in all charts and statistics.
+6. Start the application with `docker-compose up -d`
+7. Open your browser and navigate to `http://localhost:3000`
+8. Follow the setup wizard to connect your Jellyfin server.
 
 First time load can take a while, depending on the size of your library.
 
@@ -64,4 +65,5 @@ The `:edge` tag always points to the latest commit on the main branch. It contai
 - Backend: Phoenix (Elixir)
 - Database: PostgreSQL
 - Containerization: Docker
+
 
