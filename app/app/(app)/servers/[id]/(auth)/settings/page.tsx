@@ -1,7 +1,7 @@
 "use server";
 
 import { Container } from "@/components/Container";
-import { getServer } from "@/lib/db";
+import { getServer, getServers } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { DeleteServer } from "./DeleteServer";
 import JellystatsImport from "./JellystatsImport";
@@ -23,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ServerManagementWrapper } from "./ServerManagementWrapper";
 
 export default async function Settings({
   params,
@@ -33,6 +34,7 @@ export default async function Settings({
 }) {
   const { id } = await params;
   const server = await getServer(id);
+  const servers = await getServers();
   if (!server) {
     redirect("/setup");
   }
@@ -45,6 +47,7 @@ export default async function Settings({
 
       {section === "general" && (
         <div className="space-y-8">
+          <ServerManagementWrapper servers={servers} />
           <VersionSection />
           <DeleteServer server={server} />
         </div>
