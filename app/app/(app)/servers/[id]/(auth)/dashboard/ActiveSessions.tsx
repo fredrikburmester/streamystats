@@ -15,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ActiveSession, Server } from "@/lib/db";
+import { ActiveSession, Server, getExternalUrl } from "@/lib/db";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -215,7 +215,7 @@ export function ActiveSessions({ server }: { server: Server }) {
                         >
                           <JellyfinAvatar
                             user={session.user}
-                            serverUrl={server.url}
+                            serverUrl={getExternalUrl(server)}
                             className="h-6 w-6 rounded-lg transition-transform duration-200 group-hover:scale-110"
                           />
                           <span className="text-sm font-medium transition-colors duration-200 group-hover:text-primary">

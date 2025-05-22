@@ -36,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Server, UserPlaybackStatistics } from "@/lib/db";
+import { Server, UserPlaybackStatistics, getExternalUrl } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
 import { useQueryParams } from "@/hooks/useQueryParams";
@@ -113,7 +113,9 @@ export function HistoryTable({
       header: "Item",
       cell: ({ row }) => (
         <a
-          href={`${server.url}/web/index.html#!/details?id=${row.original.item_id}`}
+          href={`${getExternalUrl(server)}/web/index.html#!/details?id=${
+            row.original.item_id
+          }`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-row items-center gap-4 cursor-pointer group"
@@ -128,10 +130,12 @@ export function HistoryTable({
                 backdrop_image_tags: row.original.backdrop_image_tags,
                 image_blur_hashes: row.original.image_blur_hashes,
                 parent_backdrop_item_id: row.original.parent_backdrop_item_id,
-                parent_backdrop_image_tags: row.original.parent_backdrop_image_tags,
+                parent_backdrop_image_tags:
+                  row.original.parent_backdrop_image_tags,
                 parent_thumb_item_id: row.original.parent_thumb_item_id,
                 parent_thumb_image_tag: row.original.parent_thumb_image_tag,
-                primary_image_aspect_ratio: row.original.primary_image_aspect_ratio,
+                primary_image_aspect_ratio:
+                  row.original.primary_image_aspect_ratio,
                 series_primary_image_tag: row.original.series_primary_image_tag,
                 primary_image_thumb_tag: row.original.primary_image_thumb_tag,
                 primary_image_logo_tag: row.original.primary_image_logo_tag,
@@ -147,12 +151,14 @@ export function HistoryTable({
               <div className="text-sm text-neutral-500 transition-colors duration-200 group-hover:text-primary/80">
                 {row.original.series_name}
                 {row.original.season_name && ` • ${row.original.season_name}`}
-                {row.original.index_number && ` • Episode ${row.original.index_number}`}
+                {row.original.index_number &&
+                  ` • Episode ${row.original.index_number}`}
               </div>
             )}
             <div className="text-sm text-neutral-500 transition-colors duration-200 group-hover:text-primary/80">
               {row.original.item_type}
-              {row.original.play_duration && ` • ${formatDuration(row.original.play_duration)}`}
+              {row.original.play_duration &&
+                ` • ${formatDuration(row.original.play_duration)}`}
             </div>
           </div>
         </a>
@@ -170,8 +176,12 @@ export function HistoryTable({
               className="flex items-center gap-2 cursor-pointer group"
             >
               <JellyfinAvatar
-                user={{ id: row.original.jellyfin_user_id, name: user, jellyfin_id: row.original.jellyfin_user_id }}
-                serverUrl={server.url}
+                user={{
+                  id: row.original.jellyfin_user_id,
+                  name: user,
+                  jellyfin_id: row.original.jellyfin_user_id,
+                }}
+                serverUrl={getExternalUrl(server)}
                 className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
               />
               <span className="font-medium transition-colors duration-200 group-hover:text-primary">

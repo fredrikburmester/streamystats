@@ -33,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Server, User } from "@/lib/db";
+import { Server, User, getExternalUrl } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
 import { useMemo } from "react";
@@ -72,7 +72,10 @@ export const UserTable: React.FC<UserTableProps> = ({
             router.push(`/servers/${server.id}/users/${row.original.name}`);
           }}
         >
-          <JellyfinAvatar serverUrl={server.url} user={row.original} />
+          <JellyfinAvatar
+            serverUrl={getExternalUrl(server)}
+            user={row.original}
+          />
           <p className="font-medium">{row.getValue("name")}</p>
         </button>
       ),
@@ -130,7 +133,9 @@ export const UserTable: React.FC<UserTableProps> = ({
         );
       },
       cell: ({ row }) => {
-        const avgWatchTime = row.original.watch_stats.total_watch_time / (row.original.watch_stats.total_plays || 1);
+        const avgWatchTime =
+          row.original.watch_stats.total_watch_time /
+          (row.original.watch_stats.total_plays || 1);
         return <div className="text-left">{formatDuration(avgWatchTime)}</div>;
       },
     },
@@ -149,7 +154,11 @@ export const UserTable: React.FC<UserTableProps> = ({
       },
       cell: ({ row }) => {
         const longestStreak = row.original.longest_streak ?? 0;
-        return <div className="text-left">{formatDuration(longestStreak, "days")}</div>;
+        return (
+          <div className="text-left">
+            {formatDuration(longestStreak, "days")}
+          </div>
+        );
       },
     },
   ];

@@ -82,7 +82,7 @@ defmodule StreamystatServer.Workers.SessionPoller do
   end
 
   defp fetch_jellyfin_sessions(server) do
-    url = "#{server.url}/Sessions"
+    url = "#{StreamystatServer.Servers.Models.Server.get_internal_url(server)}/Sessions"
 
     headers = [
       {"X-MediaBrowser-Token", server.api_key},

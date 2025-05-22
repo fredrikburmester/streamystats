@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Item, Server } from "@/lib/db";
+import { Item, Server, getExternalUrl } from "@/lib/db";
 import { ChevronRight, Clock } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -136,7 +136,9 @@ export const SimilarStatstics = ({ data, server }: Props) => {
                   .map((item) => (
                     <Link
                       key={item.id}
-                      href={`${server.url}/web/index.html#!/details?id=${item.jellyfin_id}`}
+                      href={`${getExternalUrl(
+                        server
+                      )}/web/index.html#!/details?id=${item.jellyfin_id}`}
                       className="hover:opacity-50 transition-opacity"
                     >
                       <Card className="flex-shrink-0 h-full flex flex-col">

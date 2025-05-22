@@ -36,6 +36,40 @@ const FormSchema = z.object({
   apikey: z.string().min(2, {
     message: "Apikey must be at least 2 characters.",
   }),
+  internal_url: z
+    .string()
+    .optional()
+    .refine(
+      (value) => {
+        if (!value || value.trim() === "") return true;
+        try {
+          new URL(value);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      {
+        message: "Internal URL must be a valid URL format",
+      }
+    ),
+  external_url: z
+    .string()
+    .optional()
+    .refine(
+      (value) => {
+        if (!value || value.trim() === "") return true;
+        try {
+          new URL(value);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      {
+        message: "External URL must be a valid URL format",
+      }
+    ),
 });
 
 export function SetupForm() {
@@ -46,13 +80,20 @@ export function SetupForm() {
     defaultValues: {
       apikey: "",
       url: "",
+      internal_url: "",
+      external_url: "",
     },
   });
 
   async function onSubmit(data: z.infer<typeof FormSchema>) {
     setLoading(true);
     try {
-      const server = await createServer(data.url, data.apikey);
+      const server = await createServer(
+        data.url,
+        data.apikey,
+        data.internal_url?.trim() || undefined,
+        data.external_url?.trim() || undefined
+      );
 
       if (!server || !server?.id) throw new Error("Server not created");
 
@@ -113,6 +154,52 @@ export function SetupForm() {
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-4">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Advanced Configuration (Optional)
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="internal_url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Internal URL (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="http://jellyfin:8096" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        URL for server-to-server communication. Leave blank to
+                        use the main URL.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="external_url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>External URL (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="https://jellyfin.yourdomain.com"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        URL for user-facing requests. Leave blank to use the
+                        main URL.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <Button type="submit" disabled={loading}>
                 {loading ? <Spinner /> : "Create"}
               </Button>

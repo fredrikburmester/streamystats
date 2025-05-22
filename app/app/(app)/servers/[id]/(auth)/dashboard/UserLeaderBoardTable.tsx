@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePersistantState } from "@/hooks/usePersistantState";
-import { Server, User } from "@/lib/db";
+import { Server, User, getExternalUrl } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { Clock, Trophy, User as UserIcon } from "lucide-react";
 import Link from "next/link";
@@ -97,7 +97,7 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
                     >
                       <JellyfinAvatar
                         user={user}
-                        serverUrl={server.url}
+                        serverUrl={getExternalUrl(server)}
                         className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
                       />
                       <span className="transition-colors duration-200 group-hover:text-primary">

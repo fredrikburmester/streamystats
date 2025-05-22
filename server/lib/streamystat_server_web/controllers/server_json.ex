@@ -20,6 +20,8 @@ defmodule StreamystatServerWeb.ServerJSON do
       id: server.id,
       name: server.name,
       url: server.url,
+      internal_url: server.internal_url,
+      external_url: server.external_url,
       api_key: server.api_key,
       open_ai_api_token: server.open_ai_api_token,
       auto_generate_embeddings: server.auto_generate_embeddings,

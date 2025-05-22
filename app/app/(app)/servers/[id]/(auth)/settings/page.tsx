@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/accordion";
 import DatabaseBackupRestore from "./DatabaseBackupRestore";
 import { EmbeddingsManager } from "./EmbeddingsManager";
+import { UrlConfiguration } from "./UrlConfiguration";
 import {
   Card,
   CardContent,
@@ -45,6 +46,7 @@ export default async function Settings({
 
       {section === "general" && (
         <div className="space-y-8">
+          <UrlConfiguration server={server} />
           <VersionSection />
           <DeleteServer server={server} />
         </div>

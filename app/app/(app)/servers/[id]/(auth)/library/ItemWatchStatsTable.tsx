@@ -25,6 +25,7 @@ import {
   ItemWatchStatsResponse,
   Library,
   Server,
+  getExternalUrl,
 } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import {
@@ -120,17 +121,16 @@ export function ItemWatchStatsTable({
       accessorFn: (row) => row.item.name,
       id: "name",
       header: () => (
-        <Button
-          variant="ghost"
-          onClick={() => handleSortChange("name")}
-        >
+        <Button variant="ghost" onClick={() => handleSortChange("name")}>
           Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
       cell: ({ row }) => (
         <a
-          href={`${server.url}/web/index.html#!/details?id=${row.original.item.jellyfin_id}`}
+          href={`${getExternalUrl(server)}/web/index.html#!/details?id=${
+            row.original.item.jellyfin_id
+          }`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-row items-center gap-4 group"
@@ -139,12 +139,17 @@ export function ItemWatchStatsTable({
             <Poster item={row.original.item} server={server} />
           </div>
           <div>
-            <p className="capitalize transition-colors duration-200 group-hover:text-primary">{row.getValue("name")}</p>
+            <p className="capitalize transition-colors duration-200 group-hover:text-primary">
+              {row.getValue("name")}
+            </p>
             <p className="text-sm text-muted-foreground">
               {row.original.item.type}
-              {row.original.item.production_year && ` • ${row.original.item.production_year}`}
-              {row.original.item.series_name && ` • ${row.original.item.series_name}`}
-              {row.original.item.season_name && ` • ${row.original.item.season_name}`}
+              {row.original.item.production_year &&
+                ` • ${row.original.item.production_year}`}
+              {row.original.item.series_name &&
+                ` • ${row.original.item.series_name}`}
+              {row.original.item.season_name &&
+                ` • ${row.original.item.season_name}`}
             </p>
           </div>
         </a>
@@ -176,10 +181,7 @@ export function ItemWatchStatsTable({
     {
       accessorKey: "watch_count",
       header: () => (
-        <Button
-          variant="ghost"
-          onClick={() => handleSortChange("watch_count")}
-        >
+        <Button variant="ghost" onClick={() => handleSortChange("watch_count")}>
           Watch Count
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
@@ -205,7 +207,11 @@ export function ItemWatchStatsTable({
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <div className="text-left">{row.original.item.official_rating || '-'}</div>,
+      cell: ({ row }) => (
+        <div className="text-left">
+          {row.original.item.official_rating || "-"}
+        </div>
+      ),
       size: 80,
       minSize: 60,
       maxSize: 100,
@@ -222,7 +228,13 @@ export function ItemWatchStatsTable({
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <div className="text-left">{row.original.item.community_rating ? row.original.item.community_rating.toFixed(1) + '★' : '-'}</div>,
+      cell: ({ row }) => (
+        <div className="text-left">
+          {row.original.item.community_rating
+            ? row.original.item.community_rating.toFixed(1) + "★"
+            : "-"}
+        </div>
+      ),
       size: 100,
       minSize: 80,
       maxSize: 120,
@@ -231,10 +243,7 @@ export function ItemWatchStatsTable({
       accessorFn: (row) => row.item.runtime_ticks,
       id: "runtime",
       header: () => (
-        <Button
-          variant="ghost"
-          onClick={() => handleSortChange("runtime")}
-        >
+        <Button variant="ghost" onClick={() => handleSortChange("runtime")}>
           Runtime
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
@@ -245,7 +254,11 @@ export function ItemWatchStatsTable({
         const totalSeconds = Math.floor(ticks / 10000000);
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
-        return <div className="text-left">{hours ? `${hours}h ${minutes}m` : `${minutes}m`}</div>;
+        return (
+          <div className="text-left">
+            {hours ? `${hours}h ${minutes}m` : `${minutes}m`}
+          </div>
+        );
       },
       size: 90,
       minSize: 70,
@@ -255,15 +268,19 @@ export function ItemWatchStatsTable({
       accessorFn: (row) => row.item.genres,
       id: "genres",
       header: () => (
-        <Button
-          variant="ghost"
-          onClick={() => handleSortChange("genres")}
-        >
+        <Button variant="ghost" onClick={() => handleSortChange("genres")}>
           Genres
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => <div className="text-left">{Array.isArray(row.original.item.genres) && row.original.item.genres.length > 0 ? row.original.item.genres.join(', ') : '-'}</div>,
+      cell: ({ row }) => (
+        <div className="text-left">
+          {Array.isArray(row.original.item.genres) &&
+          row.original.item.genres.length > 0
+            ? row.original.item.genres.join(", ")
+            : "-"}
+        </div>
+      ),
       size: 180,
       minSize: 120,
       maxSize: 240,

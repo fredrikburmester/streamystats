@@ -179,3 +179,31 @@ export const toggleAutoEmbeddings = async (
     throw error;
   }
 };
+
+export const updateServerUrls = async (
+  serverId: string | number,
+  urls: {
+    internal_url: string | null;
+    external_url: string | null;
+  }
+): Promise<void> => {
+  try {
+    const response = await fetch(
+      `${process.env.API_URL}/admin/servers/${serverId}/settings`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getToken()}`,
+        },
+        body: JSON.stringify(urls),
+      }
+    );
+    if (!response.ok) {
+      throw new Error("Failed to update server URLs");
+    }
+  } catch (error) {
+    console.error("Error updating server URLs:", error);
+    throw error;
+  }
+};

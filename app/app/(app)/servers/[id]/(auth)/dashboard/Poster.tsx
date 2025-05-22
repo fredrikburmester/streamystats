@@ -1,6 +1,6 @@
 "use client";
 
-import { Item, Server } from "@/lib/db";
+import { Item, Server, getExternalUrl } from "@/lib/db";
 import { Film, Tv } from "lucide-react";
 import Image from "next/image";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -79,16 +79,28 @@ const PosterComponent = ({
       switch (type) {
         case "Primary":
           if (item.primary_image_tag) {
-            return `${server.url}/Items/${item.jellyfin_id}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.primary_image_tag}`;
+            return `${getExternalUrl(server)}/Items/${
+              item.jellyfin_id
+            }/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${
+              item.primary_image_tag
+            }`;
           }
           if (isEpisode && item.series_id && item.series_primary_image_tag) {
-            return `${server.url}/Items/${item.series_id}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.series_primary_image_tag}`;
+            return `${getExternalUrl(server)}/Items/${
+              item.series_id
+            }/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${
+              item.series_primary_image_tag
+            }`;
           }
           return null;
 
         case "Backdrop":
           if (item.backdrop_image_tags && item.backdrop_image_tags.length > 0) {
-            return `${server.url}/Items/${item.jellyfin_id}/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.backdrop_image_tags[0]}`;
+            return `${getExternalUrl(server)}/Items/${
+              item.jellyfin_id
+            }/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${
+              item.backdrop_image_tags[0]
+            }`;
           }
           if (
             isEpisode &&
@@ -96,26 +108,42 @@ const PosterComponent = ({
             item.parent_backdrop_image_tags &&
             item.parent_backdrop_image_tags.length > 0
           ) {
-            return `${server.url}/Items/${item.parent_backdrop_item_id}/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.parent_backdrop_image_tags[0]}`;
+            return `${getExternalUrl(server)}/Items/${
+              item.parent_backdrop_item_id
+            }/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${
+              item.parent_backdrop_image_tags[0]
+            }`;
           }
           return null;
 
         case "Thumb":
           if (item?.primary_image_thumb_tag) {
-            return `${server.url}/Items/${item?.jellyfin_id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primary_image_thumb_tag}`;
+            return `${getExternalUrl(server)}/Items/${
+              item?.jellyfin_id
+            }/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${
+              item?.primary_image_thumb_tag
+            }`;
           }
           if (
             isEpisode &&
             item?.parent_thumb_item_id &&
             item?.parent_thumb_image_tag
           ) {
-            return `${server.url}/Items/${item?.parent_thumb_item_id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.parent_thumb_image_tag}`;
+            return `${getExternalUrl(server)}/Items/${
+              item?.parent_thumb_item_id
+            }/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${
+              item?.parent_thumb_image_tag
+            }`;
           }
           return null;
 
         case "Logo":
           if (item?.primary_image_logo_tag) {
-            return `${server.url}/Items/${item?.jellyfin_id}/Images/Logo?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primary_image_logo_tag}`;
+            return `${getExternalUrl(server)}/Items/${
+              item?.jellyfin_id
+            }/Images/Logo?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${
+              item?.primary_image_logo_tag
+            }`;
           }
           return null;
 
@@ -150,7 +178,7 @@ const PosterComponent = ({
     item?.primary_image_logo_tag,
     item?.primary_image_thumb_tag,
     isEpisode,
-    server.url,
+    getExternalUrl(server),
     height,
     width,
     preferredImageType,

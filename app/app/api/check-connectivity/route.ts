@@ -25,15 +25,18 @@ export async function GET(request: NextRequest) {
     for (const server of servers) {
       try {
         // Quick health check to Jellyfin server
-        const healthCheck = await fetch(`${server.url}/System/Ping`, {
-          method: "GET",
-          headers: {
-            "X-Emby-Token": server.api_key,
-            "Content-Type": "application/json",
-          },
-          // Short timeout to avoid hanging requests
-          signal: AbortSignal.timeout(3000),
-        });
+        const healthCheck = await fetch(
+          `${server.external_url || server.url}/System/Ping`,
+          {
+            method: "GET",
+            headers: {
+              "X-Emby-Token": server.api_key,
+              "Content-Type": "application/json",
+            },
+            // Short timeout to avoid hanging requests
+            signal: AbortSignal.timeout(3000),
+          }
+        );
 
         if (!healthCheck.ok) {
           hasConnectivityIssue = true;

@@ -6,6 +6,8 @@ defmodule StreamystatServer.Servers.Models.Server do
           id: integer() | nil,
           name: String.t(),
           url: String.t(),
+          internal_url: String.t() | nil,
+          external_url: String.t() | nil,
           api_key: String.t(),
           last_synced_playback_id: integer(),
           local_address: String.t() | nil,
@@ -23,6 +25,8 @@ defmodule StreamystatServer.Servers.Models.Server do
 
   schema "servers" do
     field(:url, :string)
+    field(:internal_url, :string)
+    field(:external_url, :string)
     field(:local_address, :string)
     field(:server_name, :string)
     field(:version, :string)
@@ -42,6 +46,8 @@ defmodule StreamystatServer.Servers.Models.Server do
     server
     |> cast(attrs, [
       :url,
+      :internal_url,
+      :external_url,
       :local_address,
       :server_name,
       :version,
@@ -56,6 +62,37 @@ defmodule StreamystatServer.Servers.Models.Server do
       :last_synced_playback_id
     ])
     |> validate_required([:url, :api_key])
+    |> validate_internal_external_urls()
     |> unique_constraint(:url)
+  end
+
+    # Custom validation to ensure at least one of internal_url or external_url is set
+  defp validate_internal_external_urls(changeset) do
+    internal_url = get_field(changeset, :internal_url)
+    external_url = get_field(changeset, :external_url)
+
+    # If both are blank, fall back to the legacy url field
+    if is_nil(internal_url) && is_nil(external_url) do
+      # This is OK - we'll use the legacy url field
+      changeset
+    else
+      changeset
+    end
+  end
+
+  @doc """
+  Gets the internal URL for server-to-server communication.
+  Falls back to the legacy URL field if internal_url is not set.
+  """
+  def get_internal_url(%__MODULE__{} = server) do
+    server.internal_url || server.url
+  end
+
+  @doc """
+  Gets the external URL for user-facing requests.
+  Falls back to the legacy URL field if external_url is not set.
+  """
+  def get_external_url(%__MODULE__{} = server) do
+    server.external_url || server.url
   end
 end
