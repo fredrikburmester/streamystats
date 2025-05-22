@@ -15,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ActiveSession, Server, getExternalUrl } from "@/lib/db";
+import { ActiveSession, Server } from "@/lib/db";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -40,6 +40,7 @@ import { Poster } from "./Poster";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 // Utility: show seconds ago if < 60s, else use formatDistanceToNow
 function formatDistanceWithSeconds(date: Date) {

@@ -25,7 +25,6 @@ import {
   ItemWatchStatsResponse,
   Library,
   Server,
-  getExternalUrl,
 } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import {
@@ -47,6 +46,7 @@ import * as React from "react";
 import { useDebounce } from "use-debounce";
 import { Poster } from "../dashboard/Poster";
 import LibraryDropdown from "./LibraryDropdown";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 export interface ItemWatchStatsTableProps {
   server: Server;

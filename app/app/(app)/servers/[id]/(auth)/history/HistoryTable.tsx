@@ -36,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Server, UserPlaybackStatistics, getExternalUrl } from "@/lib/db";
+import { Server, UserPlaybackStatistics } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
 import { useQueryParams } from "@/hooks/useQueryParams";
@@ -45,6 +45,7 @@ import { useDebounce } from "use-debounce";
 import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import { PlaybackMethodBadge } from "@/components/PlaybackMethodBadge";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 export interface HistoryTableProps {
   data: {

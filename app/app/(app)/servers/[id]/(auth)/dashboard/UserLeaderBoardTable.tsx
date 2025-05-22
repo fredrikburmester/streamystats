@@ -11,13 +11,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePersistantState } from "@/hooks/usePersistantState";
-import { Server, User, getExternalUrl } from "@/lib/db";
+import { Server, User } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { Clock, Trophy, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { UserLeaderboardFilter } from "./UserLeaderBoardFilter";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 interface Props {
   users: User[];

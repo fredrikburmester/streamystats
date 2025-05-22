@@ -33,12 +33,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Server, User, getExternalUrl } from "@/lib/db";
+import { Server, User } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
 import { useMemo } from "react";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import { formatDistanceToNow } from "date-fns";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 export interface UserTableProps {
   data: User[];

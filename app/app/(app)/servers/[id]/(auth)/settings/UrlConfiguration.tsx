@@ -172,11 +172,11 @@ export const UrlConfiguration: React.FC<Props> = ({ server }) => {
               />
             </div>
 
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/50 rounded-lg">
-              <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+            <div className="p-4  bg-blue-950/50 rounded-lg">
+              <h4 className="font-medium text-blue-100 mb-2">
                 Use Case Examples
               </h4>
-              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+              <ul className="text-sm text-blue-200 space-y-1">
                 <li>
                   • <strong>Internal:</strong> Local Docker container name or
                   private IP for backend communication
@@ -184,14 +184,6 @@ export const UrlConfiguration: React.FC<Props> = ({ server }) => {
                 <li>
                   • <strong>External:</strong> Public domain or reverse proxy
                   URL for user access
-                </li>
-                <li>
-                  • <strong>Network separation:</strong> Different URLs for
-                  internal network vs internet access
-                </li>
-                <li>
-                  • <strong>Load balancing:</strong> Backend vs frontend load
-                  balancer endpoints
                 </li>
               </ul>
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { Item, Server, getExternalUrl } from "@/lib/db";
+import { Item, Server } from "@/lib/db";
+import { getExternalUrl } from "@/utils/getServerUrl";
 import { Film, Tv } from "lucide-react";
 import Image from "next/image";
 import { memo, useEffect, useMemo, useState } from "react";

@@ -11,12 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { MostWatchedItem, Server, Statistics, getExternalUrl } from "@/lib/db";
+import { MostWatchedItem, Server, Statistics } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { MoreHorizontal, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Poster } from "./Poster";
 import { usePersistantState } from "@/hooks/usePersistantState";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 interface Props {
   data: Statistics["most_watched_items"];

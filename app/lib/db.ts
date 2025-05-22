@@ -21,18 +21,14 @@ export type Server = {
  * Gets the external URL for user-facing requests (images, direct links).
  * Falls back to the legacy URL field if external_url is not set.
  */
-export function getExternalUrl(server: Server): string {
-  return server.external_url || server.url;
-}
+
 
 /**
  * Gets the internal URL for server-to-server communication.
  * Falls back to the legacy URL field if internal_url is not set.
  * Note: This is primarily used by the backend, but available for completeness.
  */
-export function getInternalUrl(server: Server): string {
-  return server.internal_url || server.url;
-}
+
 
 export type SyncTask = {
   id: number;

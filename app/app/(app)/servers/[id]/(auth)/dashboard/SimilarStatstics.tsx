@@ -12,11 +12,12 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Item, Server, getExternalUrl } from "@/lib/db";
+import { Item, Server } from "@/lib/db";
 import { ChevronRight, Clock } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Poster } from "./Poster";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 interface Props {
   data: Item[];
