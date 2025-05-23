@@ -7,6 +7,7 @@ defmodule StreamystatServerWeb.ServerController do
   alias StreamystatServer.Repo
   alias StreamystatServer.SessionAnalysis
   alias StreamystatServer.Items.Item
+  require Logger
 
   def index(conn, _params) do
     servers = Servers.list_servers()
@@ -43,7 +44,11 @@ defmodule StreamystatServerWeb.ServerController do
 
   def update_settings(conn, %{"id" => id} = params) do
     settings_params = Map.drop(params, ["id"])
-    openai_token_updated = Map.has_key?(settings_params, "open_ai_api_token")
+    embedding_config_updated = Map.has_key?(settings_params, "open_ai_api_token") ||
+                              Map.has_key?(settings_params, "ollama_api_token") ||
+                              Map.has_key?(settings_params, "ollama_base_url") ||
+                              Map.has_key?(settings_params, "ollama_model") ||
+                              Map.has_key?(settings_params, "embedding_provider")
 
     case Servers.get_server(id) do
       nil ->
@@ -55,13 +60,15 @@ defmodule StreamystatServerWeb.ServerController do
       server ->
         case Servers.update_server(server, settings_params) do
           {:ok, updated_server} ->
-            # If OpenAI token was updated, start embedding process
-            if openai_token_updated && updated_server.open_ai_api_token do
-              # Start embedding process using the new function
-              BatchEmbedder.start_embed_items_for_server(
-                updated_server.id,
-                updated_server.open_ai_api_token
-              )
+            # If embedding configuration was updated and auto-generate is enabled, start embedding process
+            if embedding_config_updated && updated_server.auto_generate_embeddings do
+              # Check if server has valid embedding configuration
+              case validate_embedding_config(updated_server) do
+                :ok ->
+                  BatchEmbedder.start_embed_items_for_server(updated_server.id)
+                {:error, reason} ->
+                  Logger.warning("Could not start embedding process: #{reason}")
+              end
             end
 
             render(conn, :show, server: updated_server)
@@ -72,6 +79,27 @@ defmodule StreamystatServerWeb.ServerController do
             |> put_view(json: StreamystatServerWeb.ChangesetJSON)
             |> render(:error, changeset: changeset)
         end
+    end
+  end
+
+  defp validate_embedding_config(server) do
+    case server.embedding_provider || "openai" do
+      "openai" ->
+        if server.open_ai_api_token do
+          :ok
+        else
+          {:error, "OpenAI API token not configured"}
+        end
+
+      "ollama" ->
+        if server.ollama_base_url && server.ollama_model do
+          :ok
+        else
+          {:error, "Ollama configuration not set"}
+        end
+
+      _ ->
+        {:error, "Invalid embedding provider"}
     end
   end
 
@@ -108,7 +136,7 @@ defmodule StreamystatServerWeb.ServerController do
   def start_embedding(conn, %{"server_id" => server_id}) do
     server_id = String.to_integer(server_id)
 
-    # Get the server to ensure it exists and has a token
+    # Get the server to ensure it exists and has valid embedding configuration
     case Servers.get_server(server_id) do
       nil ->
         conn
@@ -116,20 +144,22 @@ defmodule StreamystatServerWeb.ServerController do
         |> json(%{error: "Server not found"})
 
       server ->
-        if server.open_ai_api_token do
-          case BatchEmbedder.start_embed_items_for_server(server_id, server.open_ai_api_token) do
-            {:ok, message} ->
-              json(conn, %{message: message})
+        case validate_embedding_config(server) do
+          :ok ->
+            case BatchEmbedder.start_embed_items_for_server(server_id) do
+              {:ok, message} ->
+                json(conn, %{message: message})
 
-            {:error, error} ->
-              conn
-              |> put_status(:bad_request)
-              |> json(%{error: error})
-          end
-        else
-          conn
-          |> put_status(:bad_request)
-          |> json(%{error: "No OpenAI API token configured for this server"})
+              {:error, error} ->
+                conn
+                |> put_status(:bad_request)
+                |> json(%{error: error})
+            end
+
+          {:error, error} ->
+            conn
+            |> put_status(:bad_request)
+            |> json(%{error: error})
         end
     end
   end

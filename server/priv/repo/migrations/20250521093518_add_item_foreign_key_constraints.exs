@@ -6,29 +6,32 @@ defmodule StreamystatServer.Repo.Migrations.AddItemForeignKeyConstraints do
     create_if_not_exists index(:playback_sessions, [:item_jellyfin_id])
     create_if_not_exists index(:activities, [:item_jellyfin_id])
 
-    # First, we need to add a dummy record in jellyfin_items to handle orphaned references
+    # Only create placeholder if we have servers and libraries
     execute """
     INSERT INTO jellyfin_items (jellyfin_id, name, type, library_id, server_id, inserted_at, updated_at)
-    VALUES ('__PLACEHOLDER_ID__', 'Placeholder Item', 'placeholder',
-            (SELECT MIN(id) FROM jellyfin_libraries),
-            (SELECT MIN(id) FROM servers),
-            NOW(), NOW())
+    SELECT '__PLACEHOLDER_ID__', 'Placeholder Item', 'placeholder',
+           s.min_server_id, l.min_library_id, NOW(), NOW()
+    FROM (SELECT MIN(id) as min_server_id FROM servers WHERE id IS NOT NULL) s
+    CROSS JOIN (SELECT MIN(id) as min_library_id FROM jellyfin_libraries WHERE id IS NOT NULL) l
+    WHERE s.min_server_id IS NOT NULL AND l.min_library_id IS NOT NULL
     ON CONFLICT (jellyfin_id) DO NOTHING
     """
 
-    # Update orphaned references to use the placeholder
+    # Update orphaned references to use the placeholder only if placeholder was created
     execute """
     UPDATE playback_sessions
     SET item_jellyfin_id = '__PLACEHOLDER_ID__'
     WHERE item_jellyfin_id IS NOT NULL AND
-      NOT EXISTS (SELECT 1 FROM jellyfin_items WHERE jellyfin_id = playback_sessions.item_jellyfin_id)
+      NOT EXISTS (SELECT 1 FROM jellyfin_items WHERE jellyfin_id = playback_sessions.item_jellyfin_id) AND
+      EXISTS (SELECT 1 FROM jellyfin_items WHERE jellyfin_id = '__PLACEHOLDER_ID__')
     """
 
     execute """
     UPDATE activities
     SET item_jellyfin_id = '__PLACEHOLDER_ID__'
     WHERE item_jellyfin_id IS NOT NULL AND
-      NOT EXISTS (SELECT 1 FROM jellyfin_items WHERE jellyfin_id = activities.item_jellyfin_id)
+      NOT EXISTS (SELECT 1 FROM jellyfin_items WHERE jellyfin_id = activities.item_jellyfin_id) AND
+      EXISTS (SELECT 1 FROM jellyfin_items WHERE jellyfin_id = '__PLACEHOLDER_ID__')
     """
 
     # Add foreign key constraints to the playback sessions table

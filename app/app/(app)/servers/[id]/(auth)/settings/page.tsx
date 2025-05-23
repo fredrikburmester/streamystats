@@ -41,7 +41,7 @@ export default async function Settings({
   const section = searchParams.section || "general";
 
   return (
-    <Container className="">
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
 
       {section === "general" && (

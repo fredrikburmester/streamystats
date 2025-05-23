@@ -31,7 +31,7 @@ export default async function User({
   }
 
   return (
-    <Container>
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       <PageTitle title={user.name || "N/A"} />
       <div className="flex flex-col gap-4">
         <UserBadges user={user} />

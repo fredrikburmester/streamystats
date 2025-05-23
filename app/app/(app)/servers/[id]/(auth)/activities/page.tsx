@@ -25,7 +25,7 @@ export default async function ActivitiesPage({
   const activities = await getActivities(server.id, page);
 
   return (
-    <Container>
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       <PageTitle title="Activity Log" subtitle="All events on your server." />
       <Suspense
         fallback={

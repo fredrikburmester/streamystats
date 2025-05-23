@@ -20,7 +20,7 @@ export default async function TranscodingPage({
   }
 
   return (
-    <Container>
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       <PageTitle title="Transcoding Statistics" />
       <Suspense fallback={<Skeleton className="h-48 w-full" />}>
         <TranscodingStats server={server} />

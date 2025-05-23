@@ -15,6 +15,10 @@ export type Server = {
   api_key: string;
   open_ai_api_token?: string;
   auto_generate_embeddings?: boolean;
+  ollama_api_token?: string;
+  ollama_base_url?: string;
+  ollama_model?: string;
+  embedding_provider?: "openai" | "ollama";
 };
 
 /**
@@ -107,6 +111,10 @@ export type Item = {
   // Statistics (these might be included in some API responses)
   total_play_count?: number;
   total_play_duration?: number;
+
+  // Recommendation-related fields
+  similarity?: number;
+  based_on?: Item[]; // Array of movies this recommendation is based on
 };
 
 export type MostWatchedItem = Item & {

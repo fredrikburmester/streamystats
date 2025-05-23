@@ -49,7 +49,7 @@ export default async function DashboardPage({
   const _endDate = endDate || new Date().toISOString().split("T")[0];
 
   return (
-    <Container>
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       {isAdmin && (
         <div className="mb-8">
           <ActiveSessions server={server} />

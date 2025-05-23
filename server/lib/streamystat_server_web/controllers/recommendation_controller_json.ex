@@ -24,6 +24,29 @@ defmodule StreamystatServerWeb.RecommendationJSON do
   end
 
   # Convert struct to map and remove fields that can't be serialized
+  # Handle the new format with based_on information
+  defp prepare_item_for_json(%{item: item, similarity: similarity, based_on: based_on}) do
+    # Handle the case where item is wrapped with similarity score and based_on movies
+    item_map =
+      item
+      |> Map.from_struct()
+      |> Map.drop([:__meta__, :__struct__, :embedding, :library, :server])
+
+    # Prepare based_on items
+    based_on_items =
+      Enum.map(based_on, fn based_item ->
+        based_item
+        |> Map.from_struct()
+        |> Map.drop([:__meta__, :__struct__, :embedding, :library, :server])
+      end)
+
+    # Add similarity score and based_on information to the response
+    item_map
+    |> Map.put(:similarity, similarity)
+    |> Map.put(:based_on, based_on_items)
+  end
+
+  # Handle the original format with just similarity score (for backward compatibility)
   defp prepare_item_for_json(%{item: item, similarity: similarity}) do
     # Handle the case where item is wrapped with similarity score
     item_map =

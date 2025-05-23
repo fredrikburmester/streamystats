@@ -266,23 +266,26 @@ defmodule StreamystatServer.Workers.SyncTask do
 
   defp try_embed_items do
     try do
-      # Get servers with auto_generate_embeddings enabled and OpenAI API token
-      servers_with_tokens =
+      # Get servers with auto_generate_embeddings enabled and valid embedding configuration
+      servers_with_config =
         Repo.all(
           from(s in StreamystatServer.Servers.Models.Server,
-            where: s.auto_generate_embeddings == true and not is_nil(s.open_ai_api_token),
-            select: {s.id, s.open_ai_api_token}
+            where: s.auto_generate_embeddings == true and
+                   (not is_nil(s.open_ai_api_token) or
+                    not is_nil(s.ollama_base_url) or
+                    not is_nil(s.ollama_model)),
+            select: s
           )
         )
 
-      if Enum.empty?(servers_with_tokens) do
-        Logger.info("No servers with auto_generate_embeddings enabled. Skipping batch embeddings.")
+      if Enum.empty?(servers_with_config) do
+        Logger.info("No servers with auto_generate_embeddings enabled and valid configuration. Skipping batch embeddings.")
       else
-        Logger.info("Starting batch embedding for #{length(servers_with_tokens)} servers with auto_generate_embeddings enabled")
+        Logger.info("Starting batch embedding for #{length(servers_with_config)} servers with auto_generate_embeddings enabled")
 
         # Process each enabled server
-        Enum.each(servers_with_tokens, fn {server_id, token} ->
-          case StreamystatServer.BatchEmbedder.get_embedding_process(server_id) do
+        Enum.each(servers_with_config, fn server ->
+          case StreamystatServer.BatchEmbedder.get_embedding_process(server.id) do
             nil ->
               # No process running, check if there are items that need embeddings
               items_count =
@@ -290,25 +293,25 @@ defmodule StreamystatServer.Workers.SyncTask do
                   from(i in Item,
                     where: is_nil(i.embedding) and
                           i.type == "Movie" and
-                          i.server_id == ^server_id,
+                          i.server_id == ^server.id,
                     select: count()
                   )
                 )
 
               if items_count > 0 do
-                Logger.info("Starting batch embedding for server #{server_id} (#{items_count} items need embeddings)")
-                StreamystatServer.BatchEmbedder.start_embed_items_for_server(server_id, token)
+                Logger.info("Starting batch embedding for server #{server.id} (#{items_count} items need embeddings)")
+                StreamystatServer.BatchEmbedder.start_embed_items_for_server(server.id)
               else
-                Logger.info("No items need embeddings for server #{server_id}")
+                Logger.info("No items need embeddings for server #{server.id}")
               end
 
             pid ->
               # Process already running
               if Process.alive?(pid) do
-                Logger.info("Embeddings already running for server #{server_id}")
+                Logger.info("Embeddings already running for server #{server.id}")
               else
                 # Process is dead but not unregistered, clean up
-                StreamystatServer.BatchEmbedder.unregister_embedding_process(server_id)
+                StreamystatServer.BatchEmbedder.unregister_embedding_process(server.id)
               end
           end
         end)

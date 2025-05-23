@@ -1,8 +1,9 @@
 defmodule StreamystatServer.BatchEmbedder do
   alias StreamystatServer.Repo
   alias StreamystatServer.Jellyfin.Models.Item
-  alias StreamystatServer.EmbeddingProvider.OpenAI
-  alias StreamystatServer.Servers
+  alias StreamystatServer.Embeddings
+  alias StreamystatServer.Servers.Models.Server
+  alias StreamystatServer.Servers.Servers
   require Logger
   import Ecto.Query
 
@@ -118,7 +119,7 @@ defmodule StreamystatServer.BatchEmbedder do
   end
 
   # Start embedding process for a specific server with better error handling
-  def start_embed_items_for_server(server_id, token) do
+  def start_embed_items_for_server(server_id) do
     # First ensure tables exist
     ensure_table_exists()
 
@@ -127,7 +128,7 @@ defmodule StreamystatServer.BatchEmbedder do
       nil ->
         # Start a new process and track its PID
         {:ok, pid} = Task.start(fn ->
-          embed_items_for_server(server_id, token)
+          embed_items_for_server(server_id)
         end)
 
         # Register the process in our ETS table
@@ -145,7 +146,7 @@ defmodule StreamystatServer.BatchEmbedder do
         else
           # Process is dead but not unregistered, clean up and start a new one
           unregister_embedding_process(server_id)
-          start_embed_items_for_server(server_id, token)
+          start_embed_items_for_server(server_id)
         end
     end
   end
@@ -221,7 +222,7 @@ defmodule StreamystatServer.BatchEmbedder do
   end
 
   # The main embedding function that processes items for a server
-  def embed_items_for_server(server_id, token) do
+  def embed_items_for_server(server_id) do
     # Start tracking progress
     start_progress_tracking(server_id)
 
@@ -229,6 +230,18 @@ defmodule StreamystatServer.BatchEmbedder do
     initialize_progress_counter()
 
     try do
+      # Get server configuration
+      server = Servers.get_server(server_id)
+      if !server do
+        raise "Server not found: #{server_id}"
+      end
+
+      # Validate server has embedding configuration
+      case validate_server_embedding_config(server) do
+        :ok -> :ok
+        {:error, reason} -> raise reason
+      end
+
       # Get total count of ALL movies for this server
       total_movies_count =
         Repo.one(
@@ -316,7 +329,7 @@ defmodule StreamystatServer.BatchEmbedder do
           end)
           update_progress(server_id, total_movies_count, processed)
 
-          case embed_batch_with_direct_api(batch, token) do
+          case embed_batch_with_direct_api(batch, server) do
             :ok -> :ok
             {:error, reason} ->
               Logger.error("Failed to embed batch: #{inspect(reason)}")
@@ -348,6 +361,28 @@ defmodule StreamystatServer.BatchEmbedder do
         # Clean up the process registry since we're exiting with an error
         unregister_embedding_process(server_id)
         {:error, Exception.message(e)}
+    end
+  end
+
+  # Validate server has proper embedding configuration
+  defp validate_server_embedding_config(server) do
+    case server.embedding_provider || "openai" do
+      "openai" ->
+        if server.open_ai_api_token do
+          :ok
+        else
+          {:error, "OpenAI API token not configured for this server"}
+        end
+
+      "ollama" ->
+        if server.ollama_base_url || server.ollama_model do
+          :ok
+        else
+          {:error, "Ollama configuration not set for this server"}
+        end
+
+      _ ->
+        {:error, "Invalid embedding provider configured"}
     end
   end
 
@@ -388,7 +423,7 @@ defmodule StreamystatServer.BatchEmbedder do
   end
 
   # Update the batch processing function
-  defp embed_batch_with_direct_api(items, token) do
+  defp embed_batch_with_direct_api(items, server) do
     # Extract texts for all items in batch
     texts_with_items = Enum.map(items, fn item -> {build_text(item), item} end)
 
@@ -405,8 +440,8 @@ defmodule StreamystatServer.BatchEmbedder do
       Logger.warning("No valid texts found in batch of #{length(items)} items")
       :ok
     else
-      # Use the OpenAI batch embedding functionality with the server's token
-      case OpenAI.embed_batch(valid_texts, token) do
+      # Use the embedding provider based on server configuration
+      case Embeddings.embed_batch(valid_texts, server) do
         {:ok, embeddings} ->
           # Process successful results
           Enum.zip(valid_items, embeddings)
@@ -436,7 +471,7 @@ defmodule StreamystatServer.BatchEmbedder do
 
           # Fall back to processing items individually
           Enum.each(valid_items, fn item ->
-            embed_single_item(item, token)
+            embed_single_item(item, server)
             # Add a small delay between individual requests
             Process.sleep(200)
           end)
@@ -446,12 +481,12 @@ defmodule StreamystatServer.BatchEmbedder do
   end
 
   # Process a single item as a fallback
-  defp embed_single_item(item, token) do
+  defp embed_single_item(item, server) do
     text = build_text(item)
 
     if text != nil && text != "" do
       try do
-        case OpenAI.embed(text, token) do
+        case Embeddings.embed(text, server) do
           {:ok, embedding} ->
             # Ensure embedding is a raw list before validation
             embedding_data = case embedding do

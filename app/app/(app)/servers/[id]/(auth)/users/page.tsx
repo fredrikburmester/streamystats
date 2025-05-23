@@ -19,7 +19,7 @@ export default async function UsersPage({
   const users = await getUsers(server.id);
 
   return (
-    <Container>
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       <PageTitle title="Users" />
       <UserTable data={users} server={server} />
     </Container>
