@@ -25,6 +25,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Item, Server } from "@/lib/db";
 import { Clock, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 interface Props {
   data: Item[];
@@ -250,7 +251,11 @@ export const SimilarStatstics = ({ data, server }: Props) => {
 
                               <a
                                 className="mt-4 inline-flex items-center gap-2 text-zinc-400 hover:text-zinc-200 underline text-sm"
-                                href={`${server.url}/web/index.html#!/details?id=${item.jellyfin_id}`}
+                                href={`${getExternalUrl(
+                                  server
+                                )}/web/index.html#!/details?id=${
+                                  item.jellyfin_id
+                                }`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >

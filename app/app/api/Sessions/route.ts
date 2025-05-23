@@ -130,13 +130,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    const response = await fetch(`${server.url}/Sessions`, {
-      method: "GET",
-      headers: {
-        "X-Emby-Token": server.api_key,
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await fetch(
+      `${server.external_url || server.url}/Sessions`,
+      {
+        method: "GET",
+        headers: {
+          "X-Emby-Token": server.api_key,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     // Pass through the actual status code from Jellyfin for better error handling on the client
     if (!response.ok) {

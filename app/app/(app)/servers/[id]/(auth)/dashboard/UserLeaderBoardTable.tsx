@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { UserLeaderboardFilter } from "./UserLeaderBoardFilter";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 interface Props {
   users: User[];
@@ -97,7 +98,7 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
                     >
                       <JellyfinAvatar
                         user={user}
-                        serverUrl={server.url}
+                        serverUrl={getExternalUrl(server)}
                         className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
                       />
                       <span className="transition-colors duration-200 group-hover:text-primary">

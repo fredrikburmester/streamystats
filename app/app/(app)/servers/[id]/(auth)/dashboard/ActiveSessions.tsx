@@ -40,6 +40,7 @@ import { Poster } from "./Poster";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 // Utility: show seconds ago if < 60s, else use formatDistanceToNow
 function formatDistanceWithSeconds(date: Date) {
@@ -215,7 +216,7 @@ export function ActiveSessions({ server }: { server: Server }) {
                         >
                           <JellyfinAvatar
                             user={session.user}
-                            serverUrl={server.url}
+                            serverUrl={getExternalUrl(server)}
                             className="h-6 w-6 rounded-lg transition-transform duration-200 group-hover:scale-110"
                           />
                           <span className="text-sm font-medium transition-colors duration-200 group-hover:text-primary">

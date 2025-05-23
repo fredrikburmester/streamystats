@@ -6,7 +6,7 @@ defmodule StreamystatServer.Auth do
   require Logger
 
   def authenticate_user(%Server{} = server, username, password) do
-    url = "#{server.url}/Users/AuthenticateByName"
+    url = "#{Server.get_internal_url(server)}/Users/AuthenticateByName"
     body = Jason.encode!(%{Username: username, Pw: password})
 
     headers = [
@@ -14,7 +14,7 @@ defmodule StreamystatServer.Auth do
       {"X-Emby-Authorization", generate_emby_authorization_header()}
     ]
 
-    Logger.debug("Authenticating user: #{username} with server: #{server.url}")
+    Logger.debug("Authenticating user: #{username} with server: #{Server.get_internal_url(server)}")
 
     case HttpClient.post(url, body, headers) do
       {:ok, %{status_code: 200, body: response_body}} ->
@@ -35,7 +35,7 @@ defmodule StreamystatServer.Auth do
   end
 
   def verify_token(%Server{} = server, token) do
-    url = "#{server.url}/Users/Me"
+    url = "#{Server.get_internal_url(server)}/Users/Me"
 
     headers = [
       {"X-Emby-Token", token},
@@ -75,14 +75,14 @@ defmodule StreamystatServer.Auth do
 
   def get_user_info(%Server{} = server, jellyfin_user_id) do
     user = Repo.get_by(User, jellyfin_id: jellyfin_user_id)
-    url = "#{server.url}/Users/#{user.jellyfin_id}"
+    url = "#{Server.get_internal_url(server)}/Users/#{user.jellyfin_id}"
 
     headers = [
       {"X-Emby-Token", server.api_key},
       {"Content-Type", "application/json"}
     ]
 
-    Logger.debug("Fetching user info from server: #{server.url}")
+    Logger.debug("Fetching user info from server: #{Server.get_internal_url(server)}")
 
     case HttpClient.get(url, headers) do
       {:ok, %{status_code: 200, body: response_body}} ->

@@ -1,5 +1,6 @@
 defmodule StreamystatServer.Jellyfin.Client do
   use HTTPoison.Base
+  alias StreamystatServer.Servers.Models.Server
 
   def process_url(url) do
     url
@@ -57,7 +58,7 @@ defmodule StreamystatServer.Jellyfin.Client do
   ]
 
   def get_users(server) do
-    url = "#{server.url}/Users"
+    url = "#{StreamystatServer.Servers.Models.Server.get_internal_url(server)}/Users"
     headers = process_request_headers([], server.api_key)
 
     http_options = [
@@ -81,7 +82,7 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   def get_libraries(server) do
-    url = "#{server.url}/Library/MediaFolders"
+    url = "#{Server.get_internal_url(server)}/Library/MediaFolders"
     headers = process_request_headers([], server.api_key)
 
     http_options = [
@@ -115,7 +116,7 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   def get_item(server, item_id) do
-    url = "#{server.url}/Items/#{item_id}"
+    url = "#{Server.get_internal_url(server)}/Items/#{item_id}"
     headers = process_request_headers([], server.api_key)
 
     params = %{
@@ -162,7 +163,7 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   defp find_library_recursive(server, item_id, library_ids) do
-    url = "#{server.url}/Items"
+    url = "#{Server.get_internal_url(server)}/Items"
     headers = process_request_headers([], server.api_key)
     params = %{Fields: "ParentId", ids: item_id}
 
@@ -229,7 +230,7 @@ defmodule StreamystatServer.Jellyfin.Client do
       "Limit" => "#{limit}"
     }
 
-    url = "#{server.url}/Items"
+    url = "#{Server.get_internal_url(server)}/Items"
     headers = process_request_headers([], server.api_key)
 
     http_options = [
@@ -269,7 +270,7 @@ defmodule StreamystatServer.Jellyfin.Client do
       "Limit" => "#{limit}"
     }
 
-    url = "#{server.url}/Items"
+    url = "#{Server.get_internal_url(server)}/Items"
     headers = process_request_headers([], server.api_key)
 
     http_options = [
@@ -299,7 +300,7 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   def get_items_page(server, library_id, start_index, limit, image_types \\ nil) do
-    url = "#{server.url}/Items"
+    url = "#{Server.get_internal_url(server)}/Items"
     headers = process_request_headers([], server.api_key)
 
     params = %{
@@ -360,7 +361,7 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   def get_installed_plugins(server) do
-    url = "#{server.url}/Plugins"
+    url = "#{Server.get_internal_url(server)}/Plugins"
     headers = process_request_headers([], server.api_key)
 
     http_options = [
@@ -384,7 +385,7 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   def get_user(server, user_id) do
-    url = "#{server.url}/Users/#{user_id}"
+    url = "#{Server.get_internal_url(server)}/Users/#{user_id}"
     headers = process_request_headers([], server.api_key)
 
     http_options = [
@@ -408,7 +409,7 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   def get_activities(server, start_index, limit) do
-    url = "#{server.url}/System/ActivityLog/Entries"
+    url = "#{Server.get_internal_url(server)}/System/ActivityLog/Entries"
     headers = process_request_headers([], server.api_key)
     params = [startIndex: start_index, limit: limit]
 

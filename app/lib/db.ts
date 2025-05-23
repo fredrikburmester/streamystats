@@ -9,6 +9,8 @@ export type Server = {
   id: number;
   name: string;
   url: string;
+  internal_url?: string;
+  external_url?: string;
   admin_id: string;
   api_key: string;
   open_ai_api_token?: string;
@@ -18,6 +20,19 @@ export type Server = {
   ollama_model?: string;
   embedding_provider?: "openai" | "ollama";
 };
+
+/**
+ * Gets the external URL for user-facing requests (images, direct links).
+ * Falls back to the legacy URL field if external_url is not set.
+ */
+
+
+/**
+ * Gets the internal URL for server-to-server communication.
+ * Falls back to the legacy URL field if internal_url is not set.
+ * Note: This is primarily used by the backend, but available for completeness.
+ */
+
 
 export type SyncTask = {
   id: number;
@@ -253,17 +268,29 @@ export const getActiveSessions = async (
 
 export const createServer = async (
   url: string,
-  api_key: string
+  api_key: string,
+  internal_url?: string,
+  external_url?: string
 ): Promise<Server> => {
+  const requestBody: any = {
+    url,
+    api_key,
+  };
+
+  if (internal_url) {
+    requestBody.internal_url = internal_url;
+  }
+
+  if (external_url) {
+    requestBody.external_url = external_url;
+  }
+
   const result = await fetch(`${process.env.API_URL}/servers`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      url,
-      api_key,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!result.ok) {

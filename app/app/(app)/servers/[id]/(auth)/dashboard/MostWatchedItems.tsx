@@ -17,6 +17,7 @@ import { MoreHorizontal, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Poster } from "./Poster";
 import { usePersistantState } from "@/hooks/usePersistantState";
+import { getExternalUrl } from "@/utils/getServerUrl";
 
 interface Props {
   data: Statistics["most_watched_items"];
@@ -73,7 +74,9 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
         {items?.slice(0, 5).map((item, index) => (
           <a
             key={`${type}-${item.jellyfin_id || item.id || index}`}
-            href={`${server.url}/web/#/details?id=${item.jellyfin_id}`}
+            href={`${getExternalUrl(server)}/web/#/details?id=${
+              item.jellyfin_id
+            }`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex flex-row items-center px-2 py-2 min-h-[120px] rounded-lg border border-border bg-card shadow-sm transition-transform transition-colors duration-200 hover:scale-[1.01] hover:bg-accent/60 group"
