@@ -40,6 +40,38 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     end
   end
 
+  def user_activity(conn, params) do
+    end_date = params["end_date"] || Date.utc_today() |> Date.to_iso8601()
+
+    start_date =
+      params["start_date"] || Date.add(Date.from_iso8601!(end_date), -30) |> Date.to_iso8601()
+
+    server_id = params["server_id"]
+    current_user = conn.assigns.current_user
+
+    with {:ok, start_date} <- Date.from_iso8601(start_date),
+         {:ok, end_date} <- Date.from_iso8601(end_date) do
+      user_activity_stats =
+        if is_admin?(current_user) do
+          Statistics.get_user_activity_stats(start_date, end_date, server_id)
+        else
+          Statistics.get_user_activity_stats(
+            start_date,
+            end_date,
+            server_id,
+            current_user["Id"]
+          )
+        end
+
+      render(conn, :user_activity, user_activity_stats: user_activity_stats)
+    else
+      {:error, _} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "Invalid date format. Please use ISO 8601 (YYYY-MM-DD)."})
+    end
+  end
+
   def index(conn, params) do
     end_date = params["end_date"] || Date.utc_today() |> Date.to_iso8601()
 

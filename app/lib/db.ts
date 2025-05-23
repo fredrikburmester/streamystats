@@ -982,3 +982,54 @@ export const syncUsersTask = (serverId: number): Promise<void> => {
 export const syncLibrariesTask = (serverId: number): Promise<void> => {
   return executeSyncTask(serverId, "/libraries");
 };
+
+export type UserActivityPerDay = {
+  date: string;
+  active_users: number;
+}[];
+
+export const getUserActivityStatistics = async (
+  serverId: number,
+  startDate: string,
+  endDate: string
+): Promise<UserActivityPerDay | null> => {
+  try {
+    if (!startDate || !endDate) {
+      return null;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      return null;
+    }
+
+    if (new Date(endDate) > new Date()) {
+      return null;
+    }
+
+    const queryParams = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+    });
+
+    const res = await fetch(
+      `${process.env.API_URL}/servers/${serverId}/statistics/user_activity?${queryParams}`,
+      {
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+          "Content-Type": "application/json",
+        },
+        next: {
+          revalidate: 60 * 1, // 1 minute
+        },
+      }
+    );
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+    return data.data as UserActivityPerDay;
+  } catch (e) {
+    return null;
+  }
+};

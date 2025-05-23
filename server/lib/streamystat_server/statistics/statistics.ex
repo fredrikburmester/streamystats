@@ -1210,4 +1210,57 @@ defmodule StreamystatServer.Statistics.Statistics do
     end)
     |> Enum.sort_by(& &1.count, :desc)
   end
+
+  def get_user_activity_stats(start_date, end_date, server_id, user_id \\ nil) do
+    start_datetime = to_datetime(start_date)
+    end_datetime = to_datetime(end_date, :end_of_day)
+
+    # Base query for playback sessions within date range
+    query =
+      from(ps in PlaybackSession,
+        where: ps.start_time >= ^start_datetime and ps.start_time <= ^end_datetime,
+        where: ps.server_id == ^server_id
+      )
+
+    # Apply user scoping if needed (for non-admin users)
+    query = apply_user_scope(query, user_id)
+
+    # Get unique users per day
+    user_activity_data =
+      query
+      |> group_by([ps], fragment("date_trunc('day', ?)", ps.start_time))
+      |> select([ps], %{
+        date: fragment("date_trunc('day', ?)", ps.start_time),
+        active_users: fragment("COUNT(DISTINCT ?)", ps.user_jellyfin_id)
+      })
+      |> order_by([ps], asc: fragment("date_trunc('day', ?)", ps.start_time))
+      |> Repo.all()
+
+    # Format data for the frontend
+    formatted_data =
+      user_activity_data
+      |> Enum.map(fn activity ->
+        # Fix: Handle both DateTime and NaiveDateTime properly
+        date_value =
+          case activity.date do
+            %DateTime{} ->
+              DateTime.to_date(activity.date)
+
+            %NaiveDateTime{} ->
+              NaiveDateTime.to_date(activity.date)
+
+            other ->
+              # Log unexpected format and return a fallback
+              Logger.error("Unexpected datetime format in user activity: #{inspect(other)}")
+              Date.utc_today()
+          end
+
+        %{
+          date: Date.to_iso8601(date_value),
+          active_users: activity.active_users
+        }
+      end)
+
+    %{user_activity_per_day: formatted_data}
+  end
 end
