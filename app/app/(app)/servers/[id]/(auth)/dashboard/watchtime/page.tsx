@@ -38,7 +38,7 @@ export default async function WatchtimePage({
   const _endDate = endDate || new Date().toISOString().split("T")[0];
 
   return (
-    <Container>
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       <PageTitle title="Watchtime Statistics" />
       <Suspense fallback={<Skeleton className="h-48 w-full" />}>
         <WatchtimeStats

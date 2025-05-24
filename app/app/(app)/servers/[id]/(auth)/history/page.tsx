@@ -21,7 +21,7 @@ export default async function HistoryPage({
 
   const data = await getStatisticsHistory(server.id, page);
   return (
-    <Container>
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       <PageTitle title="History" />
       <HistoryTable data={data} server={server} />
     </Container>

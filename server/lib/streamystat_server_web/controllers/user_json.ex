@@ -48,6 +48,7 @@ defmodule StreamystatServerWeb.UserJSON do
     |> Map.put(:watch_stats, watch_stats(params))
     |> Map.put(:watch_history, params[:watch_history] || [])
     |> Map.put(:watch_time_per_day, params[:watch_time_per_day] || [])
+    |> Map.put(:watch_time_per_weekday, params[:watch_time_per_weekday] || [])
     |> Map.put(:genre_stats, params[:genre_stats] || [])
     |> Map.put(:longest_streak, params[:longest_streak] || 0)
   end

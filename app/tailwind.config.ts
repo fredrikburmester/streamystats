@@ -9,12 +9,12 @@ const config: Config = {
   ],
   theme: {
     screens: {
-      'xs': '480px',
-      'sm': '640px',
-      'md': '768px',
-      'lg': '1024px',
-      'xl': '1280px',
-      '2xl': '1536px',
+      xs: "480px",
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
     },
     extend: {
       colors: {
@@ -52,11 +52,11 @@ const config: Config = {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         chart: {
-          "1": "hsl(var(--chart-1))",
-          "2": "hsl(var(--chart-2))",
-          "3": "hsl(var(--chart-3))",
-          "4": "hsl(var(--chart-4))",
-          "5": "hsl(var(--chart-5))",
+          1: "hsl(var(--chart-1))",
+          2: "hsl(var(--chart-2))",
+          3: "hsl(var(--chart-3))",
+          4: "hsl(var(--chart-4))",
+          5: "hsl(var(--chart-5))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
@@ -100,4 +100,5 @@ const config: Config = {
   },
   plugins: [require("tailwindcss-animate")],
 };
+
 export default config;

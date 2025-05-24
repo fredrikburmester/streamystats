@@ -24,7 +24,11 @@ defmodule StreamystatServerWeb.ServerJSON do
       open_ai_api_token: server.open_ai_api_token,
       auto_generate_embeddings: server.auto_generate_embeddings,
       inserted_at: server.inserted_at,
-      updated_at: server.updated_at
+      updated_at: server.updated_at,
+      ollama_api_token: server.ollama_api_token,
+      ollama_base_url: server.ollama_base_url,
+      ollama_model: server.ollama_model,
+      embedding_provider: server.embedding_provider
     }
   end
 end

@@ -390,4 +390,35 @@ defmodule StreamystatServer.Contexts.Users do
       max(max_streak, current_streak)
     end)
   end
+
+  # Returns a list of %{day_of_week: 1..7, total_duration: int} for the user, for the last 30 days
+  def get_user_watch_time_per_weekday(server_id, user_jellyfin_id) do
+    user = get_user(server_id, user_jellyfin_id)
+    user_jellyfin_id = user && user.jellyfin_id
+
+    if user_jellyfin_id do
+      thirty_days_ago = Date.add(Date.utc_today(), -30)
+
+      from(ps in PlaybackSession,
+        where:
+          ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id and
+            fragment("date(?)", ps.start_time) >= ^thirty_days_ago,
+        group_by: fragment("EXTRACT(DOW FROM ?)", ps.start_time),
+        select: %{
+          day_of_week: fragment("EXTRACT(DOW FROM ?)", ps.start_time),
+          total_duration: sum(ps.play_duration)
+        },
+        order_by: fragment("EXTRACT(DOW FROM ?)", ps.start_time)
+      )
+      |> Repo.all()
+      |> Enum.map(fn %{day_of_week: dow, total_duration: duration} ->
+        # Postgres DOW: 0=Sunday, 1=Monday, ..., 6=Saturday. Convert to 1=Mon, ..., 7=Sun
+        day = if dow == 0, do: 7, else: dow
+        %{day_of_week: day, total_duration: duration}
+      end)
+      |> Enum.sort_by(& &1.day_of_week)
+    else
+      []
+    end
+  end
 end

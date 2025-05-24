@@ -46,45 +46,48 @@ defmodule StreamystatServer.Workers.AutoEmbedder do
   end
 
   def auto_generate_embeddings do
-    # Find servers with auto_generate_embeddings enabled
+    # Find servers with auto_generate_embeddings enabled and valid embedding configuration
     servers_query = from(s in Server,
-      where: s.auto_generate_embeddings == true and not is_nil(s.open_ai_api_token),
-      select: {s.id, s.open_ai_api_token})
+      where: s.auto_generate_embeddings == true and
+             (not is_nil(s.open_ai_api_token) or
+              not is_nil(s.ollama_base_url) or
+              not is_nil(s.ollama_model)),
+      select: s)
 
-    servers_with_tokens = Repo.all(servers_query)
+    servers_with_config = Repo.all(servers_query)
 
-    if Enum.empty?(servers_with_tokens) do
-      Logger.info("No servers with auto_generate_embeddings enabled")
+    if Enum.empty?(servers_with_config) do
+      Logger.info("No servers with auto_generate_embeddings enabled and valid configuration")
     else
-      Logger.info("Found #{length(servers_with_tokens)} server(s) with auto_generate_embeddings enabled")
+      Logger.info("Found #{length(servers_with_config)} server(s) with auto_generate_embeddings enabled")
 
       # Process each server
-      Enum.each(servers_with_tokens, fn {server_id, token} ->
+      Enum.each(servers_with_config, fn server ->
         # Check if embedding is already running for this server
-        case BatchEmbedder.get_embedding_process(server_id) do
+        case BatchEmbedder.get_embedding_process(server.id) do
           nil ->
             # No current embedding process, check if there are new items without embeddings
             items_count =
               Repo.one(from(i in Item,
                 where: is_nil(i.embedding) and
                       i.type == "Movie" and
-                      i.server_id == ^server_id,
+                      i.server_id == ^server.id,
                 select: count()))
 
             if items_count > 0 do
-              Logger.info("Starting auto-embedding for server #{server_id}, #{items_count} items need embeddings")
-              BatchEmbedder.start_embed_items_for_server(server_id, token)
+              Logger.info("Starting auto-embedding for server #{server.id}, #{items_count} items need embeddings")
+              BatchEmbedder.start_embed_items_for_server(server.id)
             else
-              Logger.info("No new items to embed for server #{server_id}")
+              Logger.info("No new items to embed for server #{server.id}")
             end
 
           pid ->
             # Process already running
             if Process.alive?(pid) do
-              Logger.info("Embeddings already running for server #{server_id}")
+              Logger.info("Embeddings already running for server #{server.id}")
             else
               # Process is dead but not unregistered, clean up and start a new one
-              BatchEmbedder.unregister_embedding_process(server_id)
+              BatchEmbedder.unregister_embedding_process(server.id)
               auto_generate_embeddings()
             end
         end

@@ -144,7 +144,7 @@ export const SideBar: React.FC<Props> = ({
   }, [me]);
 
   return (
-    <Sidebar>
+    <Sidebar variant="sidebar">
       <SidebarContent>
         <SidebarGroup>
           <ServerSelector

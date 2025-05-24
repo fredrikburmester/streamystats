@@ -1,21 +1,19 @@
 defmodule StreamystatServerWeb.ActiveSessionsController do
   use StreamystatServerWeb, :controller
-  alias StreamystatServer.Contexts.ActiveSessions
   require Logger
+  alias StreamystatServer.Servers.Models.Server
+  alias StreamystatServer.Repo
+  alias StreamystatServer.Jellyfin.Models.User
+  alias StreamystatServer.Jellyfin.Models.Item
 
   def index(conn, %{"server_id" => server_id}) do
     current_user = conn.assigns.current_user
-
-    # If the user is an admin, get all sessions
-    # If not, only get sessions for this user
-    sessions =
-      if is_admin?(current_user) do
-        ActiveSessions.list_active_sessions(server_id)
-      else
-        ActiveSessions.list_user_active_sessions(server_id, current_user["Id"])
-      end
-
-    render(conn, :index, active_sessions: sessions)
+    
+    # NOTE: This functionality has been moved to the NextJS API route app/app/api/Sessions/route.ts
+    # The frontend now fetches sessions directly from Jellyfin
+    # This endpoint is kept for backward compatibility but returns an empty list
+    
+    render(conn, :index, active_sessions: [])
   end
 
   defp is_admin?(user) do

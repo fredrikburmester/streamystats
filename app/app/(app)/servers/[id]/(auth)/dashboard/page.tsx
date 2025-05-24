@@ -17,6 +17,7 @@ import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { SimilarStatstics } from "./SimilarStatstics";
 import { MostWatchedItems } from "./MostWatchedItems";
 import { UserLeaderboard } from "./UserLeaderboard";
+import { UserActivityWrapper } from "./UserActivityWrapper";
 
 interface ServerWithStats extends Server {
   statistics?: Statistics;
@@ -48,7 +49,7 @@ export default async function DashboardPage({
   const _endDate = endDate || new Date().toISOString().split("T")[0];
 
   return (
-    <Container>
+    <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">
       {isAdmin && (
         <div className="mb-8">
           <ActiveSessions server={server} />
@@ -98,6 +99,9 @@ async function GeneralStats({
         <MostWatchedItems data={mostWatchedItems} server={server} />
       </Suspense>
       {isAdmin ? <UserLeaderboard server={server} /> : null}
+      <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+        <UserActivityWrapper server={server} />
+      </Suspense>
     </div>
   );
 }

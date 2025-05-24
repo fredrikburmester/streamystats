@@ -8,7 +8,7 @@ export const getSimilarStatistics = async (
 ): Promise<Item[]> => {
   try {
     const res = await fetch(
-      `${process.env.API_URL}/servers/${serverId}/statistics/recommendations/me`,
+      `${process.env.API_URL}/servers/${serverId}/statistics/recommendations/me?limit=20`,
       {
         headers: {
           Authorization: `Bearer ${await getToken()}`,
@@ -28,6 +28,7 @@ export const getSimilarStatistics = async (
     }
 
     const data = await res.json();
+    console.log(data);
     return data.data || [];
   } catch (error) {
     console.error("Error fetching similar statistics:", error);

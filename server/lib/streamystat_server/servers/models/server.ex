@@ -17,6 +17,10 @@ defmodule StreamystatServer.Servers.Models.Server do
           startup_wizard_completed: boolean() | nil,
           open_ai_api_token: String.t() | nil,
           auto_generate_embeddings: boolean() | nil,
+          ollama_api_token: String.t() | nil,
+          ollama_base_url: String.t() | nil,
+          ollama_model: String.t() | nil,
+          embedding_provider: String.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -35,6 +39,10 @@ defmodule StreamystatServer.Servers.Models.Server do
     field(:open_ai_api_token, :string)
     field(:auto_generate_embeddings, :boolean, default: false)
     field(:last_synced_playback_id, :integer, default: 0)
+    field(:ollama_api_token, :string)
+    field(:ollama_base_url, :string, default: "http://localhost:11434")
+    field(:ollama_model, :string, default: "nomic-embed-text")
+    field(:embedding_provider, :string, default: "openai")
     timestamps()
   end
 
@@ -53,9 +61,14 @@ defmodule StreamystatServer.Servers.Models.Server do
       :api_key,
       :open_ai_api_token,
       :auto_generate_embeddings,
-      :last_synced_playback_id
+      :last_synced_playback_id,
+      :ollama_api_token,
+      :ollama_base_url,
+      :ollama_model,
+      :embedding_provider
     ])
     |> validate_required([:url, :api_key])
+    |> validate_inclusion(:embedding_provider, ["openai", "ollama"])
     |> unique_constraint(:url)
   end
 end

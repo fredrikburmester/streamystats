@@ -33,6 +33,7 @@ defmodule StreamystatServer.SessionAnalysis do
   - Adds weighting based on watch completion percentage
   - Adds genre filtering option
   - Adds caching mechanism
+  - Returns "based on" information showing which movies contributed to each recommendation
   """
   def find_similar_items_for_user(user_id, opts \\ []) do
     opts = if Keyword.keyword?(opts), do: opts, else: [limit: opts]
@@ -88,10 +89,34 @@ defmodule StreamystatServer.SessionAnalysis do
           query = build_similarity_query(weighted_embedding, watched_item_ids, limit, genre_filter, server_id, library_id)
           similar_items = Repo.all(query)
 
-          # Store in cache
-          put_in_cache(cache_key, similar_items, @cache_ttl)
+          # For each recommendation, find the top 3 watched movies it's most similar to
+          recommendations_with_based_on =
+            Enum.map(similar_items, fn %{item: recommended_item, similarity: similarity} ->
+              # Calculate similarity between this recommendation and each watched item
+              watched_similarities =
+                Enum.map(items_only, fn watched_item ->
+                  item_similarity = calculate_similarity(recommended_item.embedding, watched_item.embedding)
+                  weight = Map.get(watched_data, watched_item.jellyfin_id, 0.5)
+                  # Combine similarity with user's engagement (watch completion)
+                  weighted_similarity = item_similarity * (0.7 + weight * 0.3)
+                  %{item: watched_item, similarity: weighted_similarity}
+                end)
+                |> Enum.sort_by(& &1.similarity, :desc)
+                |> Enum.take(3)
 
-          similar_items
+              based_on_items = Enum.map(watched_similarities, & &1.item)
+
+              %{
+                item: recommended_item,
+                similarity: similarity,
+                based_on: based_on_items
+              }
+            end)
+
+          # Store in cache
+          put_in_cache(cache_key, recommendations_with_based_on, @cache_ttl)
+
+          recommendations_with_based_on
         end
       cached_results ->
         cached_results
@@ -289,6 +314,24 @@ defmodule StreamystatServer.SessionAnalysis do
       order_by: [desc: fragment("1 - (? <=> ?)", i.embedding, ^embedding)],
       limit: ^limit
     )
+  end
+
+  # Helper function to calculate cosine similarity between two embeddings
+  defp calculate_similarity(embedding1, embedding2) do
+    # Convert embeddings to list format if needed
+    vec1 = ensure_list_format(embedding1)
+    vec2 = ensure_list_format(embedding2)
+
+    # Calculate cosine similarity: (a · b) / (|a| * |b|)
+    dot_product = Enum.zip_with(vec1, vec2, fn a, b -> a * b end) |> Enum.sum()
+    magnitude1 = :math.sqrt(Enum.map(vec1, fn x -> x * x end) |> Enum.sum())
+    magnitude2 = :math.sqrt(Enum.map(vec2, fn x -> x * x end) |> Enum.sum())
+
+    if magnitude1 == 0 or magnitude2 == 0 do
+      0.0
+    else
+      dot_product / (magnitude1 * magnitude2)
+    end
   end
 
   # Cache functions

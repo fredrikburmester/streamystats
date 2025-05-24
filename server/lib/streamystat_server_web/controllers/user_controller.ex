@@ -26,6 +26,7 @@ defmodule StreamystatServerWeb.UserController do
       user ->
         watch_stats = Users.get_user_watch_stats(server_id, user.jellyfin_id)
         watch_time_per_day = Users.get_user_watch_time_per_day(server_id, user.jellyfin_id)
+        watch_time_per_weekday = Users.get_user_watch_time_per_weekday(server_id, user.jellyfin_id)
         genre_stats = Users.get_user_genre_watch_time(server_id, user.jellyfin_id)
         longest_streak = Users.get_user_longest_streak(user.jellyfin_id)
         watch_history = Users.get_user_watch_history(server_id, user.jellyfin_id, params)
@@ -34,6 +35,7 @@ defmodule StreamystatServerWeb.UserController do
           user: user,
           watch_stats: watch_stats,
           watch_time_per_day: watch_time_per_day,
+          watch_time_per_weekday: watch_time_per_weekday,
           genre_stats: genre_stats,
           longest_streak: longest_streak,
           watch_history: watch_history

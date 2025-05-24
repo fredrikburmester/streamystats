@@ -1,22 +1,30 @@
 "use client";
 
+import {
+  MorphingDialog,
+  MorphingDialogClose,
+  MorphingDialogContainer,
+  MorphingDialogContent,
+  MorphingDialogDescription,
+  MorphingDialogImage,
+  MorphingDialogSubtitle,
+  MorphingDialogTitle,
+  MorphingDialogTrigger,
+} from "@/components/motion-primitives/morphing-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Item, Server } from "@/lib/db";
-import { ChevronRight, Clock } from "lucide-react";
+import { Clock, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { Poster } from "./Poster";
 
 interface Props {
   data: Item[];
@@ -24,7 +32,6 @@ interface Props {
 }
 
 export const SimilarStatstics = ({ data, server }: Props) => {
-  const [showAllItems, setShowAllItems] = useState<Record<string, boolean>>({});
   const isMobile = useIsMobile();
 
   // Group items by type
@@ -34,8 +41,8 @@ export const SimilarStatstics = ({ data, server }: Props) => {
 
         acc[item.type] = acc[item.type] || [];
 
-        // Only add if we don't have 5 yet
-        if (acc[item.type].length < 5) {
+        // Only add if we don't have 20 yet
+        if (acc[item.type].length < 20) {
           acc[item.type].push(item);
         }
 
@@ -62,17 +69,10 @@ export const SimilarStatstics = ({ data, server }: Props) => {
     return `${minutes}m`;
   };
 
-  const toggleShowMore = (type: string) => {
-    setShowAllItems((prev) => ({
-      ...prev,
-      [type]: !prev[type],
-    }));
-  };
-
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="mb-0 pb-0">
           <CardTitle>Recommended Content</CardTitle>
           <CardDescription>No recommendations available yet</CardDescription>
         </CardHeader>
@@ -81,8 +81,8 @@ export const SimilarStatstics = ({ data, server }: Props) => {
   }
 
   return (
-    <Card className="flex-1">
-      <CardHeader className="p-4 sm:p-6">
+    <Card className="flex flex-col max-w-full">
+      <CardHeader className="px-4 sm:px-6 mb-0 pb-0">
         <CardTitle className="text-lg sm:text-xl">
           Recommended Content
         </CardTitle>
@@ -90,23 +90,11 @@ export const SimilarStatstics = ({ data, server }: Props) => {
           Based on your viewing habits
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-3 sm:p-6">
+      <CardContent className="px-5 m-0 pt-0 max-w-full overflow-hidden">
         <Tabs defaultValue={defaultTab}>
-          {/* <TabsList className="mb-4 w-full justify-start overflow-x-auto">
-            {types.map((type) => (
-              <TabsTrigger key={type} value={type.toLowerCase()} className="flex-shrink-0">
-                {type === "Movie" ? (
-                  <Film className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                ) : (
-                  <Tv className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                )}
-                <span className="truncate">{type}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList> */}
-
-          {!server.open_ai_api_token || server.open_ai_api_token === "" ? (
-            <div className="flex flex-col gap-2 mb-4 max-w-full">
+          {(!server.open_ai_api_token || server.open_ai_api_token === "") &&
+          server.embedding_provider === "openai" ? (
+            <div className="flex flex-col gap-2 max-w-full">
               <Link
                 href={`/servers/${server.id}/settings`}
                 className="w-full sm:w-auto"
@@ -123,61 +111,47 @@ export const SimilarStatstics = ({ data, server }: Props) => {
 
           {types.map((type) => (
             <TabsContent key={type} value={type.toLowerCase()} className="">
-              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
-                {groupedItems[type]
-                  .slice(
-                    0,
-                    showAllItems[type]
-                      ? groupedItems[type].length
-                      : isMobile
-                      ? 2
-                      : 3
-                  )
-                  .map((item) => (
-                    <Link
+              {/* Horizontal scrollable container */}
+              <div className="overflow-x-auto pt-4">
+                <div className="flex gap-4 min-w-full w-max">
+                  {groupedItems[type].map((item) => (
+                    <MorphingDialog
                       key={item.id}
-                      href={`${server.url}/web/index.html#!/details?id=${item.jellyfin_id}`}
-                      className="hover:opacity-50 transition-opacity"
+                      transition={{
+                        type: "spring",
+                        bounce: 0.05,
+                        duration: 0.25,
+                      }}
                     >
-                      <Card className="flex-shrink-0 h-full flex flex-col">
-                        <div className="relative h-32 sm:h-36 md:h-40 overflow-hidden">
-                          <Poster
-                            item={item}
-                            server={server}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-
-                        <CardHeader className="p-2 sm:p-3">
-                          <CardTitle className="text-sm sm:text-base truncate">
-                            {item.name}
-                          </CardTitle>
-                          <div className="flex gap-1 sm:gap-2 flex-wrap">
-                            {item.production_year && (
-                              <Badge variant="outline" className="text-xs">
-                                {item.production_year}
-                              </Badge>
-                            )}
-                            {item.runtime_ticks && (
-                              <Badge
-                                variant="outline"
-                                className="flex items-center gap-1 text-xs"
-                              >
-                                <Clock className="h-2.5 w-2.5" />
-                                {formatRuntime(Number(item.runtime_ticks))}
-                              </Badge>
-                            )}
+                      <MorphingDialogTrigger
+                        style={{
+                          borderRadius: "12px",
+                        }}
+                        className="flex w-[200px] sm:w-[240px] flex-col overflow-hidden border border-zinc-50/10 bg-zinc-900 hover:opacity-80 transition-opacity"
+                      >
+                        <MorphingDialogImage
+                          src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=300&quality=90`}
+                          alt={item.name || "Movie poster"}
+                          className="h-48 sm:h-56 w-full object-cover"
+                        />
+                        <div className="flex grow flex-col justify-between p-3">
+                          <div>
+                            <MorphingDialogTitle className="text-zinc-50 text-sm font-semibold truncate text-start">
+                              {item.name}
+                            </MorphingDialogTitle>
+                            <MorphingDialogSubtitle className="text-zinc-400 text-xs mt-1 text-start">
+                              {item.production_year}
+                              {item.runtime_ticks &&
+                                formatRuntime(Number(item.runtime_ticks)) && (
+                                  <>
+                                    {" "}
+                                    •{" "}
+                                    {formatRuntime(Number(item.runtime_ticks))}
+                                  </>
+                                )}
+                            </MorphingDialogSubtitle>
                           </div>
-                        </CardHeader>
-
-                        <CardContent className="px-2 sm:px-3 pb-1 flex-grow">
-                          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 sm:line-clamp-3">
-                            {item.overview || "No description available"}
-                          </p>
-                        </CardContent>
-
-                        <CardFooter className="px-2 sm:px-3 pb-2 sm:pb-3">
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-1 mt-2">
                             {item.genres?.slice(0, 2).map((genre) => (
                               <Badge
                                 key={genre}
@@ -188,31 +162,111 @@ export const SimilarStatstics = ({ data, server }: Props) => {
                               </Badge>
                             ))}
                           </div>
-                        </CardFooter>
-                      </Card>
-                    </Link>
-                  ))}
-              </div>
+                        </div>
+                      </MorphingDialogTrigger>
 
-              {groupedItems[type].length > (isMobile ? 2 : 3) && (
-                <div className="mt-4 flex justify-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleShowMore(type)}
-                    className="flex items-center gap-1 text-xs sm:text-sm w-full xs:w-auto"
-                  >
-                    {showAllItems[type]
-                      ? "Show less"
-                      : `See all ${groupedItems[type].length} recommendations`}
-                    <ChevronRight
-                      className={`h-3 w-3 transition-transform ${
-                        showAllItems[type] ? "rotate-90" : ""
-                      }`}
-                    />
-                  </Button>
+                      <MorphingDialogContainer>
+                        <MorphingDialogContent
+                          style={{
+                            borderRadius: "24px",
+                          }}
+                          className="pointer-events-auto relative flex h-auto w-full flex-col overflow-hidden border border-zinc-50/10 bg-zinc-900 sm:w-[500px] max-h-[90vh]"
+                        >
+                          <div className="flex-shrink-0">
+                            <MorphingDialogImage
+                              src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=400&quality=90`}
+                              alt={item.name || "Movie poster"}
+                              className="h-64 sm:h-80 w-full object-cover"
+                            />
+                          </div>
+
+                          <div className="p-6 flex-1 overflow-y-auto">
+                            <MorphingDialogTitle className="text-2xl text-zinc-50 font-bold">
+                              {item.name}
+                            </MorphingDialogTitle>
+
+                            <div className="flex gap-2 flex-wrap mt-2 mb-4">
+                              {item.production_year && (
+                                <Badge variant="outline" className="text-xs">
+                                  {item.production_year}
+                                </Badge>
+                              )}
+                              {item.runtime_ticks && (
+                                <Badge
+                                  variant="outline"
+                                  className="flex items-center gap-1 text-xs"
+                                >
+                                  <Clock className="h-2.5 w-2.5" />
+                                  {formatRuntime(Number(item.runtime_ticks))}
+                                </Badge>
+                              )}
+                              {item.genres?.map((genre) => (
+                                <Badge
+                                  key={genre}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {genre}
+                                </Badge>
+                              ))}
+                            </div>
+
+                            <MorphingDialogDescription
+                              disableLayoutAnimation
+                              variants={{
+                                initial: { opacity: 0, scale: 0.8, y: 100 },
+                                animate: { opacity: 1, scale: 1, y: 0 },
+                                exit: { opacity: 0, scale: 0.8, y: 100 },
+                              }}
+                            >
+                              {/* Show "based on" information if available */}
+                              {item.based_on && item.based_on.length > 0 && (
+                                <div className="mb-4 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+                                  <p className="text-zinc-300 text-sm font-medium mb-2">
+                                    We recommend this because you watched:
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {item.based_on
+                                      .slice(0, 3)
+                                      .map((basedOnItem, index) => (
+                                        <Badge
+                                          key={basedOnItem.jellyfin_id || index}
+                                          variant="outline"
+                                          className="text-xs text-zinc-200 border-zinc-600"
+                                        >
+                                          {basedOnItem.name}
+                                          {basedOnItem.production_year &&
+                                            ` (${basedOnItem.production_year})`}
+                                        </Badge>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <p className="mt-2 text-zinc-400 text-sm leading-relaxed">
+                                {item.overview ||
+                                  "No description available for this item."}
+                              </p>
+
+                              <a
+                                className="mt-4 inline-flex items-center gap-2 text-zinc-400 hover:text-zinc-200 underline text-sm"
+                                href={`${server.url}/web/index.html#!/details?id=${item.jellyfin_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                Open in Jellyfin
+                              </a>
+                            </MorphingDialogDescription>
+                          </div>
+
+                          <MorphingDialogClose className="text-zinc-400 hover:text-zinc-200" />
+                        </MorphingDialogContent>
+                      </MorphingDialogContainer>
+                    </MorphingDialog>
+                  ))}
                 </div>
-              )}
+              </div>
             </TabsContent>
           ))}
         </Tabs>

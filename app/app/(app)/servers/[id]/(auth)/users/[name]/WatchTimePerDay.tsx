@@ -1,13 +1,17 @@
 "use client";
 
-import { TrendingUp } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, XAxis, ResponsiveContainer } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  XAxis,
+} from "recharts";
 
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -17,9 +21,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { User } from "@/lib/db";
-import { useMemo } from "react";
 import { formatDuration } from "@/lib/utils";
+import { useMemo } from "react";
+
+const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const chartConfig = {
   total_duration: {
@@ -29,24 +34,33 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 interface Props {
-  data: User["watch_time_per_day"];
+  data: { day_of_week: number; total_duration: number }[];
 }
 
 export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
-  const formattedData = useMemo(
-    () =>
-      data.map((item) => ({
-        date: new Date(item.date).toLocaleDateString(),
-        total_duration: item.total_duration,
-      })),
-    [data],
-  );
+  // Ensure all days are present (fill missing with 0)
+  const formattedData = useMemo(() => {
+    const dayMap = new Map<number, number>();
+    data.forEach((item) => {
+      dayMap.set(Number(item.day_of_week), item.total_duration);
+    });
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = i + 1; // 1=Mon, ..., 7=Sun
+      return {
+        day: dayNames[i],
+        minutes: Math.floor((dayMap.get(day) || 0) / 60),
+        dayNumber: day,
+      };
+    });
+  }, [data]);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Watch Time Per Day</CardTitle>
-        <CardDescription></CardDescription>
+        <CardDescription>
+          Showing total watch time for each day of the week (Mon-Sun)
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[300px] w-full">
@@ -54,7 +68,7 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
             <BarChart data={formattedData}>
               <CartesianGrid vertical={false} />
               <XAxis
-                dataKey="date"
+                dataKey="day"
                 tickLine={false}
                 tickMargin={10}
                 axisLine={false}
@@ -64,16 +78,16 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
                 cursor={false}
                 formatter={(val) => (
                   <div>
-                    <p>{formatDuration(Number(val))}</p>
+                    <p>{formatDuration(Number(val), "minutes")}</p>
                   </div>
                 )}
                 content={<ChartTooltipContent />}
               />
               <Bar
-                dataKey="total_duration"
+                dataKey="minutes"
                 fill="hsl(var(--chart-1))"
                 radius={[4, 4, 0, 0]}
-                name="Watch Time"
+                name="Watch Time (min)"
               />
             </BarChart>
           </ResponsiveContainer>

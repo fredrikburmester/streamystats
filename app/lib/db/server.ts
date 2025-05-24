@@ -1,6 +1,7 @@
 "use server";
 
 import { getToken } from "../token";
+import { revalidatePath } from "next/cache";
 
 export const saveOpenAIKey = async (
   serverId: string | number,
@@ -21,8 +22,65 @@ export const saveOpenAIKey = async (
     if (!response.ok) {
       throw new Error("Failed to save OpenAI API key");
     }
+    revalidatePath(`/servers/${serverId}/settings`);
   } catch (error) {
     console.error("Error saving OpenAI API key:", error);
+    throw error;
+  }
+};
+
+export const saveOllamaConfig = async (
+  serverId: string | number,
+  config: {
+    ollama_api_token?: string;
+    ollama_base_url?: string;
+    ollama_model?: string;
+  }
+) => {
+  try {
+    const response = await fetch(
+      `${process.env.API_URL}/admin/servers/${serverId}/settings`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getToken()}`,
+        },
+        body: JSON.stringify(config),
+      }
+    );
+    if (!response.ok) {
+      throw new Error("Failed to save Ollama configuration");
+    }
+    revalidatePath(`/servers/${serverId}/settings`);
+  } catch (error) {
+    console.error("Error saving Ollama configuration:", error);
+    throw error;
+  }
+};
+
+export const saveEmbeddingProvider = async (
+  serverId: string | number,
+  provider: "openai" | "ollama"
+) => {
+  try {
+    const response = await fetch(
+      `${process.env.API_URL}/admin/servers/${serverId}/settings`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getToken()}`,
+        },
+        body: JSON.stringify({ embedding_provider: provider }),
+      }
+    );
+    if (!response.ok) {
+      throw new Error("Failed to save embedding provider");
+    }
+    revalidatePath(`/servers/${serverId}/settings`);
+  } catch (error) {
+    console.error("Error saving embedding provider:", error);
     throw error;
   }
 };
@@ -152,13 +210,14 @@ export async function clearEmbeddings(
     throw new Error(error.error || "Failed to clear embeddings");
   }
 
+  revalidatePath(`/servers/${serverId}/settings`);
   return response.json();
 }
 
 export const toggleAutoEmbeddings = async (
   serverId: string | number,
   enabled: boolean
-): Promise<void> => {
+) => {
   try {
     const response = await fetch(
       `${process.env.API_URL}/admin/servers/${serverId}/settings`,
@@ -174,6 +233,7 @@ export const toggleAutoEmbeddings = async (
     if (!response.ok) {
       throw new Error("Failed to update auto-embedding setting");
     }
+    revalidatePath(`/servers/${serverId}/settings`);
   } catch (error) {
     console.error("Error updating auto-embedding setting:", error);
     throw error;

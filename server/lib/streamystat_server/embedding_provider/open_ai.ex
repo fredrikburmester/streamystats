@@ -13,7 +13,7 @@ defmodule StreamystatServer.EmbeddingProvider.OpenAI do
   @max_backoff 60_000
 
   @impl true
-   def embed(text, token \\ nil)
+  def embed(text, token \\ nil)
 
   def embed(text, token) when is_binary(text) and byte_size(text) > 0 do
     api_token = token || System.get_env("OPENAI_API_KEY")
@@ -50,6 +50,7 @@ defmodule StreamystatServer.EmbeddingProvider.OpenAI do
   end
 
   # Batch embedding for multiple texts
+  @impl true
   def embed_batch(texts, token \\ nil) when is_list(texts) do
     api_token = token || System.get_env("OPENAI_API_KEY")
 
@@ -129,13 +130,13 @@ defmodule StreamystatServer.EmbeddingProvider.OpenAI do
 
       {:ok, %HTTPoison.Response{status_code: code, body: resp_body}} ->
         # Safely extract error message with pattern matching
-        error_message = 
+        error_message =
           case Jason.decode(resp_body) do
             {:ok, %{"error" => %{"message" => message}}} -> message
             {:ok, error_body} -> inspect(error_body)
             {:error, _} -> "Invalid JSON response"
           end
-        
+
         Logger.error("OpenAI API error (#{code}): #{error_message}")
         {:error, "OpenAI API error: #{code} - #{error_message}"}
 

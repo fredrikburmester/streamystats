@@ -7,7 +7,11 @@ import { SideBar } from "@/components/SideBar";
 import { SuspenseLoading } from "@/components/SuspenseLoading";
 import { UpdateNotifier } from "@/components/UpdateNotifier";
 import { Separator } from "@/components/ui/separator";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarInset,
+} from "@/components/ui/sidebar";
 import { getServer, getServers } from "@/lib/db";
 import { getMe, isUserAdmin } from "@/lib/me";
 import { redirect } from "next/navigation";
@@ -32,22 +36,20 @@ export default async function layout({ children, params }: Props) {
 
   return (
     <SidebarProvider>
-      <>
-        <SideBar servers={servers} me={me} allowedToCreateServer={isAdmin} />
-        <Suspense fallback={<SuspenseLoading />}>
-          <main className="flex flex-col w-full">
+      <SideBar servers={servers} me={me} allowedToCreateServer={isAdmin} />
+      <Suspense fallback={<SuspenseLoading />}>
+        <ErrorBoundary>
+          <main>
             <div className="flex flex-row items-center p-4 gap-2">
               <SidebarTrigger />
               <Separator orientation="vertical" />
               <DynamicBreadcrumbs />
             </div>
-            <ErrorBoundary>
-              <FadeInWrapper>{children}</FadeInWrapper>
-            </ErrorBoundary>
+            {children}
           </main>
-        </Suspense>
-        {isAdmin && <UpdateNotifier />}
-      </>
+        </ErrorBoundary>
+      </Suspense>
+      {isAdmin && <UpdateNotifier />}
     </SidebarProvider>
   );
 }

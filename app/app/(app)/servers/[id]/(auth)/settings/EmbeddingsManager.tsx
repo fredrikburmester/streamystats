@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +15,8 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   saveOpenAIKey,
+  saveOllamaConfig,
+  saveEmbeddingProvider,
   clearEmbeddings,
   getEmbeddingProgress,
   EmbeddingProgress,
@@ -37,9 +39,35 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader, Play, Square } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 export function EmbeddingsManager({ server }: { server: Server }) {
+  console.log("server", server);
+  // OpenAI state
   const [apiKey, setApiKey] = useState(server.open_ai_api_token || "");
+
+  // Ollama state
+  const [ollamaToken, setOllamaToken] = useState(server.ollama_api_token || "");
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState(
+    server.ollama_base_url || "http://localhost:11434"
+  );
+  const [ollamaModel, setOllamaModel] = useState(
+    server.ollama_model || "nomic-embed-text"
+  );
+
+  // Provider selection
+  const [provider, setProvider] = useState<"openai" | "ollama">(
+    server.embedding_provider || "openai"
+  );
+
+  // UI state
   const [isSaving, setIsSaving] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -49,6 +77,31 @@ export function EmbeddingsManager({ server }: { server: Server }) {
     server.auto_generate_embeddings || false
   );
   const [isUpdatingAutoEmbed, setIsUpdatingAutoEmbed] = useState(false);
+
+  // Update local state when server prop changes
+  useEffect(() => {
+    setApiKey(server.open_ai_api_token || "");
+  }, [server.open_ai_api_token]);
+
+  useEffect(() => {
+    setOllamaToken(server.ollama_api_token || "");
+  }, [server.ollama_api_token]);
+
+  useEffect(() => {
+    setOllamaBaseUrl(server.ollama_base_url || "http://localhost:11434");
+  }, [server.ollama_base_url]);
+
+  useEffect(() => {
+    setOllamaModel(server.ollama_model || "nomic-embed-text");
+  }, [server.ollama_model]);
+
+  useEffect(() => {
+    setProvider(server.embedding_provider || "openai");
+  }, [server.embedding_provider]);
+
+  useEffect(() => {
+    setAutoEmbeddings(server.auto_generate_embeddings || false);
+  }, [server.auto_generate_embeddings]);
 
   const {
     data: progress,
@@ -73,12 +126,51 @@ export function EmbeddingsManager({ server }: { server: Server }) {
     setIsSaving(true);
     try {
       await saveOpenAIKey(server.id, apiKey);
-      toast.success("API Key saved successfully");
+      toast.success("OpenAI API Key saved successfully");
       refetch();
     } catch (error) {
-      toast.error("Failed to save API key");
+      toast.error("Failed to save OpenAI API key");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveOllamaConfig = async () => {
+    setIsSaving(true);
+    try {
+      await saveOllamaConfig(server.id, {
+        ollama_api_token: ollamaToken || undefined,
+        ollama_base_url: ollamaBaseUrl,
+        ollama_model: ollamaModel,
+      });
+      toast.success("Ollama configuration saved successfully");
+      refetch();
+    } catch (error) {
+      toast.error("Failed to save Ollama configuration");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleProviderChange = async (newProvider: "openai" | "ollama") => {
+    try {
+      await saveEmbeddingProvider(server.id, newProvider);
+      setProvider(newProvider);
+      toast.success(
+        `Switched to ${newProvider === "openai" ? "OpenAI" : "Ollama"} provider`
+      );
+      refetch();
+    } catch (error) {
+      toast.error("Failed to change embedding provider");
+    }
+  };
+
+  // Check if current provider has valid configuration
+  const hasValidConfig = () => {
+    if (provider === "openai") {
+      return !!apiKey;
+    } else {
+      return !!ollamaBaseUrl && !!ollamaModel;
     }
   };
 
@@ -175,25 +267,136 @@ export function EmbeddingsManager({ server }: { server: Server }) {
         <CardHeader>
           <CardTitle>AI & Embeddings</CardTitle>
           <CardDescription>
-            Set an OpenAI API key to generate recommendations.
+            Configure your embedding provider for AI-powered recommendations.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
-            <h3 className="text-sm font-medium">OpenAI API Key</h3>
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                placeholder="sk-..."
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="flex-1"
-              />
-              <Button onClick={handleSaveApiKey} disabled={isSaving || !apiKey}>
-                {isSaving ? "Saving..." : "Save API Key"}
-              </Button>
+            <div className="space-y-2">
+              <Label htmlFor="provider-select">Embedding Provider</Label>
+              <Select
+                value={provider}
+                onValueChange={(value: "openai" | "ollama") =>
+                  handleProviderChange(value)
+                }
+              >
+                <SelectTrigger id="provider-select">
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="ollama">Ollama</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          <Separator />
+
+          {provider === "openai" && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">OpenAI Configuration</h3>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  placeholder="sk-..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSaveApiKey}
+                  disabled={isSaving || !apiKey}
+                >
+                  {isSaving ? "Saving..." : "Save API Key"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {provider === "ollama" && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">Ollama Configuration</h3>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="ollama-url">Base URL</Label>
+                  <Input
+                    id="ollama-url"
+                    placeholder="http://localhost:11434"
+                    value={ollamaBaseUrl}
+                    onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ollama-model">Model</Label>
+                  <Select value={ollamaModel} onValueChange={setOllamaModel}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nomic-embed-text">
+                        nomic-embed-text (768d) - Recommended
+                      </SelectItem>
+                      <SelectItem value="all-minilm">
+                        all-minilm (384d) - Lightweight, fast model
+                      </SelectItem>
+                      <SelectItem value="mxbai-embed-large">
+                        mxbai-embed-large (1024d) - State-of-the-art performance
+                      </SelectItem>
+                      <SelectItem value="bge-large">
+                        bge-large (1024d) - High-quality embeddings
+                      </SelectItem>
+                      <SelectItem value="bge-base">
+                        bge-base (768d) - Balanced performance and speed
+                      </SelectItem>
+                      <SelectItem value="snowflake-arctic-embed">
+                        snowflake-arctic-embed (1024d) - Optimized for retrieval
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="text-xs text-gray-400 space-y-1">
+                    <p>
+                      <strong className="text-gray-300">
+                        All models are automatically padded to 1536 dimensions
+                      </strong>{" "}
+                      for compatibility with the database.
+                    </p>
+                    <p>
+                      <strong className="text-gray-300">
+                        Model dimensions:
+                      </strong>{" "}
+                      384d = lightweight & fast, 768d = balanced, 1024d = high
+                      performance
+                    </p>
+                    <p>
+                      Make sure the model is available in your Ollama instance:{" "}
+                      <code className="bg-gray-800 text-gray-300 px-1 py-0.5 rounded text-xs">
+                        ollama pull {ollamaModel}
+                      </code>
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ollama-token">API Token (Optional)</Label>
+                  <Input
+                    id="ollama-token"
+                    type="password"
+                    placeholder="Leave empty if not required"
+                    value={ollamaToken}
+                    onChange={(e) => setOllamaToken(e.target.value)}
+                  />
+                </div>
+                <Button
+                  onClick={handleSaveOllamaConfig}
+                  disabled={isSaving || (!ollamaBaseUrl && !ollamaModel)}
+                  className="w-full"
+                >
+                  {isSaving ? "Saving..." : "Save Ollama Configuration"}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Separator />
 
@@ -203,7 +406,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
               <span className="text-sm font-medium">
                 Status: {getStatusText(progress?.status || "idle")}
               </span>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-gray-400">
                 {progress?.processed || 0} of {progress?.total || 0} movies
                 embedded
                 {progress?.total > 0
@@ -217,9 +420,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
             <div className="flex gap-2 mt-4">
               <Button
                 onClick={handleStartEmbedding}
-                disabled={
-                  isStarting || isProcessRunning || !server.open_ai_api_token
-                }
+                disabled={isStarting || isProcessRunning || !hasValidConfig()}
                 className="flex items-center gap-1"
               >
                 {isStarting ? (
@@ -252,7 +453,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
             </div>
 
             {error && (
-              <div className="text-sm text-red-500 mt-2">
+              <div className="text-sm text-red-400 mt-2">
                 Error fetching progress. Retrying...
               </div>
             )}
@@ -264,17 +465,17 @@ export function EmbeddingsManager({ server }: { server: Server }) {
             <h3 className="text-sm font-medium">Auto-Generate Embeddings</h3>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-gray-400">
                   Automatically generate embeddings for all (and new) items
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  This requires a valid OpenAI API key
+                <p className="text-xs text-gray-400">
+                  This requires a valid embedding provider configuration
                 </p>
               </div>
               <Switch
                 checked={autoEmbeddings}
                 onCheckedChange={handleToggleAutoEmbeddings}
-                disabled={isUpdatingAutoEmbed || !server.open_ai_api_token}
+                disabled={isUpdatingAutoEmbed || !hasValidConfig()}
               />
             </div>
           </div>
@@ -283,7 +484,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
 
           <div className="space-y-4">
             <h3 className="text-sm font-medium">Clear Embeddings</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-gray-400">
               Clearing embeddings will remove all existing embeddings and
               require re-processing.
             </p>

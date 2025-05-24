@@ -97,6 +97,12 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     }
   end
 
+  def user_activity(%{user_activity_stats: user_activity_stats}) do
+    %{
+      data: user_activity_stats.user_activity_per_day
+    }
+  end
+
   def items(%{item_stats: item_stats}) do
     %{
       data: Enum.map(item_stats.items, &item_data/1),
