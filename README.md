@@ -6,7 +6,7 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 ## ⚠️ Important Note: Vector PG Version
 
-This project now uses a Vector-enabled Postgres version (`pgvector/pgvector:pg16`). If you are having trouble getting Streamystats to work after this update, please open an issue and i'll help. I previously recommended a data backup and restore method but it's not bulletproof. 
+This project now uses a Vector-enabled Postgres version (`pgvector/pgvector:pg16`). If you are having trouble getting Streamystats to work after this update, please open an issue and I'll help. I previously recommended a data backup and restore method but it's not bulletproof. 
 
 ## ✨ Features
 
@@ -29,7 +29,7 @@ This project now uses a Vector-enabled Postgres version (`pgvector/pgvector:pg16
 
 ## 🚀 Getting started
 
-> Playback reporting plugin is no longer needed and Streamystats soely relies on the Jellyfin API for statistics.
+> Playback reporting plugin is no longer needed and Streamystats solely relies on the Jellyfin API for statistics.
 
 ### Docker
 
