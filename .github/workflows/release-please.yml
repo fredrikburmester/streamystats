@@ -33,6 +33,7 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
     steps:
+    
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -40,12 +41,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "pnpm"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8
+
+      - name: Print pnpm version
+        run: pnpm --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
