@@ -12,7 +12,12 @@ import jobRoutes from "./routes/jobs";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || "3000", 10);
+const HOST = process.env.HOST || "localhost";
+
+if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error(`Invalid PORT value: "${process.env.PORT}". Please provide a valid port number between 1 and 65535.`);
+}
 
 // Middleware
 app.use(helmet());
@@ -88,10 +93,10 @@ async function startServer() {
     await sessionPoller.start();
 
     // Start the server
-    app.listen(PORT, () => {
+    app.listen(PORT, HOST, () => {
       console.log(`🚀 Job server running on port ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log(`🔧 API docs: http://localhost:${PORT}/`);
+      console.log(`📊 Health check: http://${HOST}:${PORT}/health`);
+      console.log(`🔧 API docs: http://${HOST}:${PORT}/`);
 
       const status = activityScheduler.getStatus();
       console.log(
