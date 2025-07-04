@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/fredrikburmester/streamystats/compare/v2.0.0...v2.0.1) (2025-07-04)
+
+
+### Bug Fixes
+
+* **ci:** ensure pnpm is properly installed before use in workflow ([8649f9a](https://github.com/fredrikburmester/streamystats/commit/8649f9a6077389377c693f8625f45b57dfbd90d9))
+
 ## [2.0.0](https://github.com/fredrikburmester/streamystats/compare/v1.8.0...v2.0.0) (2025-06-07)
 
 

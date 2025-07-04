@@ -1,5 +1,5 @@
 {
-  ".": "2.0.0",
+  ".": "2.0.1",
   "apps/nextjs-app": "2.0.0",
   "apps/job-server": "2.0.0",
   "packages/database": "2.0.0"
