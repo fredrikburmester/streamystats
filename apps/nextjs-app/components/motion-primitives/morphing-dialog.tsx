@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import React, {
   useCallback,
   useContext,
@@ -350,6 +351,8 @@ export type MorphingDialogImageProps = {
   alt: string;
   className?: string;
   style?: React.CSSProperties;
+  width?: number;
+  height?: number;
 };
 
 function MorphingDialogImage({
@@ -357,14 +360,19 @@ function MorphingDialogImage({
   alt,
   className,
   style,
+  width = 900,
+  height = 900,
 }: MorphingDialogImageProps) {
   const { uniqueId } = useMorphingDialog();
 
   return (
-    <motion.img
+    <Image
       src={src}
       alt={alt}
+      width={width}
+      height={height}
       className={cn(className)}
+      // @ts-ignore used by motion.img 
       layoutId={`dialog-img-${uniqueId}`}
       style={style}
     />
