@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.1.0](https://github.com/fredrikburmester/streamystats/compare/v2.0.0...v2.1.0) (2025-07-08)
+
+
+### Features
+
+* **job-server:** allow setting of listening host ([c98d82a](https://github.com/fredrikburmester/streamystats/commit/c98d82a84e7bbc71566ed2f9f68a7d964ca63c1c))
+* **nextjs-app:** use next/image for MorphingDialogImage ([dc74fb3](https://github.com/fredrikburmester/streamystats/commit/dc74fb3521aa2a6037c0451fc9bb9f74229856d3))
+* user sync ([9610f2c](https://github.com/fredrikburmester/streamystats/commit/9610f2c4d26ce6887c26271c385f10c9523a2b3b))
+
+
+### Bug Fixes
+
+* **ci:** ensure pnpm is properly installed before use in workflow ([8649f9a](https://github.com/fredrikburmester/streamystats/commit/8649f9a6077389377c693f8625f45b57dfbd90d9))
+* edge tag still used in version check ([143c8db](https://github.com/fredrikburmester/streamystats/commit/143c8dbfd48b342813489b01802ff720defd0b32))
+* **job-server:** apply sourcery-ai suggestions wrt PORT validation ([86ef6a9](https://github.com/fredrikburmester/streamystats/commit/86ef6a9543a751f1d56f22dee83becc1c07c4ea0))
+* removed library causes failed sync ([260fa0b](https://github.com/fredrikburmester/streamystats/commit/260fa0b1c1dd0e6651490eabb60eefe9534149fd))
+
 ## [2.0.0](https://github.com/fredrikburmester/streamystats/compare/v1.8.0...v2.0.0) (2025-06-07)
 
 
