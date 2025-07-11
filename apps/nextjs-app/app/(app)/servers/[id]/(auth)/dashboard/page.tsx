@@ -12,7 +12,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActiveSessions } from "./ActiveSessions";
 import { MostWatchedItems } from "./MostWatchedItems";
-import { SimilarStatstics } from "./SimilarStatstics";
+import { SimilarStatistics } from "./SimilarStatistics";
 import { SimilarSeriesStatistics } from "./SimilarSeriesStatistics";
 import { UserActivityWrapper } from "./UserActivityWrapper";
 import { UserLeaderboard } from "./UserLeaderboard";
@@ -77,7 +77,7 @@ async function GeneralStats({
   return (
     <div className="flex flex-col gap-6">
       {/* <ServerSetupMonitor serverId={server.id} serverName={server.name} /> */}
-      <SimilarStatstics data={similarData} server={server} />
+      <SimilarStatistics data={similarData} server={server} />
       <SimilarSeriesStatistics data={similarSeriesData} server={server} />
       <MostWatchedItems data={data} server={server} />
       {sas ? (

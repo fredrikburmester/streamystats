@@ -20,6 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   hideRecommendation,
@@ -36,7 +37,7 @@ interface Props {
   server: Server;
 }
 
-export const SimilarStatstics = ({ data, server }: Props) => {
+export const SimilarStatistics = ({ data, server }: Props) => {
   const [recommendations, setRecommendations] = useState(data);
   const [hidingItems, setHidingItems] = useState<Set<string>>(new Set());
 
@@ -166,7 +167,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
           {types.map((type) => (
             <TabsContent key={type} value={type.toLowerCase()} className="">
               {/* Horizontal scrollable container */}
-              <div className="overflow-x-auto pt-4">
+              <ScrollArea className="py-4">
                 <div className="flex gap-4 min-w-full w-max">
                   {groupedItems[type].map((recommendation) => {
                     const item = recommendation.item;
@@ -344,7 +345,8 @@ export const SimilarStatstics = ({ data, server }: Props) => {
                     );
                   })}
                 </div>
-              </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
             </TabsContent>
           ))}
         </Tabs>

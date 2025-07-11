@@ -20,6 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   hideSeriesRecommendation,
   SeriesRecommendationItem,
@@ -124,7 +125,7 @@ export const SimilarSeriesStatistics = ({ data, server }: Props) => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto pt-4">
+          <ScrollArea className="py-4">
             <div className="flex gap-4 min-w-full w-max">
               {recommendations.map((recommendation) => {
                 const item = recommendation.item;
@@ -290,7 +291,8 @@ export const SimilarSeriesStatistics = ({ data, server }: Props) => {
                 );
               })}
             </div>
-          </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
