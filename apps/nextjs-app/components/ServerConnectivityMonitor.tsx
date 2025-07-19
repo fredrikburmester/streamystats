@@ -15,6 +15,7 @@ export function ServerConnectivityMonitor() {
   const [hasConnectivityIssue, setHasConnectivityIssue] = useState(false);
   const [serverErrors, setServerErrors] = useState<ServerError[]>([]);
   const pathname = usePathname();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   // Track last notification time to avoid spamming
   const [lastNotificationTime, setLastNotificationTime] = useState(0);
@@ -75,7 +76,7 @@ export function ServerConnectivityMonitor() {
   const checkServerConnectivity = async () => {
     try {
       // Make a request to check for server connectivity
-      const response = await fetch("/api/check-connectivity", {
+      const response = await fetch(`${basePath}/api/check-connectivity`, {
         method: "GET",
         cache: "no-store",
       });

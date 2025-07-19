@@ -32,10 +32,11 @@ export default function DatabaseBackupRestore({
     imported_count?: number;
     total_count?: number;
   } | null>(null);
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/export/${serverId}`, {
+      const res = await fetch(`${basePath}/api/export/${serverId}`, {
         method: "GET",
       });
       if (!res.ok) {

@@ -43,6 +43,7 @@ const _map = {
 };
 
 export const DynamicBreadcrumbs: React.FC = () => {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const params = useParams();
 
   const { id } = params as { id: string };
@@ -57,12 +58,12 @@ export const DynamicBreadcrumbs: React.FC = () => {
     <Breadcrumb>
       <BreadcrumbList>
         <BreadcrumbItem>
-          <BreadcrumbLink href={`/servers/${id}/dashboard`}>
+          <BreadcrumbLink href={`${basePath}/servers/${id}/dashboard`}>
             <House className="h-4 w-4 ml-1" />
           </BreadcrumbLink>
         </BreadcrumbItem>
         {pathSegments.map((segment, index) => {
-          const url = `/servers/${id}/${pathSegments
+          const url = `${basePath}/servers/${id}/${pathSegments
             .slice(0, index + 1)
             .join("/")}`;
           return (

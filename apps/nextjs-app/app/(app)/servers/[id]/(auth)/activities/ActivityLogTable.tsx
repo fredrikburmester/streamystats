@@ -50,6 +50,7 @@ export interface ActivityLogTableProps {
 
 export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
   const router = useRouter();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const searchParams = useSearchParams();
 
   // Get current page from URL query parameters or default to 1
@@ -68,7 +69,7 @@ export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Link
-            href={`/servers/${server.id}/users/${row.original.userId}`}
+            href={`${basePath}/servers/${server.id}/users/${row.original.userId}`}
             className="flex items-center gap-2 group"
           >
             <JellyfinAvatar

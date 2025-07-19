@@ -54,6 +54,7 @@ export function HistoryTable({
   hideUserColumn = false,
 }: HistoryTableProps) {
   const router = useRouter();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const searchParams = useSearchParams();
   const { updateQueryParams, isLoading } = useQueryParams();
 
@@ -268,7 +269,7 @@ export function HistoryTable({
         return (
           <div className="flex items-center gap-2">
             <Link
-              href={`/servers/${server.id}/users/${row.original.user?.id}`}
+              href={`/servers/${server.id}/users/${row.original.user?.name}`}
               className="flex items-center gap-2 cursor-pointer group"
             >
               <JellyfinAvatar

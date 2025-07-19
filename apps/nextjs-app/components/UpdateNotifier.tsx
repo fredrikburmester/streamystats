@@ -10,6 +10,7 @@ interface VersionInfo {
 }
 
 export function UpdateNotifier() {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const { toasts } = useSonner();
 
   const notifyUserOfUpdate = useCallback(
@@ -85,7 +86,7 @@ export function UpdateNotifier() {
 
     const checkForUpdates = async () => {
       try {
-        const response = await fetch("/api/version");
+        const response = await fetch(`${basePath}/api/version`);
         const versionInfo: VersionInfo = await response.json();
 
         if (versionInfo.hasUpdate) {

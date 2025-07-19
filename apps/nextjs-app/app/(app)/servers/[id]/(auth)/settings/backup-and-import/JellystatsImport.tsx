@@ -41,6 +41,7 @@ export default function JellystatsImport({ serverId }: { serverId: number }) {
   const [isUploading, setIsUploading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,7 +77,7 @@ export default function JellystatsImport({ serverId }: { serverId: number }) {
 
     try {
       const response = await fetch(
-        `/api/import/jellystats?serverId=${serverId}`,
+        `${basePath}/api/import/jellystats?serverId=${serverId}`,
         {
           method: "POST",
           body: selectedFile,

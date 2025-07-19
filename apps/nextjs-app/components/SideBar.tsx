@@ -105,6 +105,7 @@ export const SideBar: React.FC<Props> = ({
   me,
   allowedToCreateServer = false,
 }) => {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const params = useParams();
   const [fullUser, setFullUser] = useState<User | null>(null);
   const { id } = params as { id: string };
@@ -162,7 +163,7 @@ export const SideBar: React.FC<Props> = ({
                       {dashboard_items.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton asChild>
-                            <a href={"/servers/" + id + item.url}>
+                            <a href={`${basePath}/servers/${id}${item.url}`}>
                               <item.icon className="h-4 w-4" />
                               <span>{item.title}</span>
                             </a>
@@ -176,7 +177,7 @@ export const SideBar: React.FC<Props> = ({
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={"/servers/" + id + item.url}>
+                    <a href={`${basePath}/servers/${id}${item.url}`}>
                       <item.icon />
                       <span>{item.title}</span>
                     </a>
@@ -194,7 +195,7 @@ export const SideBar: React.FC<Props> = ({
                 {admin_items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      <a href={"/servers/" + id + item.url}>
+                      <a href={`${basePath}/servers/${id}${item.url}`}>
                         <item.icon />
                         <span>{item.title}</span>
                       </a>
@@ -215,7 +216,7 @@ export const SideBar: React.FC<Props> = ({
                         {settings_items.map((item) => (
                           <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild>
-                              <a href={"/servers/" + id + item.url}>
+                              <a href={`${basePath}/servers/${id}${item.url}`}>
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.title}</span>
                               </a>

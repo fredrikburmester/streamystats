@@ -32,12 +32,13 @@ export type ActiveSession = {
   };
   ipAddress?: string;
 };
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 export const getActiveSessions = async (
   serverId: number
 ): Promise<ActiveSession[]> => {
   try {
-    const response = await fetch(`/api/Sessions?serverId=${serverId}`);
+    const response = await fetch(`${basePath}/api/Sessions?serverId=${serverId}`);
     if (!response.ok) {
       if (response.status >= 500) {
         throw new Error("Server error - Jellyfin server may be down");
