@@ -37,6 +37,7 @@ export const ServerSelector: React.FC<Props> = ({
   }, [servers, id]);
 
   const router = useRouter();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   return (
     <DropdownMenu>
@@ -67,7 +68,7 @@ export const ServerSelector: React.FC<Props> = ({
           <DropdownMenuItem
             key={s.id}
             onSelect={() => {
-              router.push(`/servers/${s.id}/login`);
+              router.push(`${basePath}/servers/${s.id}/login`);
             }}
           >
             {s.name}{" "}
@@ -76,7 +77,7 @@ export const ServerSelector: React.FC<Props> = ({
         ))}
         {allowedToCreateServer && (
           <DropdownMenuItem>
-            <a href={"/setup/"} className="flex flex-row items-center gap-2">
+            <a href={`${basePath}/setup/`} className="flex flex-row items-center gap-2">
               <PlusIcon />
               <span>Add server</span>
             </a>
