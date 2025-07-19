@@ -69,6 +69,8 @@ export function ActiveSessions({ server }: { server: Server }) {
         .sort((a, b) => (b.positionTicks || 0) - (a.positionTicks || 0))
     : [];
 
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
   if (isPending) {
     return <LoadingSessions />;
   }
@@ -191,7 +193,7 @@ export function ActiveSessions({ server }: { server: Server }) {
                       <div className="flex justify-start">
                         {session.user ? (
                           <Link
-                            href={`/servers/${server.id}/users/${session.user.id}`}
+                            href={`${basePath}/servers/${server.id}/users/${session.user.id}`}
                             className="flex items-center gap-2 group"
                           >
                             <JellyfinAvatar

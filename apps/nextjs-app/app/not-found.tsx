@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default function NotFound() {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
       <h1 className="text-9xl font-extrabold mb-4">404</h1>
@@ -12,7 +14,7 @@ export default function NotFound() {
         </p>
       </div>
       <Button asChild className="bg-white text-black hover:bg-gray-200">
-        <Link href="/">Go Back Home</Link>
+        <Link href={`${basePath}/`}>Go Back Home</Link>
       </Button>
     </div>
   );

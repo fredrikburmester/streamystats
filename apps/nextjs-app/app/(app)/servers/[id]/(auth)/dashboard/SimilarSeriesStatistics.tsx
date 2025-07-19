@@ -37,6 +37,7 @@ interface Props {
 }
 
 export const SimilarSeriesStatistics = ({ data, server }: Props) => {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [recommendations, setRecommendations] = useState(data);
   const [hidingItems, setHidingItems] = useState<Set<string>>(new Set());
 
@@ -112,7 +113,7 @@ export const SimilarSeriesStatistics = ({ data, server }: Props) => {
         server.embeddingProvider === "openai" ? (
           <div className="flex flex-col gap-2 max-w-full pt-4">
             <Link
-              href={`/servers/${server.id}/settings/ai`}
+              href={`${basePath}/servers/${server.id}/settings/ai`}
               className="w-full sm:w-auto"
             >
               <Button className="w-full sm:w-auto text-sm" size="sm">

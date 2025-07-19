@@ -12,9 +12,10 @@ export default async function UsersPage({
 }) {
   const { id } = await params;
   const server = await getServer(id);
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect("/");
+    redirect(`${basePath}/`);
   }
 
   const users = await getUsersWithStats(server.id);

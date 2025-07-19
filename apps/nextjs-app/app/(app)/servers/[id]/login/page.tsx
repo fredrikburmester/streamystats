@@ -12,9 +12,10 @@ export default async function Page({
   const { id } = await params;
   const server = await getServer(id);
   const servers = await getServers();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect("/not-found");
+    redirect(`${basePath}/not-found`);
   }
 
   return <SignInForm server={server} servers={servers} />;

@@ -30,9 +30,10 @@ export default async function DashboardPage({
   const { id } = await params;
   const { userActivityStartDate, userActivityEndDate } = await searchParams;
   const server = await getServer(id);
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect("/not-found");
+    redirect(`${basePath}/not-found`);
   }
 
   const sas = await showAdminStatistics();

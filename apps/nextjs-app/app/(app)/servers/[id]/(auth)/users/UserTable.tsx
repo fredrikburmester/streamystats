@@ -49,6 +49,7 @@ export const UserTable: React.FC<UserTableProps> = ({
   server,
 }: UserTableProps) => {
   const router = useRouter();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const columns: ColumnDef<UserWithStats>[] = [
     {
       id: "avatar",
@@ -85,7 +86,7 @@ export const UserTable: React.FC<UserTableProps> = ({
           type="button"
           className="cursor-pointer hover:opacity-80 focus:outline-none bg-transparent border-0 w-full text-left transition-colors duration-200 hover:text-primary"
           onClick={() => {
-            router.push(`/servers/${server.id}/users/${row.original.name}`);
+            router.push(`${basePath}/servers/${server.id}/users/${row.original.name}`);
           }}
         >
           <p className="font-medium">{row.getValue("name")}</p>

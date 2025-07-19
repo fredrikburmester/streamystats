@@ -29,6 +29,7 @@ export const UserLeaderboardTable = ({
   server,
   totalWatchTime,
 }: Props) => {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [hiddenUsers, setHiddenUsers, loading] = usePersistantState<string[]>(
     "hiddenUsers",
     []
@@ -93,7 +94,7 @@ export const UserLeaderboardTable = ({
                   </TableCell>
                   <TableCell>
                     <Link
-                      href={`/servers/${server.id}/users/${user.id}`}
+                      href={`${basePath}/servers/${server.id}/users/${user.id}`}
                       className="flex items-center gap-2 group"
                     >
                       <JellyfinAvatar

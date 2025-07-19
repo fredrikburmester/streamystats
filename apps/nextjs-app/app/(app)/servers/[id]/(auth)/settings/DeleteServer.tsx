@@ -26,6 +26,7 @@ interface Props {
 export const DeleteServer: React.FC<Props> = ({ server }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   const handleDelete = async () => {
     setLoading(true);
@@ -33,7 +34,7 @@ export const DeleteServer: React.FC<Props> = ({ server }) => {
       const result = await deleteServer(server.id);
 
       if (result.success) {
-        router.push("/setup");
+        router.push(`${basePath}/setup`);
         toast.success(result.message);
       } else {
         toast.error(result.message);

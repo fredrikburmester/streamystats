@@ -10,8 +10,9 @@ export default async function AISettings(props: {
 }) {
   const { id } = await props.params;
   const server = await getServer(id);
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   if (!server) {
-    redirect("/setup");
+    redirect(`${basePath}/setup`);
   }
 
   return (

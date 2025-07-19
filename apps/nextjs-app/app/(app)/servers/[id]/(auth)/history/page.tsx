@@ -20,9 +20,10 @@ export default async function HistoryPage({
   const { id } = await params;
   const { page, search, sort_by, sort_order } = await searchParams;
   const server = await getServer(id);
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect("/setup");
+    redirect(`${basePath}/setup`);
   }
 
   const data = await getHistory(

@@ -21,12 +21,13 @@ export default async function layout({ children, params }: Props) {
   const { id } = await params;
 
   const servers = await getServers();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   const me = await getMe();
   const isAdmin = await isUserAdmin();
 
   if (!me) {
-    redirect(`/servers/${id}/login`);
+    redirect(`${basePath}/servers/${id}/login`);
   }
 
   return (

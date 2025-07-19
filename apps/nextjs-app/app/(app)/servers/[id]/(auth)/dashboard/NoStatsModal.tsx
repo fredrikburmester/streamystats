@@ -15,6 +15,7 @@ import { useState } from "react";
 
 export function NoStatsModal() {
   const router = useRouter();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const params = useParams();
   const [open, setOpen] = useState(true);
 
@@ -41,7 +42,7 @@ export function NoStatsModal() {
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={() => {
-              router.push(`/servers/${params.id}/settings/general`);
+              router.push(`${basePath}/servers/${params.id}/settings/general`);
             }}
           >
             Continue to Settings
