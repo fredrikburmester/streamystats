@@ -68,7 +68,7 @@ export const ServerSelector: React.FC<Props> = ({
           <DropdownMenuItem
             key={s.id}
             onSelect={() => {
-              router.push(`${basePath}/servers/${s.id}/login`);
+              router.push(`/servers/${s.id}/login`);
             }}
           >
             {s.name}{" "}

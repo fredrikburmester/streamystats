@@ -10,13 +10,12 @@ import { revalidatePath } from "next/cache";
  */
 export async function deleteServerAction(serverId: number) {
   try {
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     const result = await deleteServerFromDb(serverId);
 
     if (result.success) {
       // Revalidate relevant paths
-      revalidatePath(`${basePath}/`);
-      revalidatePath(`${basePath}/servers`);
+      revalidatePath("/");
+      revalidatePath("/servers");
 
       // Return success result
       return {

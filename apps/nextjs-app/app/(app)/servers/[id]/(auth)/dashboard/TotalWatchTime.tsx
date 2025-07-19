@@ -12,12 +12,11 @@ interface Props {
 }
 
 const TotalWatchTime: React.FC<Props> = async ({ server }) => {
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const me = await getMe();
   const sas = await showAdminStatistics();
 
   if (!me) {
-    redirect(`${basePath}/not-found`);
+    redirect("/not-found");
   }
 
   const d1 = await getTotalWatchTime(server.id, sas ? undefined : me.id);

@@ -12,7 +12,6 @@ interface ErrorPageProps {
 
 export default function Error({ error, reset }: ErrorPageProps) {
   const router = useRouter();
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   useEffect(() => {
     // Log the error for debugging
@@ -25,7 +24,7 @@ export default function Error({ error, reset }: ErrorPageProps) {
     ) {
       // If it's a redirect error, try to redirect to setup after a short delay
       const timer = setTimeout(() => {
-        router.push(`${basePath}/setup`);
+        router.push("/setup");
       }, 100);
 
       return () => clearTimeout(timer);
@@ -52,7 +51,7 @@ export default function Error({ error, reset }: ErrorPageProps) {
               Please wait while we redirect you to the appropriate page.
             </p>
             <Button
-              onClick={() => router.push(`${basePath}/setup`)}
+              onClick={() => router.push("/setup")}
               className="w-full"
               variant="outline"
             >
@@ -87,7 +86,7 @@ export default function Error({ error, reset }: ErrorPageProps) {
               Try Again
             </Button>
             <Button
-              onClick={() => router.push(`${basePath}/setup`)}
+              onClick={() => router.push("/setup")}
               className="w-full"
               variant="outline"
             >

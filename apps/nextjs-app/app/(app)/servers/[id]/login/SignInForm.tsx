@@ -42,7 +42,6 @@ interface Props {
 export const SignInForm: React.FC<Props> = ({ server, servers }) => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -60,7 +59,7 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
         password: data.password || "",
       });
       toast.success("Logged in successfully");
-      router.push(`${basePath}/servers/${server.id}/dashboard`);
+      router.push(`/servers/${server.id}/dashboard`);
     } catch (error) {
       toast.error("Error logging in");
       console.error("Error logging in:", error);
@@ -150,7 +149,7 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
                         key={s.id}
                         variant="outline"
                         className="flex w-full justify-between rainbow-border-glow"
-                        onClick={() => router.push(`${basePath}/servers/${s.id}/login`)}
+                        onClick={() => router.push(`/servers/${s.id}/login`)}
                       >
                         <span className="font-medium">{s.name}</span>
                         <span className="text-xs text-muted-foreground">

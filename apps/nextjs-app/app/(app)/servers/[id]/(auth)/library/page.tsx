@@ -40,10 +40,9 @@ export default async function DashboardPage({
 
   const server = await getServer(id);
   const isAdmin = await isUserAdmin();
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect(`${basePath}/not-found`);
+    redirect("/not-found");
   }
 
   const libraries = await getLibraries(server.id);

@@ -17,10 +17,9 @@ export default async function TranscodingPage({
 }) {
   const { id } = await params;
   const server = await getServer(id);
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect(`${basePath}/not-found`);
+    redirect("/not-found");
   }
 
   return (

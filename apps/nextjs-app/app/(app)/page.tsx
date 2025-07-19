@@ -28,7 +28,7 @@ export default async function Home() {
       "[DEBUG] Home page: Redirecting to server dashboard:",
       redirectPath
     );
-    redirect(redirectPath)
+    redirect(redirectPath);
   } else {
     console.log("[DEBUG] Home page: No servers found, redirecting to setup");
     redirect("/setup");

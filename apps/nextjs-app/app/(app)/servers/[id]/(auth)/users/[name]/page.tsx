@@ -27,15 +27,14 @@ export default async function User({
   const { id, name } = await params;
   const { page = "1" } = await searchParams;
   const server = await getServer(id);
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect(`${basePath}/`);
+    redirect("/");
   }
 
   const user = await getUser(name, server.id);
   if (!user) {
-    redirect(`${basePath}/`);
+    redirect("/");
   }
 
   const showAdminStats = await showAdminStatistics();

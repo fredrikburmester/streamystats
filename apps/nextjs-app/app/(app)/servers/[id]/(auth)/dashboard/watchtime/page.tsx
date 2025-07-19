@@ -32,10 +32,9 @@ export default async function WatchtimePage({
   const { id } = await params;
   const { startDate, endDate } = await searchParams;
   const server = await getServer(id);
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect(`${basePath}/not-found`);
+    redirect("/not-found");
   }
 
   const _startDate = startDate || getDefaultStartDate();
@@ -66,10 +65,9 @@ async function WatchtimeStats({
 }) {
   const me = await getMe();
   const sas = await showAdminStatistics();
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!me) {
-    redirect(`${basePath}/not-found`);
+    redirect("/not-found");
   }
 
   const [d1, d2] = await Promise.all([

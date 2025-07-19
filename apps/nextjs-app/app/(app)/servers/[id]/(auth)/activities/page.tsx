@@ -18,10 +18,9 @@ export default async function ActivitiesPage({
   const { page } = await searchParams;
 
   const server = await getServer(id);
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   if (!server) {
-    redirect(`${basePath}/setup`);
+    redirect("/setup");
   }
 
   const activities = await getActivities(server.id, {

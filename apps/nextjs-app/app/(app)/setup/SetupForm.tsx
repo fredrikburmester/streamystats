@@ -71,7 +71,6 @@ const FormSchema = z.object({
 export function SetupForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -134,7 +133,7 @@ export function SetupForm() {
       toast.success("Server created successfully! Setting up...");
 
       // Redirect to the server immediately - polling can happen on the destination page
-      router.push(`${basePath}/servers/${response.server.id}/login`);
+      router.push(`/servers/${response.server.id}/login`);
     } catch (error) {
       console.error("[SetupForm] Error creating server:", {
         error,
