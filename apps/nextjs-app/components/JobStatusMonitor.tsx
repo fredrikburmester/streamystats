@@ -82,9 +82,10 @@ interface JobStatusResponse {
     warnings: string[];
   };
 }
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 async function fetchJobStatus(): Promise<JobStatusResponse> {
-  const response = await fetch("/api/jobs/status");
+  const response = await fetch(`${basePath}/api/jobs/status`);
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);

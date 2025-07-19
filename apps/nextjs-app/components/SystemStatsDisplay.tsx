@@ -102,8 +102,10 @@ interface SystemStatsResponse {
   };
 }
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 async function fetchSystemStats(): Promise<SystemStatsResponse> {
-  const response = await fetch("/api/jobs/status");
+  const response = await fetch(`${basePath}/api/jobs/status`);
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }

@@ -40,11 +40,12 @@ interface ServerSyncStatus {
     canRedirect: boolean;
   };
 }
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 async function fetchServerSyncStatus(
   serverId: number
 ): Promise<ServerSyncStatus> {
-  const response = await fetch(`/api/jobs/servers/${serverId}/sync-status`);
+  const response = await fetch(`${basePath}/api/jobs/servers/${serverId}/sync-status`);
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
