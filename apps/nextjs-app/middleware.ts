@@ -426,17 +426,13 @@ export async function middleware(request: NextRequest) {
       adminResult.type === ResultType.Success ? adminResult.data : false;
 
     // Check if user is trying to access another users page (/servers/{x}/users/[name])
-    if (name) {
-      if (name !== meResult.data.name && !isAdmin) {
-        return NextResponse.redirect(new URL(`${BASE_PATH}/not-found`, request.url));
-      }
+    if (name && (name !== meResult.data.name && !isAdmin)) {
+          return NextResponse.redirect(new URL(`${BASE_PATH}/not-found`, request.url));
     }
 
     // Check admin permission for restricted paths
-    if (page && !name && ADMIN_ONLY_PATHS.includes(page)) {
-      if (!isAdmin) {
-        return NextResponse.redirect(new URL(`${BASE_PATH}/not-found`, request.url));
-      }
+    if (page && !name && ADMIN_ONLY_PATHS.includes(page) && !isAdmin) {
+          return NextResponse.redirect(new URL(`${BASE_PATH}/not-found`, request.url));
     }
   }
 
