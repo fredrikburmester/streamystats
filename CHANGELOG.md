@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.3.0](https://github.com/fredrikburmester/streamystats/compare/v2.2.0...v2.3.0) (2025-07-19)
+
+
+### Features
+
+* build manual version tag ([bdf6685](https://github.com/fredrikburmester/streamystats/commit/bdf66851ade6ea80e75b2a00933da60fc9e9a37e))
+* filter out non-media types in genre stats ([1fcceb6](https://github.com/fredrikburmester/streamystats/commit/1fcceb6734250ce6948bd7bfd1923281458064a2))
+* set host in compose files ([8236e3f](https://github.com/fredrikburmester/streamystats/commit/8236e3fa51f9a35d2fc2e4287daf8187b1480df7))
+
+
+### Bug Fixes
+
+* build error ([9beb9cb](https://github.com/fredrikburmester/streamystats/commit/9beb9cb70cc43f9327ef25bdaa2fce6c13844c8b))
+* build error ([e8d6b5d](https://github.com/fredrikburmester/streamystats/commit/e8d6b5dfc1a3f166e309ecc877293b187dfb5eac))
+* build errors ([f18ff49](https://github.com/fredrikburmester/streamystats/commit/f18ff49fa39db871b345af4834b7bda5dd8072ee))
+* no frozen lockfile ([14f4668](https://github.com/fredrikburmester/streamystats/commit/14f46682b60d993f2aa94863b97ae3266a4f0b9e))
+* showing edge label in ui ([91c624b](https://github.com/fredrikburmester/streamystats/commit/91c624babedda484271cc0c7d36902e7154673ce))
+* update next ([e4e7822](https://github.com/fredrikburmester/streamystats/commit/e4e782206714e9c491bd1472370daa40e59a6073))
+
 ## [2.2.0](https://github.com/fredrikburmester/streamystats/compare/v2.1.1...v2.2.0) (2025-07-18)
 
 
