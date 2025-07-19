@@ -193,7 +193,7 @@ export function ActiveSessions({ server }: { server: Server }) {
                       <div className="flex justify-start">
                         {session.user ? (
                           <Link
-                            href={`${basePath}/servers/${server.id}/users/${session.user.id}`}
+                            href={`/servers/${server.id}/users/${session.user.name}`}
                             className="flex items-center gap-2 group"
                           >
                             <JellyfinAvatar
