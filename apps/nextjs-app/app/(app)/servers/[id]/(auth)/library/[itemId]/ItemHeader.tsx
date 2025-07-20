@@ -67,7 +67,7 @@ export function ItemHeader({ item, server, statistics }: ItemHeaderProps) {
           {itemWithProviders.providerIds?.Imdb && (
             <Button asChild variant="outline" className="gap-2">
               <a
-                href={`https://www.imdb.com/title/${itemWithProviders.providerIds.Imdb}`}
+                href={`https://www.imdb.com/title/${encodeURIComponent(itemWithProviders.providerIds.Imdb)}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
