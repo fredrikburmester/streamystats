@@ -18,6 +18,17 @@ import {
   CheckCircle,
 } from "lucide-react";
 
+interface ProviderIds {
+  Imdb?: string;
+  Tvdb?: string;
+  TvRage?: string;
+  [key: string]: string | undefined;
+}
+
+interface ItemWithProviders extends Item {
+  providerIds: ProviderIds | null;
+}
+
 interface ItemDetailsResponse {
   item: Item;
   total_views: number;
@@ -44,11 +55,29 @@ function formatRating(rating: number): string {
 }
 
 export function ItemHeader({ item, server, statistics }: ItemHeaderProps) {
+  // Type assertion to properly handle providerIds
+  const itemWithProviders = item as ItemWithProviders;
+  
   return (
     <Card>
       <CardContent className="p-6 relative">
-        {/* Open in Jellyfin Button - Top Right */}
-        <div className="absolute top-4 right-4 z-10">
+        {/* External Links - Top Right */}
+        <div className="absolute top-4 right-4 z-10 flex gap-2">
+          {/* IMDB Link */}
+          {itemWithProviders.providerIds?.Imdb && (
+            <Button asChild variant="outline" className="gap-2">
+              <a
+                href={`https://www.imdb.com/title/${itemWithProviders.providerIds.Imdb}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="w-4 h-4" />
+                IMDB
+              </a>
+            </Button>
+          )}
+          
+          {/* Open in Jellyfin Button */}
           <Button asChild variant="outline" className="gap-2">
             <a
               href={`${server.url}/web/index.html#!/details?id=${item.id}`}
