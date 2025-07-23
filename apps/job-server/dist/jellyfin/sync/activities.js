@@ -10,6 +10,7 @@ const database_1 = require("@streamystats/database");
 const client_1 = require("../client");
 const sync_metrics_1 = require("../sync-metrics");
 const p_map_1 = __importDefault(require("p-map"));
+const ACTIVITYLOG_SYSTEM_USERID = '00000000000000000000000000000000';
 async function syncActivities(server, options = {}) {
     const { pageSize = 100, maxPages = 1000, // Prevent infinite loops
     concurrency = 5, apiRequestDelayMs = 100, } = options;
@@ -231,6 +232,9 @@ async function processActivity(jellyfinActivity, serverId, metrics) {
                 .limit(1);
             if (userExists.length > 0) {
                 validUserId = jellyfinActivity.UserId;
+            }
+            else if (jellyfinActivity.UserId == ACTIVITYLOG_SYSTEM_USERID) {
+                // this is a system event (plugin install/uninstall, ...) we do not print a warning
             }
             else {
                 console.warn(`Activity ${jellyfinActivity.Id} references non-existent user ${jellyfinActivity.UserId}, setting to null`);

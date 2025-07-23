@@ -19,8 +19,8 @@ export interface JellyfinSyncJobData {
     | "libraries"
     | "items"
     | "activities"
-    | "recent_items"
-    | "recent_activities";
+    | "recentItems"
+    | "recentActivities";
   options?: SyncOptions;
 }
 
@@ -69,13 +69,13 @@ export async function jellyfinSyncWorker(job: {
       case "activities":
         result = await syncActivities(server, options.activityOptions);
         break;
-      case "recent_items":
+      case "recentItems":
         result = await syncRecentlyAddedItems(
           server,
           options.itemOptions?.recentItemsLimit || 100
         );
         break;
-      case "recent_activities":
+      case "recentActivities":
         result = await syncRecentActivities(server, {
           pageSize: 100,
           maxPages: 10,
@@ -215,7 +215,7 @@ export async function jellyfinRecentItemsSyncWorker(job: {
   return jellyfinSyncWorker({
     data: {
       serverId: job.data.serverId,
-      syncType: "recent_items",
+      syncType: "recentItems",
       options: job.data.options,
     },
   });
@@ -230,7 +230,7 @@ export async function jellyfinRecentActivitiesSyncWorker(job: {
   return jellyfinSyncWorker({
     data: {
       serverId: job.data.serverId,
-      syncType: "recent_activities",
+      syncType: "recentActivities",
       options: job.data.options,
     },
   });
