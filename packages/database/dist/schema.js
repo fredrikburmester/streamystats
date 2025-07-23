@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.hiddenRecommendationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serversRelations = exports.hiddenRecommendations = exports.sessions = exports.items = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
+exports.hiddenRecommendationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serversRelations = exports.hiddenRecommendations = exports.sessions = exports.jellyseerrItems = exports.items = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 const drizzle_orm_1 = require("drizzle-orm");
 // Servers table - main server configurations
@@ -27,6 +27,15 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
     ollamaBaseUrl: (0, pg_core_1.text)("ollama_base_url"),
     ollamaModel: (0, pg_core_1.text)("ollama_model"),
     embeddingProvider: (0, pg_core_1.text)("embedding_provider").default("openai"),
+    // Jellyseerr integration
+    jellyseerrUrl: (0, pg_core_1.text)("jellyseerr_url"),
+    enableJellyseerrIntegration: (0, pg_core_1.boolean)("enable_jellyseerr_integration")
+        .notNull()
+        .default(false),
+    jellyseerrSyncEnabled: (0, pg_core_1.boolean)("jellyseerr_sync_enabled")
+        .notNull()
+        .default(false),
+    jellyseerrLastSync: (0, pg_core_1.timestamp)("jellyseerr_last_sync"),
     // Sync status tracking
     syncStatus: (0, pg_core_1.text)("sync_status").notNull().default("pending"), // pending, syncing, completed, failed
     syncProgress: (0, pg_core_1.text)("sync_progress").notNull().default("not_started"), // not_started, users, libraries, items, activities, completed
@@ -240,6 +249,42 @@ exports.items = (0, pg_core_1.pgTable)("items", {
     // Vector index for embedding similarity search
     (0, pg_core_1.index)("items_embedding_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
 ]);
+// Jellyseerr items table - for storing popular/trending movies for AI recommendations
+exports.jellyseerrItems = (0, pg_core_1.pgTable)("jellyseerr_items", {
+    id: (0, pg_core_1.text)("id").primaryKey(), // Format: "jellyseerr-movie-{tmdbId}" or "jellyseerr-tv-{tmdbId}"
+    serverId: (0, pg_core_1.integer)("server_id")
+        .notNull()
+        .references(() => exports.servers.id, { onDelete: "cascade" }),
+    // Basic movie/TV info from TMDB/Jellyseerr
+    tmdbId: (0, pg_core_1.integer)("tmdb_id").notNull(),
+    title: (0, pg_core_1.text)("title").notNull(),
+    originalTitle: (0, pg_core_1.text)("original_title"),
+    overview: (0, pg_core_1.text)("overview"),
+    releaseDate: (0, pg_core_1.date)("release_date"),
+    productionYear: (0, pg_core_1.integer)("production_year"),
+    type: (0, pg_core_1.text)("type").notNull(), // "Movie" or "TV"
+    // Ratings and popularity
+    communityRating: (0, pg_core_1.real)("community_rating"), // TMDB vote_average
+    popularity: (0, pg_core_1.real)("popularity"), // TMDB popularity score
+    voteCount: (0, pg_core_1.integer)("vote_count"),
+    // Media metadata
+    posterPath: (0, pg_core_1.text)("poster_path"),
+    backdropPath: (0, pg_core_1.text)("backdrop_path"),
+    originalLanguage: (0, pg_core_1.text)("original_language"),
+    adult: (0, pg_core_1.boolean)("adult").default(false),
+    genres: (0, pg_core_1.json)("genres"), // Array of genre names/IDs
+    // Source and category info
+    sourceType: (0, pg_core_1.text)("source_type").notNull(), // "popular", "trending", "upcoming"
+    mediaType: (0, pg_core_1.text)("media_type").notNull(), // "movie" or "tv" (TMDB format)
+    // Embedding processing
+    processed: (0, pg_core_1.boolean)("processed").notNull().default(false),
+    embedding: (0, pg_core_1.real)("embedding").array(), // Vector embedding for AI recommendations
+    // Raw data from Jellyseerr/TMDB for reference
+    rawData: (0, pg_core_1.json)("raw_data"),
+    // Timestamps
+    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+});
 // Sessions table - user sessions and playback information
 exports.sessions = (0, pg_core_1.pgTable)("sessions", {
     // Primary key and relationships

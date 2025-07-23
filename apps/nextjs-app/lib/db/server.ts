@@ -19,7 +19,7 @@ export const getServers = async (): Promise<Server[]> => {
 };
 
 export const getServer = async ({
-  serverId
+  serverId,
 }: {
   serverId: number | string;
 }): Promise<Server | undefined> => {
@@ -35,7 +35,7 @@ export const getServer = async ({
  * @returns Promise<{ success: boolean; message: string }>
  */
 export const deleteServer = async ({
-  serverId
+  serverId,
 }: {
   serverId: number;
 }): Promise<{ success: boolean; message: string }> => {
@@ -76,7 +76,7 @@ export const deleteServer = async ({
 
 export const saveOpenAIKey = async ({
   serverId,
-  apiKey
+  apiKey,
 }: {
   serverId: number;
   apiKey: string;
@@ -94,7 +94,7 @@ export const saveOpenAIKey = async ({
 
 export const saveOllamaConfig = async ({
   serverId,
-  config
+  config,
 }: {
   serverId: number;
   config: {
@@ -120,7 +120,7 @@ export const saveOllamaConfig = async ({
 
 export const saveEmbeddingProvider = async ({
   serverId,
-  provider
+  provider,
 }: {
   serverId: number;
   provider: "openai" | "ollama";
@@ -139,11 +139,7 @@ export const saveEmbeddingProvider = async ({
   }
 };
 
-export const clearEmbeddings = async ({
-  serverId
-}: {
-  serverId: number;
-}) => {
+export const clearEmbeddings = async ({ serverId }: { serverId: number }) => {
   try {
     // Clear all embeddings for items belonging to this server
     await db
@@ -164,7 +160,7 @@ export interface EmbeddingProgress {
 }
 
 export const getEmbeddingProgress = async ({
-  serverId
+  serverId,
 }: {
   serverId: number;
 }): Promise<EmbeddingProgress> => {
@@ -341,11 +337,7 @@ export const cleanupStaleEmbeddingJobs = async (): Promise<number> => {
   }
 };
 
-export const startEmbedding = async ({
-  serverId
-}: {
-  serverId: number;
-}) => {
+export const startEmbedding = async ({ serverId }: { serverId: number }) => {
   try {
     // Verify server exists and has valid config
     const server = await getServer({ serverId });
@@ -412,11 +404,7 @@ export const startEmbedding = async ({
   }
 };
 
-export const stopEmbedding = async ({
-  serverId
-}: {
-  serverId: number;
-}) => {
+export const stopEmbedding = async ({ serverId }: { serverId: number }) => {
   try {
     // Construct job server URL with proper fallback
     const jobServerUrl =
@@ -457,7 +445,7 @@ export const stopEmbedding = async ({
 
 export const toggleAutoEmbeddings = async ({
   serverId,
-  enabled
+  enabled,
 }: {
   serverId: number;
   enabled: boolean;
@@ -473,5 +461,251 @@ export const toggleAutoEmbeddings = async ({
       error
     );
     throw new Error("Failed to update auto-embedding setting");
+  }
+};
+
+// Jellyseerr configuration functions
+export const saveJellyseerrConfig = async ({
+  serverId,
+  config,
+}: {
+  serverId: number;
+  config: {
+    jellyseerrUrl?: string;
+    enableIntegration?: boolean;
+    enableSync?: boolean;
+  };
+}) => {
+  try {
+    await db
+      .update(servers)
+      .set({
+        jellyseerrUrl: config.jellyseerrUrl || null,
+        enableJellyseerrIntegration: config.enableIntegration || false,
+        jellyseerrSyncEnabled: config.enableSync || false,
+      })
+      .where(eq(servers.id, serverId));
+  } catch (error) {
+    console.error(
+      `Error saving Jellyseerr config for server ${serverId}:`,
+      error
+    );
+    throw new Error("Failed to save Jellyseerr configuration");
+  }
+};
+
+export const testJellyseerrConnection = async ({
+  jellyseerrUrl,
+}: {
+  jellyseerrUrl: string;
+}) => {
+  try {
+    // Test the public status endpoint to check if server is reachable
+    const response = await fetch(`${jellyseerrUrl}/api/v1/status`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error("Error testing Jellyseerr connection:", error);
+    throw new Error(
+      error instanceof Error ? error.message : "Failed to connect to Jellyseerr"
+    );
+  }
+};
+
+export const syncJellyseerrPopularMovies = async ({
+  serverId,
+}: {
+  serverId: number;
+}) => {
+  try {
+    // Get server configuration to validate Jellyseerr settings
+    const server = await getServer({ serverId });
+    if (!server) {
+      throw new Error("Server not found");
+    }
+
+    if (!server.enableJellyseerrIntegration || !server.jellyseerrUrl) {
+      throw new Error("Jellyseerr integration not properly configured");
+    }
+
+    // Get user session data for authentication
+    const { getJellyseerrSession } = await import("../auth");
+    const sessionData = await getJellyseerrSession();
+
+    // DEBUG: Log session data availability
+    console.log(`🔐 Jellyseerr Session Data for Sync:`, {
+      hasSessionData: !!sessionData,
+      hasCookies: !!sessionData?.cookies?.length,
+      hasUser: !!sessionData?.user,
+      cookieCount: sessionData?.cookies?.length || 0,
+      serverUrl: server.jellyseerrUrl,
+    });
+
+    // Construct job server URL with proper fallback
+    const jobServerUrl =
+      process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
+        ? process.env.JOB_SERVER_URL
+        : "http://localhost:3005";
+
+    // Queue the Jellyseerr sync job with user credentials
+    const response = await fetch(`${jobServerUrl}/api/jobs/sync-jellyseerr`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        serverId,
+        userCredentials: sessionData
+          ? {
+              cookies: sessionData.cookies,
+              user: sessionData.user,
+            }
+          : null,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to start Jellyseerr sync job");
+    }
+
+    // Update last sync timestamp
+    await db
+      .update(servers)
+      .set({ jellyseerrLastSync: new Date() })
+      .where(eq(servers.id, serverId));
+
+    return { success: true };
+  } catch (error) {
+    console.error(
+      `Error starting Jellyseerr sync for server ${serverId}:`,
+      error
+    );
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Failed to sync Jellyseerr popular movies"
+    );
+  }
+};
+
+export const authenticateJellyseerr = async ({
+  serverId,
+  username,
+  password,
+}: {
+  serverId: number;
+  username: string;
+  password: string;
+}): Promise<{
+  success: boolean;
+  reason?: string;
+  sessionData?: { cookies: string[]; user: any };
+}> => {
+  try {
+    // Get server configuration to check if Jellyseerr integration is enabled
+    const server = await getServer({ serverId });
+    if (!server) {
+      throw new Error("Server not found");
+    }
+
+    if (!server.enableJellyseerrIntegration || !server.jellyseerrUrl) {
+      // Jellyseerr integration not enabled or configured, skip silently
+      return { success: false, reason: "Jellyseerr integration not enabled" };
+    }
+
+    // First, get initial cookies by calling the status endpoint
+    const statusResponse = await fetch(
+      `${server.jellyseerrUrl}/api/v1/status`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!statusResponse.ok) {
+      return {
+        success: false,
+        reason: "Failed to connect to Jellyseerr server",
+      };
+    }
+
+    // Extract cookies from the status response
+    const initialCookies = statusResponse.headers.getSetCookie?.() || [];
+
+    // Attempt to login to Jellyseerr with Jellyfin credentials
+    const loginResponse = await fetch(
+      `${server.jellyseerrUrl}/api/v1/auth/jellyfin`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Include initial cookies if any
+          ...(initialCookies.length > 0
+            ? {
+                Cookie: initialCookies
+                  .map((cookie) => cookie.split(";")[0])
+                  .join("; "),
+              }
+            : {}),
+        },
+        body: JSON.stringify({
+          username: username,
+          password: password,
+          email: username,
+        }),
+        signal: AbortSignal.timeout(10000), // 10 second timeout
+      }
+    );
+
+    if (!loginResponse.ok) {
+      // Login failed, might be different credentials or user doesn't exist in Jellyseerr
+      console.warn("Failed to login to Jellyseerr, skipping authentication");
+      return { success: false, reason: "Jellyseerr login failed" };
+    }
+
+    const userData = await loginResponse.json();
+
+    // Extract session cookies from the login response
+    const sessionCookies = loginResponse.headers.getSetCookie?.() || [];
+    const allCookies = [...initialCookies, ...sessionCookies];
+
+    if (!userData || allCookies.length === 0) {
+      throw new Error(
+        "No user data or session cookies received from Jellyseerr"
+      );
+    }
+
+    // Return session data to be stored in cookies
+    return {
+      success: true,
+      sessionData: {
+        cookies: allCookies,
+        user: userData,
+      },
+    };
+  } catch (error) {
+    console.error(
+      `Error authenticating with Jellyseerr for server ${serverId}:`,
+      error
+    );
+    // Don't throw error here as this is optional - just log and return failure
+    return {
+      success: false,
+      reason: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 };

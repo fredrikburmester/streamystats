@@ -72,8 +72,13 @@ async function registerJobHandlers(boss) {
     // Register item embeddings job
     await boss.work("generate-item-embeddings", { teamSize: 1, teamConcurrency: 1 }, // Limited for API rate limiting
     workers_1.generateItemEmbeddingsJob);
+    // Register Jellyseerr embeddings job
+    await boss.work("generate-jellyseerr-embeddings", { teamSize: 1, teamConcurrency: 1 }, // Limited for API rate limiting
+    workers_1.generateJellyseerrEmbeddingsJob);
     // Register new sequential server sync job type
     await boss.work("sequential-server-sync", { teamSize: 1, teamConcurrency: 1 }, workers_1.sequentialServerSyncJob);
+    // Register Jellyseerr sync job
+    await boss.work("sync-jellyseerr-popular-movies", { teamSize: 1, teamConcurrency: 1 }, workers_1.syncJellyseerrPopularMoviesJob);
     // Register Jellyfin sync workers
     await boss.work(workers_1.JELLYFIN_JOB_NAMES.FULL_SYNC, { teamSize: 1, teamConcurrency: 1 }, // Limited concurrency for heavy operations
     workers_1.jellyfinFullSyncWorker);
@@ -99,5 +104,7 @@ exports.JobTypes = {
     SYNC_SERVER_DATA: "sync-server-data",
     ADD_SERVER: "add-server",
     GENERATE_ITEM_EMBEDDINGS: "generate-item-embeddings",
+    GENERATE_JELLYSEERR_EMBEDDINGS: "generate-jellyseerr-embeddings",
     SEQUENTIAL_SERVER_SYNC: "sequential-server-sync",
+    SYNC_JELLYSEERR_POPULAR_MOVIES: "sync-jellyseerr-popular-movies",
 };

@@ -5,6 +5,8 @@ import {
   sessions,
   items,
   hiddenRecommendations,
+  jellyseerrItems,
+  JellyseerrItem,
 } from "@streamystats/database/schema";
 import { db } from "@streamystats/database";
 import {
@@ -33,10 +35,115 @@ const debugLog = (...args: any[]) => {
   }
 };
 
+// Unified interface for recommendation items that can be either Jellyfin or Jellyseerr items
+export interface UnifiedRecommendationItem {
+  id: string;
+  name: string; // title for Jellyseerr items
+  type: string;
+  productionYear: number | null;
+  communityRating: number | null;
+  overview: string | null;
+  embedding: number[] | null;
+
+  // Jellyfin-specific properties (will be null for Jellyseerr items)
+  primaryImageTag?: string | null;
+  backdropImageTags?: string[] | null;
+  imageBlurHashes?: any;
+  seriesId?: string | null;
+  seriesPrimaryImageTag?: string | null;
+  parentBackdropItemId?: string | null;
+  parentBackdropImageTags?: string[] | null;
+  primaryImageThumbTag?: string | null;
+  parentThumbItemId?: string | null;
+  parentThumbImageTag?: string | null;
+  primaryImageLogoTag?: string | null;
+
+  // Jellyseerr-specific properties (will be null for Jellyfin items)
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genres?: string[] | null;
+  sourceType?: string | null;
+  mediaType?: string | null;
+
+  // Source identifier
+  source: "jellyfin" | "jellyseerr";
+}
+
 export interface RecommendationItem {
-  item: Item;
+  item: UnifiedRecommendationItem;
   similarity: number;
   basedOn: Item[];
+}
+
+// Helper functions to convert items to unified format
+function jellyfinItemToUnified(item: Item): UnifiedRecommendationItem {
+  return {
+    id: item.id,
+    name: item.name,
+    type: item.type,
+    productionYear: item.productionYear,
+    communityRating: item.communityRating,
+    overview: item.overview,
+    embedding: item.embedding,
+
+    // Jellyfin-specific properties
+    primaryImageTag: item.primaryImageTag,
+    backdropImageTags: item.backdropImageTags,
+    imageBlurHashes: item.imageBlurHashes,
+    seriesId: item.seriesId,
+    seriesPrimaryImageTag: item.seriesPrimaryImageTag,
+    parentBackdropItemId: item.parentBackdropItemId,
+    parentBackdropImageTags: item.parentBackdropImageTags,
+    primaryImageThumbTag: item.primaryImageThumbTag,
+    parentThumbItemId: item.parentThumbItemId,
+    parentThumbImageTag: item.parentThumbImageTag,
+    primaryImageLogoTag: item.primaryImageLogoTag,
+
+    // Jellyseerr-specific properties (null for Jellyfin items)
+    posterPath: null,
+    backdropPath: null,
+    genres: null,
+    sourceType: null,
+    mediaType: null,
+
+    source: "jellyfin",
+  };
+}
+
+function jellyseerrItemToUnified(
+  item: JellyseerrItem
+): UnifiedRecommendationItem {
+  return {
+    id: item.id,
+    name: item.title,
+    type: item.type,
+    productionYear: item.productionYear,
+    communityRating: item.communityRating,
+    overview: item.overview,
+    embedding: item.embedding,
+
+    // Jellyfin-specific properties (null for Jellyseerr items)
+    primaryImageTag: null,
+    backdropImageTags: null,
+    imageBlurHashes: null,
+    seriesId: null,
+    seriesPrimaryImageTag: null,
+    parentBackdropItemId: null,
+    parentBackdropImageTags: null,
+    primaryImageThumbTag: null,
+    parentThumbItemId: null,
+    parentThumbImageTag: null,
+    primaryImageLogoTag: null,
+
+    // Jellyseerr-specific properties
+    posterPath: item.posterPath,
+    backdropPath: item.backdropPath,
+    genres: item.genres as string[] | null,
+    sourceType: item.sourceType,
+    mediaType: item.mediaType,
+
+    source: "jellyseerr",
+  };
 }
 
 export const getSimilarStatistics = async (
@@ -71,15 +178,15 @@ export const getSimilarStatistics = async (
     let recommendations: RecommendationItem[] = [];
 
     if (targetUserId) {
-      // Get user-specific recommendations
-      debugLog(`\n📊 Getting user-specific recommendations...`);
-      recommendations = await getUserSpecificRecommendations(
+      // Get enhanced user-specific recommendations (includes Jellyseerr items)
+      debugLog(`\n📊 Getting enhanced user-specific recommendations...`);
+      recommendations = await getUserSpecificRecommendationsWithJellyseerr(
         serverIdNum,
         targetUserId,
         limit
       );
       debugLog(
-        `✅ Got ${recommendations.length} user-specific recommendations`
+        `✅ Got ${recommendations.length} enhanced user-specific recommendations`
       );
     }
 
@@ -355,7 +462,7 @@ async function getUserSpecificRecommendations(
       }
 
       recommendationsPerBaseMovie.get(baseMovie.id)!.push({
-        item: candidate.item,
+        item: jellyfinItemToUnified(candidate.item),
         similarity,
         basedOn: [baseMovie],
       });
@@ -385,7 +492,7 @@ async function getUserSpecificRecommendations(
   const multiMovieMatches = Array.from(candidateItems.values())
     .filter((candidate) => candidate.similarities.length >= 2)
     .map((candidate) => ({
-      item: candidate.item,
+      item: jellyfinItemToUnified(candidate.item),
       similarity:
         candidate.similarities.reduce((sum, sim) => sum + sim, 0) /
         candidate.similarities.length,
@@ -531,7 +638,7 @@ async function getPopularRecommendations(
 
   // Transform to recommendation format (no specific similarity since these are popularity-based)
   return popularItems.map((item) => ({
-    item: item.item,
+    item: jellyfinItemToUnified(item.item),
     similarity: 0.5, // Default similarity for popular recommendations
     basedOn: [], // No specific items these are based on
   }));
@@ -613,7 +720,7 @@ export const getSimilarItemsForItem = async (
     const recommendations: RecommendationItem[] = qualifiedSimilarItems
       .slice(0, limit)
       .map((result) => ({
-        item: result.item,
+        item: jellyfinItemToUnified(result.item),
         similarity: Number(result.similarity),
         basedOn: [targetItem], // Based on the target item
       }));
@@ -625,6 +732,173 @@ export const getSimilarItemsForItem = async (
     return [];
   }
 };
+
+/**
+ * Enhanced function that includes both Jellyfin and Jellyseerr items in recommendations
+ */
+async function getUserSpecificRecommendationsWithJellyseerr(
+  serverId: number,
+  userId: string,
+  limit: number
+): Promise<RecommendationItem[]> {
+  debugLog(
+    `\n🚀 Enhanced recommendations with Jellyseerr for user ${userId}, server ${serverId}, limit ${limit}`
+  );
+
+  // Get the original Jellyfin-based recommendations
+  const jellyfinRecommendations = await getUserSpecificRecommendations(
+    serverId,
+    userId,
+    Math.ceil(limit * 0.7) // Use 70% for Jellyfin recommendations
+  );
+
+  debugLog(`📚 Got ${jellyfinRecommendations.length} Jellyfin recommendations`);
+
+  // Get user's watch history to find what they like
+  const userWatchHistory = await db
+    .select({
+      itemId: sessions.itemId,
+      item: items,
+      totalPlayDuration: sql<number>`SUM(${sessions.playDuration})`.as(
+        "totalPlayDuration"
+      ),
+    })
+    .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
+    .where(
+      and(
+        eq(sessions.serverId, serverId),
+        eq(sessions.userId, userId),
+        isNotNull(items.embedding),
+        isNotNull(sessions.playDuration)
+      )
+    )
+    .groupBy(sessions.itemId, items.id)
+    .orderBy(desc(sql<number>`SUM(${sessions.playDuration})`))
+    .limit(6);
+
+  if (userWatchHistory.length === 0) {
+    debugLog("❌ No watch history found for Jellyseerr matching");
+    return jellyfinRecommendations;
+  }
+
+  debugLog(
+    `🎬 Using ${userWatchHistory.length} watched items for Jellyseerr similarity`
+  );
+
+  // Find Jellyseerr items similar to user's favorite movies
+  const jellyseerrRecommendations: RecommendationItem[] = [];
+  const usedJellyseerrIds = new Set<string>();
+
+  for (const watchedItem of userWatchHistory) {
+    if (!watchedItem.item.embedding) continue;
+
+    debugLog(
+      `🔍 Finding Jellyseerr items similar to "${watchedItem.item.name}"`
+    );
+
+    // Calculate cosine similarity with Jellyseerr items
+    const similarity = sql<number>`1 - (${cosineDistance(
+      jellyseerrItems.embedding,
+      watchedItem.item.embedding
+    )})`;
+
+    const similarJellyseerrItems = await db
+      .select({
+        item: jellyseerrItems,
+        similarity: similarity,
+      })
+      .from(jellyseerrItems)
+      .where(
+        and(
+          eq(jellyseerrItems.serverId, serverId),
+          isNotNull(jellyseerrItems.embedding),
+          eq(jellyseerrItems.processed, true)
+        )
+      )
+      .orderBy(desc(similarity))
+      .limit(10);
+
+    // Filter for good similarity scores and not already used
+    const qualifiedItems = similarJellyseerrItems
+      .filter(
+        (result) =>
+          Number(result.similarity) > 0.6 &&
+          !usedJellyseerrIds.has(result.item.id)
+      )
+      .slice(0, 3); // Take top 3 per watched item
+
+    debugLog(
+      `  Found ${qualifiedItems.length} qualified Jellyseerr items (similarity > 0.6)`
+    );
+
+    for (const result of qualifiedItems) {
+      usedJellyseerrIds.add(result.item.id);
+      jellyseerrRecommendations.push({
+        item: jellyseerrItemToUnified(result.item),
+        similarity: Number(result.similarity),
+        basedOn: [watchedItem.item],
+      });
+    }
+  }
+
+  // Sort Jellyseerr recommendations by similarity
+  jellyseerrRecommendations.sort((a, b) => b.similarity - a.similarity);
+
+  debugLog(
+    `🎭 Got ${jellyseerrRecommendations.length} Jellyseerr recommendations`
+  );
+
+  // Combine recommendations: mix Jellyfin and Jellyseerr
+  const combinedRecommendations: RecommendationItem[] = [];
+  const maxJellyseerrItems = Math.floor(limit * 0.3); // Use up to 30% for Jellyseerr
+
+  // Interleave the recommendations for variety
+  let jellyfinIndex = 0;
+  let jellyseerrIndex = 0;
+  let jellyseerrCount = 0;
+
+  while (
+    combinedRecommendations.length < limit &&
+    (jellyfinIndex < jellyfinRecommendations.length ||
+      (jellyseerrIndex < jellyseerrRecommendations.length &&
+        jellyseerrCount < maxJellyseerrItems))
+  ) {
+    // Add Jellyfin recommendation
+    if (jellyfinIndex < jellyfinRecommendations.length) {
+      combinedRecommendations.push(jellyfinRecommendations[jellyfinIndex]);
+      jellyfinIndex++;
+    }
+
+    // Add Jellyseerr recommendation (every 2-3 items)
+    if (
+      jellyseerrIndex < jellyseerrRecommendations.length &&
+      jellyseerrCount < maxJellyseerrItems &&
+      combinedRecommendations.length % 3 === 0
+    ) {
+      combinedRecommendations.push(jellyseerrRecommendations[jellyseerrIndex]);
+      jellyseerrIndex++;
+      jellyseerrCount++;
+    }
+  }
+
+  debugLog(
+    `\n✅ Final combined recommendations: ${combinedRecommendations.length} total`
+  );
+  debugLog(
+    `   - ${
+      combinedRecommendations.filter((r) => r.item.source === "jellyfin").length
+    } from Jellyfin`
+  );
+  debugLog(
+    `   - ${
+      combinedRecommendations.filter((r) => r.item.source === "jellyseerr")
+        .length
+    } from Jellyseerr`
+  );
+
+  return combinedRecommendations;
+}
 
 export const hideRecommendation = async (
   serverId: string | number,

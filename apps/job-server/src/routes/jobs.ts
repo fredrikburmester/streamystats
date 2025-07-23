@@ -236,6 +236,68 @@ router.post(
   }
 );
 
+// POST /jobs/sync-jellyseerr - Start Jellyseerr popular movies sync for a server
+router.post(
+  "/sync-jellyseerr",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const { serverId, userCredentials } = req.body;
+
+      if (!serverId) {
+        return res.status(400).json({ error: "Server ID is required" });
+      }
+
+      // DEBUG: Log job request details
+      console.log(`📋 Jellyseerr Sync Job Request:`, {
+        serverId,
+        hasUserCredentials: !!userCredentials,
+        credentialsKeys: userCredentials ? Object.keys(userCredentials) : [],
+      });
+
+      // Get server configuration to validate Jellyseerr settings
+      const server = await db
+        .select()
+        .from(servers)
+        .where(eq(servers.id, serverId))
+        .limit(1);
+
+      if (!server.length) {
+        return res.status(404).json({ error: "Server not found" });
+      }
+
+      const serverConfig = server[0];
+
+      if (
+        !serverConfig.enableJellyseerrIntegration ||
+        !serverConfig.jellyseerrUrl
+      ) {
+        return res.status(400).json({
+          error:
+            "Jellyseerr integration not properly configured. Please check your settings.",
+        });
+      }
+
+      const boss = await getJobQueue();
+      const jobId = await boss.send("sync-jellyseerr-popular-movies", {
+        serverId,
+        userCredentials,
+      });
+
+      res.json({
+        success: true,
+        jobId,
+        message: "Jellyseerr popular movies sync job started successfully",
+      });
+    } catch (error) {
+      console.error("Error starting Jellyseerr sync job:", error);
+      res.status(500).json({
+        error: "Failed to start Jellyseerr sync job",
+        details: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+);
+
 // POST /jobs/cancel-by-type - Cancel all jobs of a specific type
 router.post(
   "/cancel-by-type",

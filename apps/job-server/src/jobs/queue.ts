@@ -4,7 +4,9 @@ import {
   syncServerDataJob,
   addServerJob,
   generateItemEmbeddingsJob,
+  generateJellyseerrEmbeddingsJob,
   sequentialServerSyncJob,
+  syncJellyseerrPopularMoviesJob,
   // Import Jellyfin sync workers
   jellyfinFullSyncWorker,
   jellyfinUsersSyncWorker,
@@ -65,11 +67,25 @@ async function registerJobHandlers(boss: PgBoss) {
     generateItemEmbeddingsJob
   );
 
+  // Register Jellyseerr embeddings job
+  await boss.work(
+    "generate-jellyseerr-embeddings",
+    { teamSize: 1, teamConcurrency: 1 }, // Limited for API rate limiting
+    generateJellyseerrEmbeddingsJob
+  );
+
   // Register new sequential server sync job type
   await boss.work(
     "sequential-server-sync",
     { teamSize: 1, teamConcurrency: 1 },
     sequentialServerSyncJob
+  );
+
+  // Register Jellyseerr sync job
+  await boss.work(
+    "sync-jellyseerr-popular-movies",
+    { teamSize: 1, teamConcurrency: 1 },
+    syncJellyseerrPopularMoviesJob
   );
 
   // Register Jellyfin sync workers
@@ -124,5 +140,7 @@ export const JobTypes = {
   SYNC_SERVER_DATA: "sync-server-data",
   ADD_SERVER: "add-server",
   GENERATE_ITEM_EMBEDDINGS: "generate-item-embeddings",
+  GENERATE_JELLYSEERR_EMBEDDINGS: "generate-jellyseerr-embeddings",
   SEQUENTIAL_SERVER_SYNC: "sequential-server-sync",
+  SYNC_JELLYSEERR_POPULAR_MOVIES: "sync-jellyseerr-popular-movies",
 } as const;

@@ -40,6 +40,7 @@ const _map = {
   users: "Users",
   library: "Library",
   dashboard: "Dashboard",
+  jellyseerr: "Jellyseerr",
 };
 
 export const DynamicBreadcrumbs: React.FC = () => {

@@ -5,6 +5,10 @@ import { getServer } from "@/lib/db/server";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
+import {
+  getJellyseerrPopularMovies,
+  getJellyseerrTrendingMovies,
+} from "@/lib/db/jellyseerr-items";
 import { getMe } from "@/lib/db/users";
 import { showAdminStatistics } from "@/utils/adminTools";
 import { Server } from "@streamystats/database/schema";
@@ -14,6 +18,7 @@ import { ActiveSessions } from "./ActiveSessions";
 import { MostWatchedItems } from "./MostWatchedItems";
 import { SimilarStatistics } from "./SimilarStatistics";
 import { SimilarSeriesStatistics } from "./SimilarSeriesStatistics";
+import { JellyseerrPopularMovies } from "./JellyseerrPopularMovies";
 import { UserActivityWrapper } from "./UserActivityWrapper";
 import { UserLeaderboard } from "./UserLeaderboard";
 
@@ -68,10 +73,21 @@ async function GeneralStats({
   const me = await getMe();
   const sas = await showAdminStatistics();
 
-  const [similarData, similarSeriesData, data] = await Promise.all([
+  const [
+    similarData,
+    similarSeriesData,
+    data,
+    jellyseerrPopular,
+    jellyseerrTrending,
+  ] = await Promise.all([
     getSimilarStatistics(server.id),
     getSimilarSeries(server.id),
-    getMostWatchedItems({ serverId: server.id, userId: sas ? undefined : me?.id }),
+    getMostWatchedItems({
+      serverId: server.id,
+      userId: sas ? undefined : me?.id,
+    }),
+    getJellyseerrPopularMovies(server.id),
+    getJellyseerrTrendingMovies(server.id),
   ]);
 
   return (
@@ -79,6 +95,11 @@ async function GeneralStats({
       {/* <ServerSetupMonitor serverId={server.id} serverName={server.name} /> */}
       <SimilarStatistics data={similarData} server={server} />
       <SimilarSeriesStatistics data={similarSeriesData} server={server} />
+      <JellyseerrPopularMovies
+        popularMovies={jellyseerrPopular}
+        trendingMovies={jellyseerrTrending}
+        server={server}
+      />
       <MostWatchedItems data={data} server={server} />
       {sas ? (
         <>

@@ -6,6 +6,9 @@ export {
 } from "./server-jobs";
 
 export { generateItemEmbeddingsJob } from "./embedding-jobs";
+export { generateJellyseerrEmbeddingsJob } from "./jellyseerr-embedding-jobs";
+
+export { syncJellyseerrPopularMoviesJob } from "./jellyseerr-jobs";
 
 export {
   syncUsers,

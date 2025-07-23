@@ -12,6 +12,9 @@ import {
   vector,
   index,
   unique,
+  date,
+  real,
+  json,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -41,6 +44,16 @@ export const servers = pgTable(
     ollamaBaseUrl: text("ollama_base_url"),
     ollamaModel: text("ollama_model"),
     embeddingProvider: text("embedding_provider").default("openai"),
+
+    // Jellyseerr integration
+    jellyseerrUrl: text("jellyseerr_url"),
+    enableJellyseerrIntegration: boolean("enable_jellyseerr_integration")
+      .notNull()
+      .default(false),
+    jellyseerrSyncEnabled: boolean("jellyseerr_sync_enabled")
+      .notNull()
+      .default(false),
+    jellyseerrLastSync: timestamp("jellyseerr_last_sync"),
 
     // Sync status tracking
     syncStatus: text("sync_status").notNull().default("pending"), // pending, syncing, completed, failed
@@ -290,6 +303,50 @@ export const items = pgTable(
   ]
 );
 
+// Jellyseerr items table - for storing popular/trending movies for AI recommendations
+export const jellyseerrItems = pgTable("jellyseerr_items", {
+  id: text("id").primaryKey(), // Format: "jellyseerr-movie-{tmdbId}" or "jellyseerr-tv-{tmdbId}"
+  serverId: integer("server_id")
+    .notNull()
+    .references(() => servers.id, { onDelete: "cascade" }),
+
+  // Basic movie/TV info from TMDB/Jellyseerr
+  tmdbId: integer("tmdb_id").notNull(),
+  title: text("title").notNull(),
+  originalTitle: text("original_title"),
+  overview: text("overview"),
+  releaseDate: date("release_date"),
+  productionYear: integer("production_year"),
+  type: text("type").notNull(), // "Movie" or "TV"
+
+  // Ratings and popularity
+  communityRating: real("community_rating"), // TMDB vote_average
+  popularity: real("popularity"), // TMDB popularity score
+  voteCount: integer("vote_count"),
+
+  // Media metadata
+  posterPath: text("poster_path"),
+  backdropPath: text("backdrop_path"),
+  originalLanguage: text("original_language"),
+  adult: boolean("adult").default(false),
+  genres: json("genres"), // Array of genre names/IDs
+
+  // Source and category info
+  sourceType: text("source_type").notNull(), // "popular", "trending", "upcoming"
+  mediaType: text("media_type").notNull(), // "movie" or "tv" (TMDB format)
+
+  // Embedding processing
+  processed: boolean("processed").notNull().default(false),
+  embedding: real("embedding").array(), // Vector embedding for AI recommendations
+
+  // Raw data from Jellyseerr/TMDB for reference
+  rawData: json("raw_data"),
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Sessions table - user sessions and playback information
 export const sessions = pgTable("sessions", {
   // Primary key and relationships
@@ -499,6 +556,9 @@ export type NewJobResult = typeof jobResults.$inferInsert;
 
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
+
+export type JellyseerrItem = typeof jellyseerrItems.$inferSelect;
+export type NewJellyseerrItem = typeof jellyseerrItems.$inferInsert;
 
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;

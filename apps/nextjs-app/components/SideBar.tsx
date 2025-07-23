@@ -14,6 +14,7 @@ import {
   TrendingUp,
   User as UserIcon,
   Users,
+  Film,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
@@ -86,6 +87,11 @@ const settings_items = [
     title: "AI Recommendations",
     url: "/settings/ai",
     icon: TrendingUp,
+  },
+  {
+    title: "Jellyseerr",
+    url: "/settings/jellyseerr",
+    icon: Film,
   },
   {
     title: "Backup & Import",

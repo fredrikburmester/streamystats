@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.JELLYFIN_JOB_NAMES = exports.jellyfinRecentActivitiesSyncWorker = exports.jellyfinRecentItemsSyncWorker = exports.jellyfinActivitiesSyncWorker = exports.jellyfinItemsSyncWorker = exports.jellyfinLibrariesSyncWorker = exports.jellyfinUsersSyncWorker = exports.jellyfinFullSyncWorker = exports.jellyfinSyncWorker = exports.TIMEOUT_CONFIG = exports.OPENAI_CONFIG = exports.openai = exports.logJobResult = exports.syncItems = exports.syncActivities = exports.syncLibraries = exports.syncUsers = exports.generateItemEmbeddingsJob = exports.sequentialServerSyncJob = exports.addServerJob = exports.syncServerDataJob = void 0;
+exports.JELLYFIN_JOB_NAMES = exports.jellyfinRecentActivitiesSyncWorker = exports.jellyfinRecentItemsSyncWorker = exports.jellyfinActivitiesSyncWorker = exports.jellyfinItemsSyncWorker = exports.jellyfinLibrariesSyncWorker = exports.jellyfinUsersSyncWorker = exports.jellyfinFullSyncWorker = exports.jellyfinSyncWorker = exports.TIMEOUT_CONFIG = exports.OPENAI_CONFIG = exports.openai = exports.logJobResult = exports.syncItems = exports.syncActivities = exports.syncLibraries = exports.syncUsers = exports.syncJellyseerrPopularMoviesJob = exports.generateJellyseerrEmbeddingsJob = exports.generateItemEmbeddingsJob = exports.sequentialServerSyncJob = exports.addServerJob = exports.syncServerDataJob = void 0;
 // Export all job functions from their respective modules
 var server_jobs_1 = require("./server-jobs");
 Object.defineProperty(exports, "syncServerDataJob", { enumerable: true, get: function () { return server_jobs_1.syncServerDataJob; } });
@@ -8,6 +8,10 @@ Object.defineProperty(exports, "addServerJob", { enumerable: true, get: function
 Object.defineProperty(exports, "sequentialServerSyncJob", { enumerable: true, get: function () { return server_jobs_1.sequentialServerSyncJob; } });
 var embedding_jobs_1 = require("./embedding-jobs");
 Object.defineProperty(exports, "generateItemEmbeddingsJob", { enumerable: true, get: function () { return embedding_jobs_1.generateItemEmbeddingsJob; } });
+var jellyseerr_embedding_jobs_1 = require("./jellyseerr-embedding-jobs");
+Object.defineProperty(exports, "generateJellyseerrEmbeddingsJob", { enumerable: true, get: function () { return jellyseerr_embedding_jobs_1.generateJellyseerrEmbeddingsJob; } });
+var jellyseerr_jobs_1 = require("./jellyseerr-jobs");
+Object.defineProperty(exports, "syncJellyseerrPopularMoviesJob", { enumerable: true, get: function () { return jellyseerr_jobs_1.syncJellyseerrPopularMoviesJob; } });
 var sync_helpers_1 = require("./sync-helpers");
 Object.defineProperty(exports, "syncUsers", { enumerable: true, get: function () { return sync_helpers_1.syncUsers; } });
 Object.defineProperty(exports, "syncLibraries", { enumerable: true, get: function () { return sync_helpers_1.syncLibraries; } });
