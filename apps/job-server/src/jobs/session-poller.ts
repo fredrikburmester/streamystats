@@ -409,6 +409,7 @@ class SessionPoller {
         mediaSourceId: playState.MediaSourceId ?? tracked.mediaSourceId,
         repeatMode: playState.RepeatMode ?? tracked.repeatMode,
         playbackOrder: playState.PlaybackOrder ?? tracked.playbackOrder,
+        playMethod: playState.PlayMethod ?? tracked.playMethod,
 
         // Update TranscodingInfo fields
         transcodingAudioCodec:
@@ -581,6 +582,7 @@ class SessionPoller {
         audioStreamIndex: tracked.audioStreamIndex,
         subtitleStreamIndex: tracked.subtitleStreamIndex,
         playMethod: tracked.playMethod,
+        isTranscoded: tracked.playMethod !== "DirectPlay",
         mediaSourceId: tracked.mediaSourceId,
         repeatMode: tracked.repeatMode,
         playbackOrder: tracked.playbackOrder,
