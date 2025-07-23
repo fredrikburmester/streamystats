@@ -37,11 +37,11 @@ export const CodecUsageCard = ({
   const [containerWidth, setContainerWidth] = React.useState(400);
   const codecData = [
     ...videoCodecs.map((item) => ({
-      name: `Video: ${item.value}`,
+      name: `Video: ${item.label}`,
       count: item.count,
     })),
     ...audioCodecs.map((item) => ({
-      name: `Audio: ${item.value}`,
+      name: `Audio: ${item.label}`,
       count: item.count,
     })),
   ].filter((item) => item.count > 0);

@@ -136,7 +136,7 @@ export const DirectnessCard = ({ data }: DirectnessCardProps) => {
         {data.length > 0 ? (
           <div className="flex items-center gap-2">
             <InfoIcon className="h-4 w-4" />
-            {data[0]?.label}: {data[0]?.percentage}%
+            {data[0]?.label}: {data[0]?.percentage.toFixed(1)}%
           </div>
         ) : (
           <div>No transcoding data available</div>
