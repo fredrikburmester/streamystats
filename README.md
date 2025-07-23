@@ -77,3 +77,61 @@ The `:edge` tag always points to the latest commit on the main branch. It contai
 - Database: PostgreSQL
 - Containerization: Docker
 
+## Timezone Configuration
+
+StreamyStats now supports proper timezone configuration to ensure that timestamps are displayed correctly for your local timezone.
+
+### Setting Your Timezone
+
+To configure your timezone, set the `TZ` environment variable in your docker-compose environment. For example:
+
+**For European Central Time (CET/CEST):**
+```bash
+export TZ=Europe/Berlin
+docker-compose up -d
+```
+
+**For US Eastern Time:**
+```bash
+export TZ=America/New_York
+docker-compose up -d
+```
+
+**For other timezones:**
+```bash
+export TZ=Asia/Tokyo  # For Japan Standard Time
+export TZ=Australia/Sydney  # For Australian Eastern Time
+export TZ=UTC  # For UTC (default)
+docker-compose up -d
+```
+
+### How It Works
+
+- All containers (nextjs-app, job-server, migrate, vectorchord) now respect the `TZ` environment variable
+- Timestamps from Jellyfin are stored with proper timezone information in the database
+- When displaying timestamps to users, they are converted to your configured timezone
+- If no `TZ` is set, the system defaults to UTC
+
+### Troubleshooting Timezone Issues
+
+If you're seeing timestamps that are off by a few hours:
+
+1. **Check your current timezone setting:**
+   ```bash
+   echo $TZ
+   ```
+
+2. **Set the correct timezone and restart containers:**
+   ```bash
+   export TZ=Europe/Berlin  # Replace with your timezone
+   docker-compose down
+   docker-compose up -d
+   ```
+
+3. **Verify the timezone is applied:**
+   ```bash
+   docker-compose exec nextjs-app date
+   ```
+
+The timezone changes will take effect immediately for new data. Existing timestamp displays will also be corrected without needing to re-sync data from Jellyfin.
+

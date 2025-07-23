@@ -11,6 +11,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-streamystats}
       - PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
       - NODE_ENV=development
+      - TZ=${TZ:-UTC}
     volumes:
       # Mount only migrations for development - allows testing new migrations without rebuilding
       - ./packages/database/drizzle:/app/packages/database/drizzle:ro
@@ -36,6 +37,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
       - JOB_SERVER_URL=http://job-server:3005
       - HOSTNAME=0.0.0.0
+      - TZ=${TZ:-UTC}
     depends_on:
       vectorchord:
         condition: service_healthy
@@ -52,6 +54,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
       - PORT=3005
       - HOST=0.0.0.0
+      - TZ=${TZ:-UTC}
     depends_on:
       vectorchord:
         condition: service_healthy
@@ -66,6 +69,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-streamystats}
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+      - TZ=${TZ:-UTC}
     volumes:
       - vectorchord_data:/var/lib/postgresql/data
     restart: unless-stopped
