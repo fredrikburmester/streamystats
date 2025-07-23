@@ -29,12 +29,12 @@ interface ItemDetailsResponse {
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: string | null;
-  lastWatched: string | null;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
   usersWatched: any[];
   watchHistory: any[];
   watchCountByMonth: any[];
-  episodeStats?: SeriesEpisodeStats;
+  episodeStats?: any;
 }
 
 interface ItemMetadataProps {
@@ -44,13 +44,14 @@ interface ItemMetadataProps {
 
 function formatDate(date: string | Date | null): string {
   if (!date) return "Never";
+  const dateObj = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(date));
+  }).format(dateObj);
 }
 
 export function ItemMetadata({ item, statistics }: ItemMetadataProps) {

@@ -26,8 +26,8 @@ export interface ItemStats {
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: string | null;
-  lastWatched: string | null;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
   usersWatched: ItemUserStats[];
   watchHistory: ItemWatchHistory[];
   watchCountByMonth: ItemWatchCountByMonth[];
@@ -38,14 +38,14 @@ export interface ItemUserStats {
   watchCount: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: string | null;
-  lastWatched: string | null;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
 }
 
 export interface ItemWatchHistory {
   session: Session;
   user: User | null;
-  watchDate: string;
+  watchDate: Date;
   watchDuration: number;
   completionPercentage: number;
   playMethod: string | null;
@@ -73,8 +73,8 @@ export interface ItemDetailsResponse {
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: string | null;
-  lastWatched: string | null;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
   usersWatched: ItemUserStats[];
   watchHistory: ItemWatchHistory[];
   watchCountByMonth: ItemWatchCountByMonth[];
@@ -228,7 +228,7 @@ export const getItemWatchDates = async ({
 }: {
   itemId: string;
   userId?: string;
-}): Promise<{ first_watched: string | null; last_watched: string | null }> => {
+}): Promise<{ first_watched: Date | null; last_watched: Date | null }> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
     where: eq(items.id, itemId),
@@ -264,8 +264,8 @@ export const getItemWatchDates = async ({
 
   const result = await db
     .select({
-      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      first_watched: sql<Date>`MIN(${sessions.startTime})`,
+      last_watched: sql<Date>`MAX(${sessions.startTime})`,
     })
     .from(sessions)
     .where(whereCondition);
@@ -383,8 +383,8 @@ export const getItemUserStats = async ({
       watch_count: count(sessions.id),
       total_watch_time: sum(sessions.playDuration),
       completion_rate: sql<number>`AVG(${sessions.percentComplete})`,
-      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      first_watched: sql<Date>`MIN(${sessions.startTime})`,
+      last_watched: sql<Date>`MAX(${sessions.startTime})`,
     })
     .from(sessions)
     .leftJoin(users, eq(sessions.userId, users.id))
@@ -560,9 +560,7 @@ export const getItemWatchHistory = async ({
   return sessionData.map((row) => ({
     session: row.sessions,
     user: row.users,
-    watchDate: row.sessions
-      .startTime!.toISOString()
-      .replace(/\.(\d{3})Z$/, (match, ms) => `.${ms}000Z`),
+    watchDate: row.sessions.startTime!,
     watchDuration: row.sessions.playDuration || 0,
     completionPercentage: row.sessions.percentComplete || 0,
     playMethod: row.sessions.playMethod,
