@@ -523,8 +523,29 @@ async function importPlaybackReportingSession(
     );
 
     // Determine if transcoding based on play method
-    const isTranscoded =
-      playbackData.playMethod?.toLowerCase().includes("transcode") ?? false;
+    const playMethod = playbackData.playMethod?.toLowerCase();
+    const isTranscoded = playMethod?.includes("transcode") ?? false;
+
+    let videoCodec = null;
+    let audioCodec = null;
+    if (isTranscoded && playMethod) {
+      const videoCodecIdx = playMethod.indexOf("v:");
+      if (videoCodecIdx !== -1) {
+        videoCodec = playMethod.substring(
+          videoCodecIdx + 2, // Skip "v:"
+          playMethod.indexOf(" ", videoCodecIdx)
+        );
+      }
+      const audioCodecIdx = playMethod.indexOf("a:");
+      if (audioCodecIdx !== -1) {
+        audioCodec = playMethod.substring(
+          audioCodecIdx + 2, // Skip "a:"
+          playMethod.indexOf(")", audioCodecIdx)
+        );
+      }
+    }
+    const isVideoDirect = videoCodec === "direct";
+    const isAudioDirect = audioCodec === "direct";
 
     // Extract series information from item name if it's an episode
     let seriesName: string | null = null;
@@ -593,6 +614,10 @@ async function importPlaybackReportingSession(
 
       // Transcoding information
       isTranscoded: isTranscoded,
+      transcodingIsVideoDirect: isVideoDirect,
+      transcodingVideoCodec: isVideoDirect ? null : videoCodec,
+      transcodingIsAudioDirect: isAudioDirect,
+      transcodingAudioCodec: isAudioDirect ? null : audioCodec,
 
       // Store the original playback reporting data
       rawData: {
@@ -631,8 +656,6 @@ async function importPlaybackReportingSession(
       videoRangeType: null,
       transcodingWidth: null,
       transcodingHeight: null,
-      transcodingVideoCodec: null,
-      transcodingAudioCodec: null,
       transcodingContainer: null,
       transcodeReasons: null,
     };
