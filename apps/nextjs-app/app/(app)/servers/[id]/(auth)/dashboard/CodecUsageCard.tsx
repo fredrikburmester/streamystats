@@ -24,7 +24,7 @@ import {
 } from "recharts";
 import { FileDigit } from "lucide-react";
 import { CategoryStat } from "@/lib/db/transcoding-statistics";
-import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
+import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import React from "react";
 
 export const CodecUsageCard = ({
@@ -69,9 +69,19 @@ export const CodecUsageCard = ({
   const maxCount = Math.max(...codecData.map((d) => d.count));
 
   const total = codecData.reduce((sum, item) => sum + item.count, 0);
-  const codecDataWithPercent = codecData.map(item => ({
+  const totalVideoCodec = videoCodecs.reduce(
+    (sum, item) => sum + item.count,
+    0
+  );
+  const totalAudioCodec = audioCodecs.reduce(
+    (sum, item) => sum + item.count,
+    0
+  );
+  const codecDataWithPercent = codecData.map((item) => ({
     ...item,
-    labelWithPercent: `${item.name} - ${(total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0')}%`,
+    labelWithPercent: `${item.name} - ${
+      total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"
+    }%`,
   }));
 
   return (
@@ -81,8 +91,8 @@ export const CodecUsageCard = ({
         <CardDescription>Video and audio codec distribution</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer 
-          config={codecConfig} 
+        <ChartContainer
+          config={codecConfig}
           className="h-[200px]"
           onWidthChange={setContainerWidth}
         >
@@ -141,8 +151,7 @@ export const CodecUsageCard = ({
       <CardFooter className="text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
           <FileDigit className="h-4 w-4" />
-          Video: {videoCodecs[0]?.value || "N/A"}, Audio:{" "}
-          {audioCodecs[0]?.value || "N/A"}
+          Video: {totalVideoCodec || "N/A"}, Audio: {totalAudioCodec || "N/A"}
         </div>
       </CardFooter>
     </Card>
