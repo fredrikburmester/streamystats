@@ -1,3 +1,4 @@
+import { basePath } from "@/lib/utils";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
   title: "Streamystats",
   description:
     "A statistics service for Jellyfin, providing analytics and data visualization. 📈",
+  manifest: `${basePath}/manifest.json`,
 };
 
 export default function RootLayout({
