@@ -172,9 +172,9 @@ export function ActiveSessions({ server }: { server: Server }) {
                       <div className="flex flex-wrap items-center gap-2 min-w-0 sm:flex-nowrap sm:justify-between">
                         <div className="flex items-center gap-2 min-w-0">
                           {session.isPaused ? (
-                            <Pause className="h-4 w-4 text-amber-500" />
+                            <Pause className="h-4 w-4 min-h-4 min-w-4 text-amber-500" />
                           ) : (
-                            <Play className="h-4 w-4 text-green-500" />
+                            <Play className="h-4 w-4 min-h-4 min-w-4 text-green-500" />
                           )}
                           <h3 className="font-semibold text-lg truncate">
                             {session.item?.name || "Unknown"}
