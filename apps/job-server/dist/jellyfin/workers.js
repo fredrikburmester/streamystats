@@ -44,10 +44,10 @@ async function jellyfinSyncWorker(job) {
             case "activities":
                 result = await (0, sync_1.syncActivities)(server, options.activityOptions);
                 break;
-            case "recent_items":
+            case "recentItems":
                 result = await (0, sync_1.syncRecentlyAddedItems)(server, options.itemOptions?.recentItemsLimit || 100);
                 break;
-            case "recent_activities":
+            case "recentActivities":
                 result = await (0, sync_1.syncRecentActivities)(server, {
                     pageSize: 100,
                     maxPages: 10,
@@ -155,7 +155,7 @@ async function jellyfinRecentItemsSyncWorker(job) {
     return jellyfinSyncWorker({
         data: {
             serverId: job.data.serverId,
-            syncType: "recent_items",
+            syncType: "recentItems",
             options: job.data.options,
         },
     });
@@ -167,7 +167,7 @@ async function jellyfinRecentActivitiesSyncWorker(job) {
     return jellyfinSyncWorker({
         data: {
             serverId: job.data.serverId,
-            syncType: "recent_activities",
+            syncType: "recentActivities",
             options: job.data.options,
         },
     });
