@@ -131,7 +131,7 @@ export const SideBar: React.FC<Props> = ({
       },
       {
         title: "Me",
-        url: "/users/" + me?.name,
+        url: "/users/" + me?.id,
         icon: UserIcon,
       },
     ];

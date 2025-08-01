@@ -36,8 +36,9 @@ import type { UserWithStats } from "@/lib/db/users";
 import type { Server } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
+import { usePersistantState } from "@/hooks/usePersistantState";
 import Link from "next/link";
-import User from "./[name]/page";
+import User from "./[userId]/page";
 
 export interface UserTableProps {
   data: UserWithStats[];
@@ -85,7 +86,7 @@ export const UserTable: React.FC<UserTableProps> = ({
           type="button"
           className="cursor-pointer hover:opacity-80 focus:outline-none bg-transparent border-0 w-full text-left transition-colors duration-200 hover:text-primary"
           onClick={() => {
-            router.push(`/servers/${server.id}/users/${row.original.name}`);
+            router.push(`/servers/${server.id}/users/${row.original.id}`);
           }}
         >
           <p className="font-medium">{row.getValue("name")}</p>
@@ -183,15 +184,16 @@ export const UserTable: React.FC<UserTableProps> = ({
     },
   ];
 
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { desc: true, id: "total_watch_time" },
-  ]);
+  const [sorting, setSorting, isLoadingSorting] =
+    usePersistantState<SortingState>(`users-sorting-${server.id}`, [
+      { desc: true, id: "total_watch_time" },
+    ]);
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility, isLoadingVisibility] =
+    usePersistantState<VisibilityState>(`users-column-visibility-${server.id}`, {});
   const [rowSelection, setRowSelection] = React.useState({});
 
   const table = useReactTable({

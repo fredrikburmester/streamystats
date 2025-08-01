@@ -7,7 +7,7 @@ import {
   Item,
   User,
 } from "@streamystats/database";
-import { and, eq, desc, sql, isNotNull, ilike, asc } from "drizzle-orm";
+import { and, eq, desc, sql, isNotNull, ilike, asc, or } from "drizzle-orm";
 
 export interface HistoryItem {
   session: Session;
@@ -21,6 +21,14 @@ export interface HistoryResponse {
   page: number;
   perPage: number;
   totalPages: number;
+}
+
+interface UserHistoryOptions {
+  page?: number;
+  perPage?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
 /**
@@ -129,9 +137,9 @@ export const getHistory = async (
 export const getUserHistory = async (
   serverId: number,
   userId: string,
-  page: number = 1,
-  perPage: number = 50
+  options: UserHistoryOptions = {}
 ): Promise<HistoryResponse> => {
+  const { page = 1, perPage = 50, search, sortBy, sortOrder = "desc" } = options;
   const offset = (page - 1) * perPage;
 
   // Build query conditions for specific user
@@ -141,6 +149,17 @@ export const getUserHistory = async (
     isNotNull(sessions.itemId),
   ];
 
+  // Add search condition if provided
+  if (search) {
+    conditions.push(
+      or(
+        ilike(items.name, `%${search}%`),
+        ilike(sessions.clientName, `%${search}%`),
+        ilike(sessions.deviceName, `%${search}%`)
+      )!
+    );
+  }
+
   // Build the query to get session data with joined item and user information
   const baseQuery = db
     .select()
@@ -149,9 +168,40 @@ export const getUserHistory = async (
     .leftJoin(users, eq(sessions.userId, users.id))
     .where(and(...conditions));
 
+  // Determine sort order
+  let orderByClause;
+  if (sortBy) {
+    let sortColumn;
+    switch (sortBy) {
+      case "item_name":
+        sortColumn = items.name;
+        break;
+      case "play_method":
+        sortColumn = sessions.playMethod;
+        break;
+      case "remote_end_point":
+        sortColumn = sessions.remoteEndPoint;
+        break;
+      case "client_name":
+        sortColumn = sessions.clientName;
+        break;
+      case "device_name":
+        sortColumn = sessions.deviceName;
+        break;
+      case "date_created":
+        sortColumn = sessions.createdAt;
+        break;
+      default:
+        sortColumn = sessions.createdAt;
+    }
+    orderByClause = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+  } else {
+    orderByClause = desc(sessions.createdAt);
+  }
+
   // Get paginated results
   const data = await baseQuery
-    .orderBy(desc(sessions.createdAt))
+    .orderBy(orderByClause)
     .limit(perPage)
     .offset(offset);
 

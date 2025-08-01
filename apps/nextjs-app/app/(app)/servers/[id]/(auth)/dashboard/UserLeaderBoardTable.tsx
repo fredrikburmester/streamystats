@@ -93,7 +93,7 @@ export const UserLeaderboardTable = ({
                   </TableCell>
                   <TableCell>
                     <Link
-                      href={`/servers/${server.id}/users/${user.name}`}
+                      href={`/servers/${server.id}/users/${user.id}`}
                       className="flex items-center gap-2 group"
                     >
                       <JellyfinAvatar

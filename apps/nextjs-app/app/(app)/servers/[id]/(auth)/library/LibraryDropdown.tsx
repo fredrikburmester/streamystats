@@ -27,10 +27,10 @@ const LibraryDropdown = ({ libraries }: LibraryDropdownProps) => {
   const hasLibrariesParam = librariesParam !== null;
 
   // Parse selected IDs from the URL, or use all library IDs if parameter is absent
-  const getSelectedIds = (): number[] => {
+  const getSelectedIds = (): string[] => {
     // If no libraries parameter, default to all libraries selected
     if (!hasLibrariesParam) {
-      return libraries.map((lib) => Number.parseInt(lib.id));
+      return libraries.map((lib) => lib.id);
     }
 
     // If empty string, no libraries are selected - return empty array
@@ -38,14 +38,14 @@ const LibraryDropdown = ({ libraries }: LibraryDropdownProps) => {
 
     return librariesParam
       .split(",")
-      .map((id) => Number.parseInt(id, 10))
-      .filter((id) => !Number.isNaN(id));
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
   };
 
   const selectedIds = getSelectedIds();
 
-  const handleToggle = (id: number, checked: boolean) => {
-    let newSelectedIds: number[];
+  const handleToggle = (id: string, checked: boolean) => {
+    let newSelectedIds: string[];
 
     if (checked) {
       // Add ID to selection
@@ -58,19 +58,18 @@ const LibraryDropdown = ({ libraries }: LibraryDropdownProps) => {
     // If all libraries are selected, remove the parameter
     const allSelected =
       newSelectedIds.length === libraries.length &&
-      libraries.every((lib) =>
-        newSelectedIds.includes(Number.parseInt(lib.id))
-      );
+      libraries.every((lib) => newSelectedIds.includes(lib.id));
 
     // If no libraries are selected, remove the parameter (same as all selected)
     const noLibrariesSelected = newSelectedIds.length === 0;
 
-    // Update the URL with the new selection
+    // Update the URL with the new selection and reset page to 1
     updateQueryParams({
       libraries:
         allSelected || noLibrariesSelected
           ? null // Remove the parameter completely instead of setting to empty string
           : newSelectedIds.join(","),
+      page: "1", // Reset to first page when library selection changes
     });
   };
 
@@ -93,9 +92,9 @@ const LibraryDropdown = ({ libraries }: LibraryDropdownProps) => {
         {libraries.map((library) => (
           <DropdownMenuCheckboxItem
             key={library.id}
-            checked={selectedIds.includes(Number.parseInt(library.id))}
+            checked={selectedIds.includes(library.id)}
             onCheckedChange={(checked) =>
-              handleToggle(Number.parseInt(library.id), checked)
+              handleToggle(library.id, checked)
             }
           >
             <div className="flex flex-col">
