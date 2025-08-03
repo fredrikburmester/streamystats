@@ -52,7 +52,13 @@ function formatDistanceWithSeconds(date: Date) {
   return formatDistanceToNow(date, { addSuffix: true });
 }
 
-export function ActiveSessions({ server }: { server: Server }) {
+export function ActiveSessions({ 
+  server, 
+  isAdmin = false 
+}: { 
+  server: Server;
+  isAdmin?: boolean;
+}) {
   const { data, isPending, error } = useQuery({
     queryKey: ["activeSessions", server.id],
     queryFn: () => getActiveSessions(server.id),
@@ -69,6 +75,19 @@ export function ActiveSessions({ server }: { server: Server }) {
         .sort((a, b) => (b.positionTicks || 0) - (a.positionTicks || 0))
     : [];
 
+  // Determine title and description based on admin status and session count
+  const getTitle = () => {
+    return isAdmin ? "Active Sessions" : "My Active Sessions";
+  };
+
+  const getDescription = () => {
+    if (isAdmin) {
+      return "Currently playing content on your server";
+    } else {
+      return "Your currently playing content";
+    }
+  };
+
   if (isPending) {
     return <LoadingSessions />;
   }
@@ -80,10 +99,10 @@ export function ActiveSessions({ server }: { server: Server }) {
         <CardHeader className="px-0 pt-0">
           <CardTitle className="flex items-center gap-2">
             <MonitorPlay className="h-5 w-5" />
-            <span>Active Sessions</span>
+            <span>{getTitle()}</span>
           </CardTitle>
           <CardDescription>
-            Currently playing content on your server
+            {getDescription()}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 m-0">
@@ -99,20 +118,24 @@ export function ActiveSessions({ server }: { server: Server }) {
   }
 
   if (!sortedSessions || sortedSessions.length === 0) {
+    const emptyMessage = !isAdmin 
+      ? "You don't have any active sessions at the moment"
+      : "No active sessions at the moment";
+      
     return (
       <Card className="border-0 p-0 m-0">
         <CardHeader className="px-0 pt-0">
           <CardTitle className="flex items-center gap-2">
             <MonitorPlay className="h-5 w-5" />
-            <span>Active Sessions</span>
+            <span>{getTitle()}</span>
           </CardTitle>
           <CardDescription>
-            Currently playing content on your server
+            {getDescription()}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 m-0">
           <p className="text-muted-foreground">
-            No active sessions at the moment
+            {emptyMessage}
           </p>
         </CardContent>
       </Card>
@@ -124,13 +147,13 @@ export function ActiveSessions({ server }: { server: Server }) {
       <CardHeader className="px-0 pt-0">
         <CardTitle className="flex items-center gap-2">
           <MonitorPlay className="h-5 w-5" />
-          <span>Active Sessions</span>
+          <span>{getTitle()}</span>
           <Badge variant="outline" className="ml-2">
             {sortedSessions.length}
           </Badge>
         </CardTitle>
         <CardDescription>
-          Currently playing content on your server
+          {getDescription()}
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 pb-0">
@@ -187,29 +210,31 @@ export function ActiveSessions({ server }: { server: Server }) {
                           {session.formattedRuntime}
                         </div>
                       </div>
-                      {/* Username/Avatar */}
-                      <div className="flex justify-start">
-                        {session.user ? (
-                          <Link
-                            href={`/servers/${server.id}/users/${session.user.name}`}
-                            className="flex items-center gap-2 group"
-                          >
-                            <JellyfinAvatar
-                              user={session.user}
-                              serverUrl={server.url}
-                              className="h-6 w-6 rounded-lg transition-transform duration-200"
-                            />
-                            <span className="text-sm font-medium transition-colors duration-200 group-hover:text-primary">
-                              {session.user.name}
+                      {/* Username/Avatar - only show for admin users */}
+                      {isAdmin && (
+                        <div className="flex justify-start">
+                          {session.user ? (
+                            <Link
+                              href={`/servers/${server.id}/users/${session.user.name}`}
+                              className="flex items-center gap-2 group"
+                            >
+                              <JellyfinAvatar
+                                user={session.user}
+                                serverUrl={server.url}
+                                className="h-6 w-6 rounded-lg transition-transform duration-200"
+                              />
+                              <span className="text-sm font-medium transition-colors duration-200 group-hover:text-primary">
+                                {session.user.name}
+                              </span>
+                            </Link>
+                          ) : (
+                            <span className="text-sm font-medium flex items-center gap-2">
+                              <User className="h-6 w-6 text-muted-foreground" />
+                              Unknown User
                             </span>
-                          </Link>
-                        ) : (
-                          <span className="text-sm font-medium flex items-center gap-2">
-                            <User className="h-6 w-6 text-muted-foreground" />
-                            Unknown User
-                          </span>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                       {/* Series info */}
                       {session.item?.seriesName && (
                         <div className="text-sm text-muted-foreground">

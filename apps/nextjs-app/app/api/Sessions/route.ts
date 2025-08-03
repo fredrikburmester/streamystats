@@ -1,5 +1,6 @@
 import { ActiveSession } from "@/lib/db/active-sessions";
 import { getServer } from "@/lib/db/server";
+import { getMe, isUserAdmin } from "@/lib/db/users";
 import { db, items, users } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 
@@ -8,10 +9,30 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const serverId = searchParams.get("serverId");
+  const requestedUserId = searchParams.get("userId");
 
   if (!serverId) {
     return new Response("Server ID is required", { status: 400 });
   }
+
+  // Get current user and check admin status
+  const currentUser = await getMe();
+  const isAdmin = await isUserAdmin();
+  
+  // Determine which user's sessions to show
+  let filterUserId: string | null = null;
+  
+  if (!isAdmin) {
+    // Non-admin users can only see their own sessions
+    if (!currentUser) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    filterUserId = currentUser.id;
+  } else if (requestedUserId) {
+    // Admin users can request specific user's sessions
+    filterUserId = requestedUserId;
+  }
+  // If admin and no specific user requested, show all sessions (filterUserId remains null)
 
   const server = await getServer({ serverId });
 
@@ -88,8 +109,13 @@ export async function GET(request: Request) {
       });
     }
 
+    // Filter sessions by user if required
+    const filteredSessions = filterUserId 
+      ? jellyfinSessions.filter(session => session.UserId === filterUserId)
+      : jellyfinSessions;
+
     const activeSessions = await Promise.all(
-      jellyfinSessions.map(mapJellyfinSessionToActiveSession)
+      filteredSessions.map(mapJellyfinSessionToActiveSession)
     );
 
     return new Response(JSON.stringify(activeSessions), {
