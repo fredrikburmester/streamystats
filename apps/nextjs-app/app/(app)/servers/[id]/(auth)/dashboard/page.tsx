@@ -5,7 +5,7 @@ import { getServer } from "@/lib/db/server";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
-import { getMe } from "@/lib/db/users";
+import { getMe, isUserAdmin } from "@/lib/db/users";
 import { showAdminStatistics } from "@/utils/adminTools";
 import { Server } from "@streamystats/database/schema";
 import { redirect } from "next/navigation";
@@ -36,14 +36,14 @@ export default async function DashboardPage({
   }
 
   const sas = await showAdminStatistics();
+  const isAdmin = await isUserAdmin();
 
   return (
     <Container className="relative flex flex-col w-screen md:w-[calc(100vw-256px)]">
-      {sas && (
-        <div className="mb-8">
-          <ActiveSessions server={server} />
-        </div>
-      )}
+      {/* Show ActiveSessions for all users - API will filter appropriately */}
+      <div className="mb-8">
+        <ActiveSessions server={server} isAdmin={isAdmin} />
+      </div>
       <PageTitle title="General Statistics" />
       <Suspense fallback={<Skeleton className="h-48 w-full" />}>
         <GeneralStats
