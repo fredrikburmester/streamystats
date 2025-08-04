@@ -14,9 +14,12 @@ import { usePersistantState } from "@/hooks/usePersistantState";
 import { formatDuration } from "@/lib/utils";
 import { Item, Server } from "@streamystats/database/schema";
 import { Settings } from "lucide-react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Poster } from "./Poster";
 import Link from "next/link";
+import { DateRangePicker } from "./DateRangePicker";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getFilteredMostWatchedItems } from "./actions";
 
 interface ItemWithStats extends Item {
   totalPlayCount: number;
@@ -24,7 +27,7 @@ interface ItemWithStats extends Item {
 }
 
 interface Props {
-  data: {
+  initialData: {
     Movie: ItemWithStats[];
     Episode: ItemWithStats[];
     Series: ItemWithStats[];
@@ -42,8 +45,12 @@ const DEFAULT_VISIBILITY = {
   episodes: true,
 };
 
-export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
-  const [initialized, setInitialized] = useState(false);
+export const MostWatchedItems: React.FC<Props> = ({ initialData, server }) => {
+  const [data, setData] = useState(initialData);
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [isPending, startTransition] = useTransition();
+  const [isLoading, setIsLoading] = useState(false);
 
   const [visibleColumns, setVisibleColumns] = usePersistantState<
     typeof DEFAULT_VISIBILITY
@@ -54,6 +61,51 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
       ...prev,
       [column]: !prev[column],
     }));
+  };
+
+  const fetchFilteredData = async (start?: Date, end?: Date) => {
+    setIsLoading(true);
+    try {
+      const result = await getFilteredMostWatchedItems(
+        server.id.toString(),
+        start?.toISOString(),
+        end?.toISOString()
+      );
+
+      if (result.success && result.data) {
+        setData(result.data);
+      } else {
+        console.error("Error fetching filtered data:", result.error);
+      }
+    } catch (error) {
+      console.error("Error fetching filtered data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDateChange = (type: "start" | "end", date: Date | undefined) => {
+    if (type === "start") {
+      setStartDate(date);
+      startTransition(() => {
+        fetchFilteredData(date, endDate);
+      });
+    } else {
+      setEndDate(date);
+      startTransition(() => {
+        fetchFilteredData(startDate, date);
+      });
+    }
+  };
+
+  const handlePresetChange = (preset: string) => {
+    // The DateRangePicker handles the preset logic internally
+  };
+
+  const handleClearDates = () => {
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setData(initialData);
   };
 
   // Calculate number of visible columns for grid
@@ -143,14 +195,39 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
 
   return (
     <div className="space-y-4">
-      <div className={`grid ${gridColsClass} gap-4`}>
-        {visibleColumns.movies &&
-          renderItems(data?.Movie || [], "Movie", "Movies")}
-        {visibleColumns.series &&
-          renderItems(data?.Series || [], "Series", "Series")}
-        {visibleColumns.episodes &&
-          renderItems(data?.Episode || [], "Episode", "Episodes")}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <h2 className="text-2xl font-bold">Most Watched Items</h2>
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={handleDateChange}
+            onPresetChange={handlePresetChange}
+            onClearDates={handleClearDates}
+          />
+        </div>
+        
+        {(isLoading || isPending) && (
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        )}
       </div>
+
+      {!(isLoading || isPending) && (
+        <div className={`grid ${gridColsClass} gap-4`}>
+          {visibleColumns.movies &&
+            renderItems(data?.Movie || [], "Movie", "Movies")}
+          {visibleColumns.series &&
+            renderItems(data?.Series || [], "Series", "Series")}
+          {visibleColumns.episodes &&
+            renderItems(data?.Episode || [], "Episode", "Episodes")}
+        </div>
+      )}
+
       <div className="flex justify-end">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

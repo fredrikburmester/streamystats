@@ -26,9 +26,13 @@ interface MostWatchedItems {
 export const getMostWatchedItems = async ({
   serverId,
   userId,
+  startDate,
+  endDate,
 }: {
   serverId: string | number;
   userId?: string | number;
+  startDate?: string;
+  endDate?: string;
 }): Promise<MostWatchedItems> => {
   // First get the aggregated session data for Movies and Episodes
   const whereConditions = [
@@ -39,6 +43,14 @@ export const getMostWatchedItems = async ({
   // Add userId filter if provided
   if (userId !== undefined) {
     whereConditions.push(eq(sessions.userId, String(userId)));
+  }
+
+  // Add date range filter if provided
+  if (startDate) {
+    whereConditions.push(gte(sessions.startTime, new Date(startDate)));
+  }
+  if (endDate) {
+    whereConditions.push(lte(sessions.startTime, new Date(endDate)));
   }
 
   const rawSessionStats = await db
