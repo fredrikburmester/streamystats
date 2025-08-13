@@ -1,38 +1,24 @@
 # Dockerless Installation
 
 If you want to run streamystats but do not want to use docker, you can with a bit of elbow grease! This guide assumes you have at least basic linux and postgres knowledge.
-This has been tested on **Debian Bookworm**.
+This has been tested on **Debian Trixie*.
 
 ## PostgreSQL
 
-Streamystats depends on the vector extension so you might need to use the upstream postgresql repos or compile it yourself.
+Streamystats depends on the vector extension on Trixie this is now available as a package.
 
 Installing PostgreSQL:
 ```bash
-# NOTE: on Debian Bookworm, the default PostgreSQL version is 15.
-apt install postgresql postgresql-client
-systemctl enable --now postgresql@15-main.service
-```
-
-Since there is no pgvector package we need to compile it ourselves:
-```bash
-apt install git build-essential postgresql-server-dev-15
-
-git clone https://github.com/pgvector/pgvector.git /tmp/pgvector
-cd /tmp/pgvector
-make
-make install
-
-# NOTE: optionally clean up the dev requirements
-apt remove build-essential postgresql-server-dev-15 clang-14 icu-devtools lib32gcc-s1 lib32stdc++6 libc6-i386 libclang-common-14-dev libclang-cpp14 libclang-rt-14-dev libclang1-14 libcurl3-nss libffi-dev libgc1 libicu-dev libncurses-dev libncurses6 libobjc-12-dev libobjc4 libpfm4 libpq-dev libtinfo-dev libxml2-dev libyaml-0-2 libz3-dev llvm-14 llvm-14-dev llvm-14-linker-tools llvm-14-runtime llvm-14-tools nss-plugin-pem postgresql-server-dev-15 python3-pygments python3-yaml
-apt autoremove
+# NOTE: on Debian Trixie, the default PostgreSQL version is 17.
+apt install postgresql postgresql-client postgresql-17-pgvector
+systemctl enable --now postgresql@17-main.service
 ```
 
 ### Creating the database
 
 ```bash
-export PG_VER=15
-export DB_NAME=jellystats
+export PG_VER=17
+export DB_NAME=streamystats
 export DB_PASS=$(pwgen -s 24 1)
 
 echo "Creating ${DB_NAME} role with password: ${DB_PASS}"
