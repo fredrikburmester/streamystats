@@ -39,6 +39,7 @@ import { useDebounce } from "use-debounce";
 import { Poster } from "../dashboard/Poster";
 import LibraryDropdown from "./LibraryDropdown";
 import Link from "next/link";
+import type { Server, ItemWatchStats, ItemWatchStatsResponse, Library } from "@/lib/types";
 
 export interface ItemWatchStatsTableProps {
   server: Server;
@@ -281,7 +282,6 @@ export function ItemWatchStatsTable({
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     state: {
@@ -290,6 +290,7 @@ export function ItemWatchStatsTable({
       sorting,
     },
     manualPagination: true,
+    manualSorting: true,
     pageCount: data?.total_pages || -1,
   });
 

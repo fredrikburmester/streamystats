@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { usePersistantState } from "@/hooks/usePersistantState";
 import { formatDuration } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "nextjs-toploader/app";
@@ -266,7 +267,7 @@ export function HistoryTable({
         return (
           <div className="flex items-center gap-2">
             <Link
-              href={`/servers/${server.id}/users/${row.original.user?.name}`}
+              href={`/servers/${server.id}/users/${row.original.user?.id}`}
               className="flex items-center gap-2 cursor-pointer group"
             >
               <JellyfinAvatar
@@ -406,8 +407,8 @@ export function HistoryTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({
+  const [columnVisibility, setColumnVisibility, isLoadingVisibility] =
+    usePersistantState<VisibilityState>(`history-column-visibility-${server.id}`, {
       user_name: !hideUserColumn,
     });
 

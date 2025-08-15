@@ -12,10 +12,10 @@ export default async function ActivitiesPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page: string }>;
+  searchParams: Promise<{ page?: string; sort_by?: string; sort_order?: string; search?: string }>;
 }) {
   const { id } = await params;
-  const { page } = await searchParams;
+  const { page, sort_by, sort_order, search } = await searchParams;
 
   const server = await getServer({ serverId: id });
 
@@ -25,6 +25,9 @@ export default async function ActivitiesPage({
 
   const activities = await getActivities(server.id, {
     page: page ? parseInt(page, 10) : 1,
+    sortBy: sort_by || undefined,
+    sortOrder: sort_order as "asc" | "desc" || undefined,
+    search: search || undefined,
   });
 
   return (

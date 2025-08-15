@@ -29,6 +29,19 @@ export const getUser = async ({
   return user || null;
 };
 
+export const getUserById = async ({
+  userId,
+  serverId
+}: {
+  userId: string;
+  serverId: string | number;
+}): Promise<User | null> => {
+  const user = await db.query.users.findFirst({
+    where: and(eq(users.id, userId), eq(users.serverId, Number(serverId))),
+  });
+  return user || null;
+};
+
 export const getUsers = async ({
   serverId
 }: {
