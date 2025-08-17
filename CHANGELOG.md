@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.5.0](https://github.com/fredrikburmester/streamystats/compare/v2.4.0...v2.5.0) (2025-08-17)
+
+
+### Features
+
+* add basePath to next.config.mjs to make components basePath aware ([7137e11](https://github.com/fredrikburmester/streamystats/commit/7137e1108f8622db61592e5d5487e286d22faec4))
+* enhance ActivityLogTable with search and sorting functionality ([a4c0a45](https://github.com/fredrikburmester/streamystats/commit/a4c0a45c22c543cc2fccdf3beed8f11bb97ab4df))
+* make fetch() calls basePath aware ([7e1a1d0](https://github.com/fredrikburmester/streamystats/commit/7e1a1d0235792922991063e693bc41da3b3816e1))
+* make middleware aware of basePath ([e6e542d](https://github.com/fredrikburmester/streamystats/commit/e6e542d3cbdc841143a1a2ec2c636250cd51a1d5))
+* provide basePath aware fetch in utils ([09aa4ba](https://github.com/fredrikburmester/streamystats/commit/09aa4ba7cdd1e72f421119117edb086d2fdddd27))
+* switch to next/link in SideBar and ServerSelector ([9b10318](https://github.com/fredrikburmester/streamystats/commit/9b103181d8a0448cd78df08be26020c00285ab77))
+
+
+### Bug Fixes
+
+* address review feedback about favicon varients ([988cbf1](https://github.com/fredrikburmester/streamystats/commit/988cbf1ec07ef1f5da92b549daaccba94fb43065))
+* BreadcrumbLink does not handle basePath automatically ([2452709](https://github.com/fredrikburmester/streamystats/commit/2452709ef8795130763e9393cf7bfa46ae071f7b))
+* ensure manifest resources work without logging in ([fea8383](https://github.com/fredrikburmester/streamystats/commit/fea838315c316380c1e982f11a42d54f69c20455))
+* ensure web manifest is included ([56adb99](https://github.com/fredrikburmester/streamystats/commit/56adb9959cf028f7f6e2925266fbc6cbd08174c1))
+* implement HEAD and add caching for manifest.json ([ad2b71e](https://github.com/fredrikburmester/streamystats/commit/ad2b71e2dcfc5fe39b6a02c70a414e1fd8dcfab3))
+* more spelling ([f1efa00](https://github.com/fredrikburmester/streamystats/commit/f1efa00043768db3f16625528f6dd1acdd3fb9c9))
+* nextjs app route component for manifest.json link ([7d431b1](https://github.com/fredrikburmester/streamystats/commit/7d431b123d3b499da77c8c89096c07186b18de34))
+* remove /users/[name] (git error that did not delete this folder) ([a0186f1](https://github.com/fredrikburmester/streamystats/commit/a0186f19f225b47ee36a2946fcfce3792cca7fed))
+* set min width and height for play and pause icon on ActiveSession card ([77be982](https://github.com/fredrikburmester/streamystats/commit/77be982f82f88235dd6bd8dd7a847a953024642d))
+* sort by watchtime ([8aa5609](https://github.com/fredrikburmester/streamystats/commit/8aa5609a55eeeae90df67c1eb597cdd2aefc41ce))
+* spelling ([df7b176](https://github.com/fredrikburmester/streamystats/commit/df7b176604f69660d8c621b0e3011ef5cf533bc9))
+* spelling ([3827cfc](https://github.com/fredrikburmester/streamystats/commit/3827cfcc70547f18984f57859486731cf1947bac))
+* spelling and grammer ([9a4a681](https://github.com/fredrikburmester/streamystats/commit/9a4a681034503c3d8c9d0c1d567a9bc3f2f51bbd))
+* type errors ([dd88753](https://github.com/fredrikburmester/streamystats/commit/dd88753e2373f567ec547f435efb7cf1763df795))
+* update user link in ActivityLogTable to use userId directly ([9d328e0](https://github.com/fredrikburmester/streamystats/commit/9d328e016be8e62bba36b33615465a425e12f544))
+* use name not userId for ActiveSessions and UserLeaderBoardTable user page linking ([30f9b70](https://github.com/fredrikburmester/streamystats/commit/30f9b70e2fcfd473ec80e53aa5a531fcd6454b65))
+
 ## [2.4.0](https://github.com/fredrikburmester/streamystats/compare/v2.3.0...v2.4.0) (2025-07-21)
 
 
