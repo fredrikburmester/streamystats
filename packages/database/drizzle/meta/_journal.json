@@ -50,6 +50,13 @@
       "when": 1748864194884,
       "tag": "0006_parallel_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1753312928902,
+      "tag": "0007_update_transcode_sessions",
+      "breakpoints": true
     }
   ]
 }

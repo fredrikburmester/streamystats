@@ -88,6 +88,8 @@ export async function getTranscodingStatistics(
       transcodingWidth: sessions.transcodingWidth,
       transcodingHeight: sessions.transcodingHeight,
       transcodingReasons: sessions.transcodeReasons,
+      transcodingBitrate: sessions.transcodingBitrate,
+      hardwareAccelType: sessions.transcodingHardwareAccelerationType,
       videoBitRate: sessions.videoBitRate,
       audioBitRate: sessions.audioBitRate,
       audioChannels: sessions.audioChannels,
@@ -175,10 +177,12 @@ export async function getTranscodingStatistics(
 
       // Try to get hardware acceleration type from rawData
       if (
+        session.hardwareAccelType ||
         transcodingInfo?.HardwareAccelerationType ||
         transcodingInfo?.hardwareAccelerationType
       ) {
         const hwType =
+          session.hardwareAccelType ||
           transcodingInfo.HardwareAccelerationType ||
           transcodingInfo.hardwareAccelerationType;
         hardwareAccelMap.set(hwType, (hardwareAccelMap.get(hwType) || 0) + 1);
@@ -198,6 +202,7 @@ export async function getTranscodingStatistics(
       let bitrate =
         transcodingInfo?.Bitrate ||
         transcodingInfo?.bitrate ||
+        session.transcodingBitrate ||
         session.videoBitRate;
       if (bitrate) {
         bitrates.push(bitrate);

@@ -109,10 +109,10 @@ export function PlaybackMethodBadge({
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="inline-flex items-center gap-1">
-            {isReallyTranscode ? (
-              <Cog className="h-4 w-4 text-amber-500" />
-            ) : (
+            {isReallyDirect ? (
               <Zap className="h-4 w-4 text-green-500" />
+            ) : (
+              <Cog className="h-4 w-4 text-amber-500" />
             )}
             <span className="text-xs text-muted-foreground">{label}</span>
           </span>
