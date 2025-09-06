@@ -79,7 +79,7 @@ async function GeneralStats({
       {/* <ServerSetupMonitor serverId={server.id} serverName={server.name} /> */}
       <SimilarStatistics data={similarData} server={server} />
       <SimilarSeriesStatistics data={similarSeriesData} server={server} />
-      <MostWatchedItems data={data} server={server} />
+      <MostWatchedItems initialData={data} server={server} />
       {sas ? (
         <>
           <UserLeaderboard server={server} />
