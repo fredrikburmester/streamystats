@@ -1,21 +1,24 @@
-import { eq, and, inArray } from "drizzle-orm";
 import {
   db,
-  items,
-  libraries,
-  Server,
-  NewItem,
-  Library,
   Item,
+  items,
+  Library,
+  libraries,
+  NewItem,
+  Server,
+  sessions,
 } from "@streamystats/database";
-import { JellyfinClient, JellyfinBaseItemDto } from "../client";
+import { and, eq, inArray } from "drizzle-orm";
+import pLimit from "p-limit";
+import pMap from "p-map";
+import { JellyfinBaseItemDto, JellyfinClient } from "../client";
 import {
+  createSyncResult,
   SyncMetricsTracker,
   SyncResult,
-  createSyncResult,
 } from "../sync-metrics";
-import pMap from "p-map";
-import pLimit from "p-limit";
+
+const DUPLICATE_MIN_CONFIDENCE = 40;
 
 export interface ItemSyncOptions {
   itemPageSize?: number;
@@ -36,7 +39,7 @@ export interface ItemSyncData {
 
 export async function syncItems(
   server: Server,
-  options: ItemSyncOptions = {}
+  options: ItemSyncOptions = {},
 ): Promise<SyncResult<ItemSyncData>> {
   const {
     itemPageSize = 500,
@@ -69,7 +72,7 @@ export async function syncItems(
         libraryLimit(async () => {
           try {
             console.log(
-              `Starting sync for library: ${library.name} (${library.id})`
+              `Starting sync for library: ${library.name} (${library.id})`,
             );
             await syncLibraryItems(library.id, client, metrics, {
               itemPageSize,
@@ -83,13 +86,11 @@ export async function syncItems(
             console.error(`Error syncing library ${library.name}:`, error);
             metrics.incrementErrors();
             errors.push(
-              `Library ${library.name}: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`
+              `Library ${library.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
             );
           }
-        })
-      )
+        }),
+      ),
     );
 
     const finalMetrics = metrics.finish();
@@ -122,7 +123,7 @@ export async function syncItems(
       "error",
       errorData,
       finalMetrics,
-      error instanceof Error ? error.message : "Unknown error"
+      error instanceof Error ? error.message : "Unknown error",
     );
   }
 }
@@ -136,7 +137,7 @@ async function syncLibraryItems(
     batchSize: number;
     itemConcurrency: number;
     apiRequestDelayMs: number;
-  }
+  },
 ): Promise<void> {
   let startIndex = 0;
   let hasMoreItems = true;
@@ -145,14 +146,12 @@ async function syncLibraryItems(
     // Add delay between API requests
     if (startIndex > 0) {
       await new Promise((resolve) =>
-        setTimeout(resolve, options.apiRequestDelayMs)
+        setTimeout(resolve, options.apiRequestDelayMs),
       );
     }
 
     console.log(
-      `Fetching items ${startIndex} to ${
-        startIndex + options.itemPageSize
-      } for library ${libraryId}`
+      `Fetching items ${startIndex} to ${startIndex + options.itemPageSize} for library ${libraryId}`,
     );
 
     try {
@@ -160,13 +159,13 @@ async function syncLibraryItems(
       const { items: jellyfinItems, totalCount } = await client.getItemsPage(
         libraryId,
         startIndex,
-        options.itemPageSize
+        options.itemPageSize,
       );
 
       console.log(
         `Fetched ${jellyfinItems.length} items from Jellyfin (${
           startIndex + jellyfinItems.length
-        }/${totalCount})`
+        }/${totalCount})`,
       );
 
       // Process items in smaller batches to avoid overwhelming the database
@@ -180,19 +179,19 @@ async function syncLibraryItems(
             metrics.incrementErrors();
           }
         },
-        { concurrency: options.itemConcurrency }
+        { concurrency: options.itemConcurrency },
       );
 
       startIndex += jellyfinItems.length;
       hasMoreItems = startIndex < totalCount && jellyfinItems.length > 0;
 
       console.log(
-        `Processed batch for library ${libraryId}: ${startIndex}/${totalCount} items`
+        `Processed batch for library ${libraryId}: ${startIndex}/${totalCount} items`,
       );
     } catch (error) {
       console.error(
         `Error fetching items page for library ${libraryId}:`,
-        error
+        error,
       );
       metrics.incrementErrors();
       break; // Stop processing this library on API error
@@ -200,11 +199,164 @@ async function syncLibraryItems(
   }
 }
 
+/**
+ * Check if two items have matching provider IDs
+ */
+function hasMatchingProviderIds(
+  providerIds1: Record<string, string> | null,
+  providerIds2: Record<string, string> | null,
+): boolean {
+  if (!providerIds1 || !providerIds2) {
+    return false;
+  }
+
+  const allProviders = new Set([
+    ...Object.keys(providerIds1),
+    ...Object.keys(providerIds2),
+  ]);
+
+  // Check if any provider has matching IDs in both items
+  for (const provider of allProviders) {
+    if (providerIds1[provider] && providerIds2[provider]) {
+      if (providerIds1[provider] === providerIds2[provider]) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Calculate confidence score for item match
+ */
+function calculateMatchConfidence(
+  jellyfinItem: JellyfinBaseItemDto,
+  existingItem: Item,
+): number {
+  let confidence = 0;
+  const maxConfidence = 100;
+
+  // Path match is most reliable (50 points)
+  if (
+    jellyfinItem.Path &&
+    existingItem.path &&
+    jellyfinItem.Path === existingItem.path
+  ) {
+    confidence += 50;
+  }
+
+  // Provider ID match is very reliable (40 points)
+  if (
+    hasMatchingProviderIds(
+      jellyfinItem.ProviderIds || null,
+      existingItem.providerIds as Record<string, string> | null,
+    )
+  ) {
+    confidence += 40;
+  }
+
+  // For episodes: series + season + episode number (30 points)
+  if (
+    jellyfinItem.Type === "Episode" &&
+    existingItem.type === "Episode" &&
+    jellyfinItem.SeriesName === existingItem.seriesName &&
+    jellyfinItem.IndexNumber === existingItem.indexNumber &&
+    (jellyfinItem.ParentIndexNumber ?? 1) ===
+      (existingItem.parentIndexNumber ?? 1)
+  ) {
+    confidence += 30;
+  }
+
+  // For movies: name + year + runtime (30 points)
+  if (
+    jellyfinItem.Type === "Movie" &&
+    existingItem.type === "Movie" &&
+    jellyfinItem.Name === existingItem.name
+  ) {
+    confidence += 10;
+
+    if (
+      jellyfinItem.ProductionYear &&
+      existingItem.productionYear &&
+      jellyfinItem.ProductionYear === existingItem.productionYear
+    ) {
+      confidence += 10;
+    }
+
+    if (
+      jellyfinItem.RunTimeTicks &&
+      existingItem.runtimeTicks &&
+      Math.abs(jellyfinItem.RunTimeTicks - existingItem.runtimeTicks) <
+        5 * 600000000
+    ) {
+      // Within 5 minutes
+      confidence += 10;
+    }
+  }
+
+  // Name and type match (10 points)
+  if (
+    jellyfinItem.Name === existingItem.name &&
+    jellyfinItem.Type === existingItem.type
+  ) {
+    confidence += 10;
+  }
+
+  return Math.min(confidence, maxConfidence);
+}
+
+/**
+ * Find potential duplicate item that could be the same content with a different ID
+ * This helps handle the case where Jellyfin removes and re-adds items with new IDs
+ */
+async function findPotentialDuplicate(
+  jellyfinItem: JellyfinBaseItemDto,
+  libraryId: string,
+  serverId: number,
+): Promise<Item | null> {
+  // Don't look for duplicates if we don't have good identifying information
+  if (!jellyfinItem.Name) {
+    return null;
+  }
+
+  // Get all potential candidates with a broader query
+  const candidates = await db
+    .select()
+    .from(items)
+    .where(and(eq(items.serverId, serverId), eq(items.libraryId, libraryId)));
+
+  // Score each candidate
+  const scoredCandidates = candidates
+    .map((candidate) => ({
+      item: candidate,
+      confidence: calculateMatchConfidence(jellyfinItem, candidate),
+    }))
+    .filter((scored) => scored.confidence >= DUPLICATE_MIN_CONFIDENCE)
+    .sort((a, b) => b.confidence - a.confidence);
+
+  if (scoredCandidates.length > 0) {
+    const bestMatch = scoredCandidates[0];
+
+    console.log(
+      `Found potential duplicate for ${jellyfinItem.Type} "${jellyfinItem.Name}": ` +
+        `existing ID ${bestMatch.item.id} -> new ID ${jellyfinItem.Id} ` +
+        `(confidence: ${bestMatch.confidence}%)`,
+    );
+
+    return bestMatch.item;
+  }
+
+  return null;
+}
+
 async function processItem(
   jellyfinItem: JellyfinBaseItemDto,
   libraryId: string,
-  metrics: SyncMetricsTracker
+  metrics: SyncMetricsTracker,
 ): Promise<void> {
+  const serverId = await getServerIdFromLibrary(libraryId);
+
   // Check if item already exists and compare etag for changes
   const existingItem = await db
     .select({ etag: items.etag })
@@ -215,6 +367,16 @@ async function processItem(
   const isNewItem = existingItem.length === 0;
   const hasChanged = !isNewItem && existingItem[0].etag !== jellyfinItem.Etag;
 
+  // If this is a "new" item, check for potential duplicates (items removed and re-added)
+  let duplicateItem: Item | null = null;
+  if (isNewItem) {
+    duplicateItem = await findPotentialDuplicate(
+      jellyfinItem,
+      libraryId,
+      serverId,
+    );
+  }
+
   if (!isNewItem && !hasChanged) {
     metrics.incrementItemsUnchanged();
     metrics.incrementItemsProcessed();
@@ -223,7 +385,7 @@ async function processItem(
 
   const itemData: NewItem = {
     id: jellyfinItem.Id,
-    serverId: await getServerIdFromLibrary(libraryId),
+    serverId,
     libraryId,
     name: jellyfinItem.Name,
     type: jellyfinItem.Type,
@@ -284,26 +446,59 @@ async function processItem(
     updatedAt: new Date(),
   };
 
-  // Upsert item
-  await db
-    .insert(items)
-    .values(itemData)
-    .onConflictDoUpdate({
-      target: items.id,
-      set: {
-        ...itemData,
-        updatedAt: new Date(),
-      },
-    });
+  if (duplicateItem) {
+    console.log(
+      `Migrating duplicate item: ${duplicateItem.id} -> ${jellyfinItem.Id} ` +
+        `for "${jellyfinItem.Name}" (${jellyfinItem.Type})`,
+    );
 
-  metrics.incrementDatabaseOperations();
+    try {
+      await db.transaction(async (tx) => {
+        // 1. Update any sessions that reference the old item ID to use the new ID
+        await tx
+          .update(sessions)
+          .set({ itemId: jellyfinItem.Id })
+          .where(eq(sessions.itemId, duplicateItem.id));
 
-  if (isNewItem) {
-    metrics.incrementItemsInserted();
+        // 2. Delete the old item record
+        await tx.delete(items).where(eq(items.id, duplicateItem.id));
+
+        // 3. Insert the new item record with the new ID and updated data
+        await tx.insert(items).values(itemData);
+      });
+
+      console.log(
+        `Successfully migrated item and updated session references: ${duplicateItem.id} -> ${jellyfinItem.Id}`,
+      );
+
+      metrics.incrementItemsUpdated();
+    } catch (error) {
+      console.error(
+        `Failed to migrate duplicate item ${duplicateItem.id} -> ${jellyfinItem.Id}:`,
+        error,
+      );
+      throw error;
+    }
   } else {
-    metrics.incrementItemsUpdated();
+    await db
+      .insert(items)
+      .values(itemData)
+      .onConflictDoUpdate({
+        target: items.id,
+        set: {
+          ...itemData,
+          updatedAt: new Date(),
+        },
+      });
+
+    if (isNewItem) {
+      metrics.incrementItemsInserted();
+    } else {
+      metrics.incrementItemsUpdated();
+    }
   }
 
+  metrics.incrementDatabaseOperations();
   metrics.incrementItemsProcessed();
 }
 
@@ -332,7 +527,7 @@ async function getServerIdFromLibrary(libraryId: string): Promise<number> {
 
 export async function syncRecentlyAddedItems(
   server: Server,
-  limit: number = 100
+  limit: number = 100,
 ): Promise<SyncResult<ItemSyncData>> {
   const metrics = new SyncMetricsTracker();
   const client = JellyfinClient.fromServer(server);
@@ -340,7 +535,7 @@ export async function syncRecentlyAddedItems(
 
   try {
     console.log(
-      `Starting recently added items sync for server ${server.name} (limit: ${limit})`
+      `Starting recently added items sync for server ${server.name} (limit: ${limit})`,
     );
 
     // Get current libraries from Jellyfin server to verify they still exist
@@ -356,24 +551,24 @@ export async function syncRecentlyAddedItems(
 
     // Filter to only include libraries that still exist on the Jellyfin server
     const validLibraries = serverLibraries.filter((library) =>
-      existingLibraryIds.has(library.id)
+      existingLibraryIds.has(library.id),
     );
 
     const removedLibraries = serverLibraries.filter(
-      (library) => !existingLibraryIds.has(library.id)
+      (library) => !existingLibraryIds.has(library.id),
     );
 
     if (removedLibraries.length > 0) {
       console.log(
         `Found ${removedLibraries.length} libraries that no longer exist on server:`,
-        removedLibraries.map((lib) => `${lib.name} (${lib.id})`).join(", ")
+        removedLibraries.map((lib) => `${lib.name} (${lib.id})`).join(", "),
       );
     }
 
     console.log(
       `Found ${validLibraries.length} valid libraries to sync (${
         serverLibraries.length - validLibraries.length
-      } removed libraries skipped)`
+      } removed libraries skipped)`,
     );
 
     let allMappedItems: NewItem[] = [];
@@ -383,25 +578,25 @@ export async function syncRecentlyAddedItems(
     for (const library of validLibraries) {
       try {
         console.log(
-          `Fetching recently added items from library: ${library.name} (limit: ${limit})`
+          `Fetching recently added items from library: ${library.name} (limit: ${limit})`,
         );
 
         metrics.incrementApiRequests();
         const libraryItems = await client.getRecentlyAddedItemsByLibrary(
           library.id,
-          limit
+          limit,
         );
 
         metrics.incrementItemsProcessed(libraryItems.length);
         console.log(
-          `Retrieved ${libraryItems.length} recently added items from library ${library.name}`
+          `Retrieved ${libraryItems.length} recently added items from library ${library.name}`,
         );
 
         // Map items, knowing they belong to the current library
         const { validItems, invalidItems } = await mapItemsWithKnownLibrary(
           libraryItems,
           library.id,
-          server.id
+          server.id,
         );
 
         allMappedItems = allMappedItems.concat(validItems);
@@ -409,19 +604,17 @@ export async function syncRecentlyAddedItems(
       } catch (error) {
         console.error(
           `API error when fetching items from library ${library.name}:`,
-          error
+          error,
         );
         metrics.incrementErrors();
         errors.push(
-          `Library ${library.name}: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`
+          `Library ${library.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
         );
       }
     }
 
     console.log(
-      `Total recently added items collected: ${allMappedItems.length}`
+      `Total recently added items collected: ${allMappedItems.length}`,
     );
 
     if (allMappedItems.length === 0) {
@@ -461,7 +654,7 @@ export async function syncRecentlyAddedItems(
         console.log(
           `Libraries no longer on server (not automatically removed): ${removedLibraries
             .map((lib) => lib.name)
-            .join(", ")}`
+            .join(", ")}`,
         );
 
         // If you want to enable automatic cleanup, uncomment the following:
@@ -475,19 +668,19 @@ export async function syncRecentlyAddedItems(
 
     console.log(
       `Recently added items sync completed for server ${server.name}:`,
-      data
+      data,
     );
 
     if (allInvalidItems.length > 0 || errors.length > 0) {
       const allErrors = errors.concat(
-        allInvalidItems.map((item) => `Item ${item.id}: ${item.error}`)
+        allInvalidItems.map((item) => `Item ${item.id}: ${item.error}`),
       );
       return createSyncResult(
         "partial",
         data,
         finalMetrics,
         undefined,
-        allErrors
+        allErrors,
       );
     }
 
@@ -495,7 +688,7 @@ export async function syncRecentlyAddedItems(
   } catch (error) {
     console.error(
       `Recently added items sync failed for server ${server.name}:`,
-      error
+      error,
     );
     const finalMetrics = metrics.finish();
     const errorData: ItemSyncData = {
@@ -509,7 +702,7 @@ export async function syncRecentlyAddedItems(
       "error",
       errorData,
       finalMetrics,
-      error instanceof Error ? error.message : "Unknown error"
+      error instanceof Error ? error.message : "Unknown error",
     );
   }
 }
@@ -520,7 +713,7 @@ export async function syncRecentlyAddedItems(
 async function mapItemsWithKnownLibrary(
   items: JellyfinBaseItemDto[],
   libraryId: string,
-  serverId: number
+  serverId: number,
 ): Promise<{
   validItems: NewItem[];
   invalidItems: Array<{ id: string; error: string }>;
@@ -552,7 +745,7 @@ async function mapItemsWithKnownLibrary(
 function mapJellyfinItem(
   jellyfinItem: JellyfinBaseItemDto,
   libraryId: string,
-  serverId: number
+  serverId: number,
 ): NewItem {
   return {
     id: jellyfinItem.Id,
@@ -624,7 +817,7 @@ function mapJellyfinItem(
 async function processValidItems(
   validItems: NewItem[],
   invalidItems: Array<{ id: string; error: string }>,
-  serverId: number
+  serverId: number,
 ): Promise<{
   insertResult: number;
   updateResult: number;
@@ -692,7 +885,7 @@ async function processValidItems(
     .where(and(inArray(items.id, jellyfinIds), eq(items.serverId, serverId)));
 
   const existingMap = new Map(
-    existingItems.map((item: Item) => [item.id, item])
+    existingItems.map((item: Item) => [item.id, item]),
   );
 
   // Separate items into inserts, updates, and unchanged
@@ -733,7 +926,7 @@ async function processValidItems(
 function hasFieldsChanged<T extends Record<string, any>>(
   existing: T,
   newItem: T,
-  trackedFields: readonly string[]
+  trackedFields: readonly string[],
 ): boolean {
   for (const field of trackedFields) {
     const existingValue = existing[field];
@@ -827,7 +1020,7 @@ async function processInserts(itemsToInsert: NewItem[]): Promise<number> {
  */
 async function processUpdates(
   itemsToUpdate: NewItem[],
-  trackedFields: readonly string[]
+  trackedFields: readonly string[],
 ): Promise<number> {
   if (itemsToUpdate.length === 0) return 0;
 
