@@ -454,17 +454,17 @@ async function processItem(
 
     try {
       await db.transaction(async (tx) => {
-        // 1. Update any sessions that reference the old item ID to use the new ID
+        // 1. Insert the new item record with the new ID and updated data
+        await tx.insert(items).values(itemData);
+
+        // 2. Update any sessions that reference the old item ID to use the new ID
         await tx
           .update(sessions)
           .set({ itemId: jellyfinItem.Id })
           .where(eq(sessions.itemId, duplicateItem.id));
 
-        // 2. Delete the old item record
+        // 3. Delete the old item record
         await tx.delete(items).where(eq(items.id, duplicateItem.id));
-
-        // 3. Insert the new item record with the new ID and updated data
-        await tx.insert(items).values(itemData);
       });
 
       console.log(
