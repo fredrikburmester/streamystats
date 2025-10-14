@@ -217,12 +217,9 @@ function hasMatchingProviderIds(
     ...Object.keys(providerIds2),
   ]);
 
-  // Check if any provider has matching IDs in both items
   for (const provider of allProviders) {
-    if (providerIds1[provider] && providerIds2[provider]) {
-      if (providerIds1[provider] === providerIds2[provider]) {
-        return true;
-      }
+    if (providerIds1[provider] === providerIds2[provider]) {
+      return true;
     }
   }
 
