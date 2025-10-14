@@ -475,6 +475,7 @@ async function processItem(
         `Successfully migrated item and updated session references: ${duplicateItem.id} -> ${jellyfinItem.Id}`,
       );
 
+      metrics.incrementItemsDeduplicated();
       metrics.incrementItemsUpdated();
     } catch (error) {
       console.error(
