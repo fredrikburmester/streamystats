@@ -324,7 +324,13 @@ async function findPotentialDuplicate(
   const candidates = await db
     .select()
     .from(items)
-    .where(and(eq(items.serverId, serverId), eq(items.libraryId, libraryId)));
+    .where(
+      and(
+        eq(items.serverId, serverId),
+        eq(items.libraryId, libraryId),
+        eq(items.type, jellyfinItem.Type),
+      ),
+    );
 
   // Score each candidate
   const scoredCandidates = candidates
