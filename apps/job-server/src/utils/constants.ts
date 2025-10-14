@@ -1,0 +1,1 @@
+export const JELLYFIN_TICS_PER_SECOND = 10000000;

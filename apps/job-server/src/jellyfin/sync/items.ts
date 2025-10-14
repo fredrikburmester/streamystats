@@ -2,8 +2,8 @@ import {
   db,
   Item,
   items,
-  Library,
   libraries,
+  Library,
   NewItem,
   Server,
   sessions,
@@ -11,6 +11,7 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import pLimit from "p-limit";
 import pMap from "p-map";
+import { JELLYFIN_TICS_PER_SECOND } from "../../utils/constants";
 import { JellyfinBaseItemDto, JellyfinClient } from "../client";
 import {
   createSyncResult,
@@ -19,6 +20,7 @@ import {
 } from "../sync-metrics";
 
 const DUPLICATE_MIN_CONFIDENCE = 40;
+const DUPLICATE_RUNTIME_TOLERANCE = 5 * 60 * JELLYFIN_TICS_PER_SECOND; // 5 minutes
 
 export interface ItemSyncOptions {
   itemPageSize?: number;
@@ -288,9 +290,8 @@ function calculateMatchConfidence(
       jellyfinItem.RunTimeTicks &&
       existingItem.runtimeTicks &&
       Math.abs(jellyfinItem.RunTimeTicks - existingItem.runtimeTicks) <
-        5 * 600000000
+        DUPLICATE_RUNTIME_TOLERANCE
     ) {
-      // Within 5 minutes
       confidence += 10;
     }
   }
