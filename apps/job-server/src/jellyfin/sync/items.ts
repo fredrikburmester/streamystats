@@ -212,10 +212,11 @@ function hasMatchingProviderIds(
     return false;
   }
 
-  const allProviders = new Set([
-    ...Object.keys(providerIds1),
-    ...Object.keys(providerIds2),
-  ]);
+  const allProviders = new Set(
+    [...Object.keys(providerIds1), ...Object.keys(providerIds2)].filter(
+      Boolean,
+    ),
+  );
 
   for (const provider of allProviders) {
     if (providerIds1[provider] === providerIds2[provider]) {
