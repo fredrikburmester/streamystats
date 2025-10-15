@@ -11,7 +11,7 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import pLimit from "p-limit";
 import pMap from "p-map";
-import { JELLYFIN_TICS_PER_SECOND } from "../../utils/constants";
+import { JELLYFIN_TICKS_PER_SECOND } from "../../utils/constants";
 import { JellyfinBaseItemDto, JellyfinClient } from "../client";
 import {
   createSyncResult,
@@ -20,7 +20,7 @@ import {
 } from "../sync-metrics";
 
 const DUPLICATE_MIN_CONFIDENCE = 40;
-const DUPLICATE_RUNTIME_TOLERANCE = 5 * 60 * JELLYFIN_TICS_PER_SECOND; // 5 minutes
+const DUPLICATE_RUNTIME_TOLERANCE = 5 * 60 * JELLYFIN_TICKS_PER_SECOND; // 5 minutes
 
 export interface ItemSyncOptions {
   itemPageSize?: number;
