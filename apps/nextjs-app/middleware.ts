@@ -68,7 +68,7 @@ export const config = {
 };
 
 const ADMIN_ONLY_PATHS = ["history", "settings", "activities", "users", "setup"];
-const PUBLIC_PATHS = ["login"];
+const PUBLIC_PATHS = ["login", "reconnect"];
 
 const BASE_PATH_REGEX = basePath.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
 
@@ -378,10 +378,23 @@ export async function middleware(request: NextRequest) {
   // Handle server connectivity error
   if (meResult.type === ResultType.ServerConnectivityError) {
     console.warn("Server connectivity issue detected.", meResult.error);
-    // Add a header to indicate server connectivity issues - will be used by the client to show a toast
-    const response = NextResponse.next();
-    response.headers.set("x-server-connectivity-error", "true");
-    return response;
+    
+    // If we're already on the reconnect page, allow access
+    if (page === "reconnect") {
+      return NextResponse.next();
+    }
+    
+    // Redirect to reconnect page
+    if (id) {
+      const reconnectUrl = new URL(`${basePath}/servers/${id}/reconnect`, request.url);
+      return NextResponse.redirect(reconnectUrl);
+    } else if (servers.length > 0) {
+      const reconnectUrl = new URL(`${basePath}/servers/${servers[0].id}/reconnect`, request.url);
+      return NextResponse.redirect(reconnectUrl);
+    } else {
+      // No servers available, redirect to setup
+      return NextResponse.redirect(new URL(`${basePath}/setup`, request.url));
+    }
   }
 
   // If the user is not logged in or has invalid credentials
@@ -390,9 +403,16 @@ export async function middleware(request: NextRequest) {
       "User authentication failed, removing cookies.",
       meResult.error
     );
-    const redirectUrl = id
-      ? new URL(`${basePath}/servers/${id}/login`, request.url)
-      : new URL(`${basePath}/servers/${servers[0].id}/login`, request.url);
+    
+    let redirectUrl: URL;
+    if (id) {
+      redirectUrl = new URL(`${basePath}/servers/${id}/login`, request.url);
+    } else if (servers.length > 0) {
+      redirectUrl = new URL(`${basePath}/servers/${servers[0].id}/login`, request.url);
+    } else {
+      // No servers available, redirect to setup
+      redirectUrl = new URL(`${basePath}/setup`, request.url);
+    }
 
     const response = NextResponse.redirect(redirectUrl);
 
@@ -419,10 +439,15 @@ export async function middleware(request: NextRequest) {
     // Handle server connectivity error when checking admin status
     if (adminResult.type === ResultType.ServerConnectivityError) {
       console.warn("Server connectivity issue detected.", adminResult.error);
-      // Add a header to indicate server connectivity issues
-      const response = NextResponse.next();
-      response.headers.set("x-server-connectivity-error", "true");
-      return response;
+      
+      // If we're already on the reconnect page, allow access
+      if (page === "reconnect") {
+        return NextResponse.next();
+      }
+      
+      // Redirect to reconnect page (id is guaranteed to exist here from parent condition)
+      const reconnectUrl = new URL(`${basePath}/servers/${id}/reconnect`, request.url);
+      return NextResponse.redirect(reconnectUrl);
     }
 
     const isAdmin =

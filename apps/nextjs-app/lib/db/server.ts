@@ -475,3 +475,198 @@ export const toggleAutoEmbeddings = async ({
     throw new Error("Failed to update auto-embedding setting");
   }
 };
+
+export interface UpdateServerConnectionResult {
+  success: boolean;
+  message: string;
+  accessToken?: string;
+  userId?: string;
+  isAdmin?: boolean;
+}
+
+export const updateServerConnection = async ({
+  serverId,
+  url,
+  apiKey,
+  username,
+  password,
+  name
+}: {
+  serverId: number;
+  url: string;
+  apiKey: string;
+  username: string;
+  password?: string | null;
+  name?: string;
+}): Promise<UpdateServerConnectionResult> => {
+  try {
+    // Validate URL format
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      return {
+        success: false,
+        message: "URL must start with http:// or https://",
+      };
+    }
+
+    // Normalize URL by removing trailing slash
+    const normalizedUrl = url.endsWith("/") ? url.slice(0, -1) : url;
+
+    // Test connection to new Jellyfin server with new API key
+    try {
+      const testResponse = await fetch(`${normalizedUrl}/System/Info`, {
+        method: "GET",
+        headers: {
+          "X-Emby-Token": apiKey,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!testResponse.ok) {
+        let errorMessage = "Failed to connect to server.";
+        if (testResponse.status === 401) {
+          errorMessage = "Invalid API key. Please check your Jellyfin API key.";
+        } else if (testResponse.status === 404) {
+          errorMessage = "Server not found. Please check the URL.";
+        } else if (testResponse.status === 403) {
+          errorMessage = "Access denied. Please check your API key permissions.";
+        } else if (testResponse.status >= 500) {
+          errorMessage =
+            "Server error. Please check if Jellyfin server is running properly.";
+        }
+        return {
+          success: false,
+          message: errorMessage,
+        };
+      }
+
+      const serverInfo = (await testResponse.json()) as {
+        ServerName?: string;
+        Version?: string;
+      };
+
+      // Check if a different server already has this URL (unique constraint)
+      const existingServer = await db
+        .select({ id: servers.id, name: servers.name })
+        .from(servers)
+        .where(eq(servers.url, normalizedUrl))
+        .limit(1);
+
+      if (existingServer.length > 0 && existingServer[0].id !== serverId) {
+        return {
+          success: false,
+          message: `This URL is already used by server "${existingServer[0].name}". Each server must have a unique URL.`,
+        };
+      }
+
+      // Authenticate user credentials against new server
+      const authResponse = await fetch(`${normalizedUrl}/Users/AuthenticateByName`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Emby-Token": apiKey,
+        },
+        body: JSON.stringify({ Username: username, Pw: password }),
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!authResponse.ok) {
+        return {
+          success: false,
+          message:
+            authResponse.status === 401
+              ? "Invalid username or password"
+              : "Failed to authenticate user",
+        };
+      }
+
+      const authData = await authResponse.json();
+      
+      // Validate authentication response structure
+      if (!authData || !authData["AccessToken"]) {
+        return {
+          success: false,
+          message: "Invalid authentication response from server",
+        };
+      }
+      
+      const accessToken = authData["AccessToken"];
+      const user = authData["User"];
+      
+      if (!user || !user["Id"]) {
+        return {
+          success: false,
+          message: "Invalid user data in authentication response",
+        };
+      }
+      
+      const policy = user["Policy"];
+      if (!policy) {
+        return {
+          success: false,
+          message: "Unable to verify user permissions. User policy information is missing.",
+        };
+      }
+      
+      const isAdmin = policy["IsAdministrator"] === true;
+
+      // Verify user is an administrator
+      if (!isAdmin) {
+        return {
+          success: false,
+          message:
+            "Only administrators can update server connection settings. Please log in with an admin account.",
+        };
+      }
+
+      // Update database with normalized URL, API key, and optionally name
+      const updateData: Partial<typeof servers.$inferInsert> = {
+        url: normalizedUrl,
+        apiKey,
+        updatedAt: new Date(),
+      };
+
+      if (name) {
+        updateData.name = name;
+      }
+
+      if (serverInfo.Version) {
+        updateData.version = serverInfo.Version;
+      }
+
+      await db.update(servers).set(updateData).where(eq(servers.id, serverId));
+
+      return {
+        success: true,
+        message: "Server connection updated successfully",
+        accessToken,
+        userId: user.Id,
+        isAdmin,
+      };
+    } catch (fetchError) {
+      console.error("Error connecting to Jellyfin server:", fetchError);
+      if (
+        fetchError instanceof Error &&
+        (fetchError.name === "AbortError" || fetchError.message.includes("timeout"))
+      ) {
+        return {
+          success: false,
+          message: "Connection timeout. Please check the URL and try again.",
+        };
+      }
+      return {
+        success: false,
+        message: "Failed to connect to server. Please check the URL.",
+      };
+    }
+  } catch (error) {
+    console.error(`Error updating server connection for ${serverId}:`, error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to update server connection",
+    };
+  }
+};

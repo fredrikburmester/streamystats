@@ -7,6 +7,7 @@ import { DeleteServer } from "../DeleteServer";
 import { VersionSection } from "../VersionSection";
 import { SystemStatsDisplay } from "@/components/SystemStatsDisplay";
 import { SyncManager } from "../SyncManager";
+import { UpdateConnection } from "../UpdateConnection";
 
 export default async function GeneralSettings(props: {
   params: Promise<{ id: string }>;
@@ -24,6 +25,7 @@ export default async function GeneralSettings(props: {
       <div className="space-y-8">
         <VersionSection />
         <SystemStatsDisplay />
+        <UpdateConnection serverId={server.id} />
         <SyncManager serverId={server.id} serverName={server.name} />
         <DeleteServer server={server} />
       </div>
