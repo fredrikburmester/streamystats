@@ -1,0 +1,1 @@
+export const JELLYFIN_TICKS_PER_SECOND = 10000000;

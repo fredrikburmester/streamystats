@@ -5,6 +5,7 @@ export interface SyncMetrics {
   itemsInserted: number;
   itemsUpdated: number;
   itemsUnchanged: number;
+  itemsDeduplicated: number;
   usersProcessed: number;
   usersInserted: number;
   usersUpdated: number;
@@ -31,6 +32,7 @@ export class SyncMetricsTracker {
       itemsInserted: 0,
       itemsUpdated: 0,
       itemsUnchanged: 0,
+      itemsDeduplicated: 0,
       usersProcessed: 0,
       usersInserted: 0,
       usersUpdated: 0,
@@ -67,6 +69,10 @@ export class SyncMetricsTracker {
 
   incrementItemsUnchanged(count: number = 1): void {
     this.metrics.itemsUnchanged += count;
+  }
+
+  incrementItemsDeduplicated(count: number = 1): void {
+    this.metrics.itemsDeduplicated += count;
   }
 
   incrementUsersProcessed(count: number = 1): void {
@@ -128,6 +134,7 @@ export class SyncMetricsTracker {
       itemsInserted: 0,
       itemsUpdated: 0,
       itemsUnchanged: 0,
+      itemsDeduplicated: 0,
       usersProcessed: 0,
       usersInserted: 0,
       usersUpdated: 0,
@@ -153,7 +160,7 @@ export function createSyncResult<T>(
   data: T,
   metrics: SyncMetrics,
   error?: string,
-  errors?: string[]
+  errors?: string[],
 ): SyncResult<T> {
   if (status === "error") {
     return { status, error: error || "Unknown error", metrics };
