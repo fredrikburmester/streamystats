@@ -17,7 +17,7 @@ import { getMe } from "@/lib/db/users";
 export default async function ItemDetailsPage({
   params,
 }: {
-  params: Promise<{ id: string; itemId: string }>;
+  params: Promise<{ id: number; itemId: string }>;
 }) {
   const { id, itemId } = await params;
   const server = await getServer({ serverId: id });
@@ -60,7 +60,13 @@ export default async function ItemDetailsPage({
           server={server}
           statistics={itemDetails}
         />
-        <ItemMetadata item={itemDetails.item} statistics={itemDetails} />
+        <ItemMetadata
+          item={itemDetails.item}
+          statistics={itemDetails}
+          showAdminStats={showAdmin}
+          serverId={id}
+          itemId={itemId}
+        />
         {(itemDetails.item.type === "Series" ||
           itemDetails.item.type === "Movie") &&
           similarItems.length > 0 && (

@@ -63,6 +63,17 @@ export function formatDuration(
   return parts.join(" ") || "0m";
 }
 
+export function formatDateUS(date: string | Date | null): string {
+  if (!date) return "Never";
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
+
 export const isTaskRunning = (
   data?: SyncTask[] | null,
   type?: SyncTask["sync_type"] | null
