@@ -56,23 +56,39 @@ jobs:
     steps:
       - name: PR Build Summary
         run: |
-          echo "## ✅ PR Docker Build Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**PR Number:** \`#${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**PR Title:** \`${{ github.event.pull_request.title }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Build Status:" >> $GITHUB_STEP_SUMMARY
-          echo "All Docker images built successfully (not pushed to registry)." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### To Publish Images:" >> $GITHUB_STEP_SUMMARY
-          echo "A maintainer can publish these images by:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Go to **Actions** → **Publish PR Images**" >> $GITHUB_STEP_SUMMARY
-          echo "2. Click **Run workflow**" >> $GITHUB_STEP_SUMMARY
-          echo "3. Enter PR number: \`${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "4. Approve the deployment when prompted" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            echo "## ✅ PR Docker Build Complete" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**PR Number:** \`#${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**PR Title:** \`${{ github.event.pull_request.title }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Commit SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Build Status:" >> $GITHUB_STEP_SUMMARY
+            echo "All Docker images built successfully (not pushed to registry)." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Built Images:" >> $GITHUB_STEP_SUMMARY
+            echo "- \`streamystats-v2-nextjs:pr-${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- \`streamystats-v2-job-server:pr-${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- \`streamystats-v2-migrate:pr-${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### To Publish Images:" >> $GITHUB_STEP_SUMMARY
+            echo "A maintainer can publish these images by running the [Publish PR Images workflow](https://github.com/${{ github.repository }}/actions/workflows/publish-pr-images.yml):" >> $GITHUB_STEP_SUMMARY
+            echo "1. Click **Run workflow**" >> $GITHUB_STEP_SUMMARY
+            echo "2. Enter PR number: \`${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. Approve the deployment when prompted" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ PR Docker Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**PR Number:** \`#${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**PR Title:** \`${{ github.event.pull_request.title }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Commit SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Build Status:" >> $GITHUB_STEP_SUMMARY
+            echo "One or more Docker images failed to build. Check the build logs for details." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Add PR comment
+        if: needs.build.result == 'success'
         uses: actions/github-script@v7
         with:
           script: |
@@ -85,11 +101,10 @@ jobs:
             **Note:** Images are not automatically pushed to Docker Hub for security reasons.
 
             ### For Maintainers:
-            To publish these images for testing, run the [Publish PR Images](../actions/workflows/publish-pr-images.yml) workflow:
-            1. Go to **Actions** → **Publish PR Images**
-            2. Click **Run workflow**
-            3. Enter PR number: \`${prNumber}\`
-            4. Approve the environment deployment
+            To publish these images for testing, run the [**Publish PR Images** workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/publish-pr-images.yml):
+            1. Click **Run workflow**
+            2. Enter PR number: \`${prNumber}\`
+            3. Approve the environment deployment
 
             This will publish:
             - \`streamystats-v2-nextjs:pr-${prNumber}\`
@@ -104,7 +119,47 @@ jobs:
 
             const existingComment = comments.data.find(comment => 
               comment.user.login === 'github-actions[bot]' && 
-              comment.body.includes('PR Docker Build Complete')
+              comment.body.includes('PR Docker Build')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: comment
+              });
+            }
+
+      - name: Add PR comment on failure
+        if: needs.build.result != 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.number;
+
+            const comment = `## ❌ PR Docker Build Failed
+
+            One or more Docker images failed to build. Please check the [workflow logs](../actions/runs/${{ github.run_id }}) for details.
+
+            **Build Result:** \`${{ needs.build.result }}\``;
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existingComment = comments.data.find(comment => 
+              comment.user.login === 'github-actions[bot]' && 
+              comment.body.includes('PR Docker Build')
             );
 
             if (existingComment) {
