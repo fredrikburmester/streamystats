@@ -1,0 +1,226 @@
+name: Publish PR Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to publish
+        required: true
+        type: number
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pr-publish
+    permissions:
+      contents: read
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        part:
+          - streamystats-v2-nextjs
+          - streamystats-v2-job-server
+          - streamystats-v2-migrate
+        include:
+          - part: streamystats-v2-nextjs
+            folder: .
+            dockerfile: apps/nextjs-app/Dockerfile
+          - part: streamystats-v2-job-server
+            folder: .
+            dockerfile: apps/job-server/Dockerfile
+          - part: streamystats-v2-migrate
+            folder: .
+            dockerfile: migration.Dockerfile
+
+    steps:
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pr }}/merge
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Get PR metadata
+        id: pr-meta
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const pr = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: ${{ inputs.pr }}
+              });
+              
+              if (pr.data.state !== 'open') {
+                core.setFailed(`PR #${{ inputs.pr }} is ${pr.data.state}. Only open PRs can be published.`);
+                return;
+              }
+              
+              core.setOutput('sha', pr.data.head.sha);
+              core.setOutput('updated_at', pr.data.updated_at);
+            } catch (error) {
+              if (error.status === 404) {
+                core.setFailed(`PR #${{ inputs.pr }} does not exist.`);
+              } else {
+                core.setFailed(`Failed to fetch PR metadata: ${error.message}`);
+              }
+            }
+
+      - name: Build & push ${{ matrix.part }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.folder }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=pr-${{ inputs.pr }}
+            COMMIT_SHA=${{ steps.pr-meta.outputs.sha }}
+            BUILD_TIME=${{ steps.pr-meta.outputs.updated_at }}
+          push: true
+          tags: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ inputs.pr }}
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: publish
+    if: always()
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Build Summary
+        run: |
+          if [ "${{ needs.publish.result }}" == "success" ]; then
+            echo "## 🚀 PR Images Published" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**PR Number:** \`#${{ inputs.pr }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Registry:** \`${{ env.REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Namespace:** \`${{ env.IMAGE_NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Published Images:" >> $GITHUB_STEP_SUMMARY
+            echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-nextjs:pr-${{ inputs.pr }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-job-server:pr-${{ inputs.pr }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-migrate:pr-${{ inputs.pr }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Usage:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "export VERSION=pr-${{ inputs.pr }}" >> $GITHUB_STEP_SUMMARY
+            echo "docker-compose up -d" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ PR Images Publish Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**PR Number:** \`#${{ inputs.pr }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Registry:** \`${{ env.REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Namespace:** \`${{ env.IMAGE_NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Publish Status:" >> $GITHUB_STEP_SUMMARY
+            echo "One or more images failed to publish. Check the publish logs for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Add PR comment on success
+        if: needs.publish.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ inputs.pr }};
+            const namespace = process.env.IMAGE_NAMESPACE;
+
+            const comment = `## 🐳 PR Docker Images Published
+
+            Your PR images have been published to Docker Hub with the tag \`pr-${prNumber}\`.
+
+            ### Available Images:
+            - \`${namespace}/streamystats-v2-nextjs:pr-${prNumber}\`
+            - \`${namespace}/streamystats-v2-job-server:pr-${prNumber}\`
+            - \`${namespace}/streamystats-v2-migrate:pr-${prNumber}\`
+
+            ### Usage:
+            \`\`\`bash
+            export VERSION=pr-${prNumber}
+            docker-compose up -d
+            \`\`\`
+
+            **Note:** These images will be overwritten if republished.`;
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existingComment = comments.data.find(comment => 
+              comment.user.login === 'github-actions[bot]' && 
+              comment.body.includes('PR Docker Images')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: comment
+              });
+            }
+
+      - name: Add PR comment on failure
+        if: needs.publish.result != 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ inputs.pr }};
+
+            const comment = `## ❌ PR Docker Images Publish Failed
+
+            One or more images failed to publish. Please check the [workflow logs](../actions/runs/${{ github.run_id }}) for details.
+
+            **Publish Result:** \`${{ needs.publish.result }}\``;
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existingComment = comments.data.find(comment => 
+              comment.user.login === 'github-actions[bot]' && 
+              comment.body.includes('PR Docker Images')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: comment
+              });
+            }
