@@ -1278,24 +1278,28 @@ router.post(
 
             // Only cleanup if no recent heartbeat (older than 2 minutes)
             if (heartbeatAge > 2 * 60 * 1000) {
-              await db.insert(jobResults).values({
-                jobId: `manual-cleanup-${serverId}-${Date.now()}`,
-                jobName: "generate-item-embeddings",
-                status: "failed",
-                result: {
-                  serverId,
+              const processingTime = Math.min(
+                Date.now() - new Date(staleJob.createdAt).getTime(),
+                3600000
+              );
+
+              await db
+                .update(jobResults)
+                .set({
+                  status: "failed",
                   error:
-                    "Manual cleanup - job exceeded maximum processing time",
-                  cleanedAt: new Date().toISOString(),
-                  originalJobId: staleJob.jobId,
-                  staleDuration: heartbeatAge,
-                  cleanupType: "manual",
-                },
-                processingTime:
-                  Date.now() - new Date(staleJob.createdAt).getTime(),
-                error:
-                  "Manual cleanup: Job exceeded maximum processing time without heartbeat",
-              });
+                    "Manual cleanup: Job exceeded maximum processing time without heartbeat",
+                  processingTime,
+                  result: {
+                    ...result,
+                    error:
+                      "Manual cleanup - job exceeded maximum processing time",
+                    cleanedAt: new Date().toISOString(),
+                    staleDuration: heartbeatAge,
+                    cleanupType: "manual",
+                  },
+                })
+                .where(eq(jobResults.id, staleJob.id));
 
               cleanedCount++;
               console.log(

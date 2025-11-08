@@ -303,21 +303,25 @@ export const cleanupStaleEmbeddingJobs = async (): Promise<number> => {
 
           // Only cleanup if no recent heartbeat (older than 2 minutes)
           if (heartbeatAge > 2 * 60 * 1000) {
-            await db.insert(jobResults).values({
-              jobId: `cleanup-${serverId}-${Date.now()}`,
-              jobName: "generate-item-embeddings",
-              status: "failed",
-              result: {
-                serverId,
-                error: "Job cleanup - exceeded maximum processing time",
-                cleanedAt: new Date().toISOString(),
-                originalJobId: staleJob.jobId,
-                staleDuration: heartbeatAge,
-              },
-              processingTime:
-                Date.now() - new Date(staleJob.createdAt).getTime(),
-              error: "Job exceeded maximum processing time without heartbeat",
-            });
+            const processingTime = Math.min(
+              Date.now() - new Date(staleJob.createdAt).getTime(),
+              3600000
+            );
+
+            await db
+              .update(jobResults)
+              .set({
+                status: "failed",
+                error: "Job exceeded maximum processing time without heartbeat",
+                processingTime,
+                result: {
+                  ...result,
+                  error: "Job cleanup - exceeded maximum processing time",
+                  cleanedAt: new Date().toISOString(),
+                  staleDuration: heartbeatAge,
+                },
+              })
+              .where(eq(jobResults.id, staleJob.id));
 
             cleanedCount++;
             console.log(

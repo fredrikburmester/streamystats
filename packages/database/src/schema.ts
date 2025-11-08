@@ -181,7 +181,7 @@ export const jobResults = pgTable("job_results", {
   status: varchar("status", { length: 50 }).notNull(), // 'completed', 'failed', 'processing'
   result: jsonb("result"),
   error: text("error"),
-  processingTime: integer("processing_time"), // in milliseconds
+  processingTime: integer("processing_time"), // in milliseconds (capped at 1 hour)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

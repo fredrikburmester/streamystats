@@ -11,6 +11,7 @@ class SyncScheduler {
   private recentItemsSyncInterval: string = "*/5 * * * *"; // Every 5 minutes
   private userSyncInterval: string = "*/5 * * * *"; // Every 5 minutes
   private jobCleanupInterval: string = "*/5 * * * *"; // Every 5 minutes
+  private oldJobCleanupInterval: string = "0 3 * * *"; // Daily at 3 AM
   private fullSyncInterval: string = "0 2 * * *"; // Daily at 2 AM
 
   constructor() {
@@ -64,6 +65,13 @@ class SyncScheduler {
         });
       });
 
+      // Old job cleanup task - removes job results older than 10 days
+      const oldJobCleanupTask = cron.schedule(this.oldJobCleanupInterval, () => {
+        this.triggerOldJobCleanup().catch((error) => {
+          console.error("Error during scheduled old job cleanup:", error);
+        });
+      });
+
       // Full sync task - daily complete sync
       const fullSyncTask = cron.schedule(this.fullSyncInterval, () => {
         this.triggerFullSync().catch((error) => {
@@ -75,6 +83,7 @@ class SyncScheduler {
       this.scheduledTasks.set("recent-items-sync", recentItemsTask);
       this.scheduledTasks.set("user-sync", userSyncTask);
       this.scheduledTasks.set("job-cleanup", jobCleanupTask);
+      this.scheduledTasks.set("old-job-cleanup", oldJobCleanupTask);
       this.scheduledTasks.set("full-sync", fullSyncTask);
 
       // Start all tasks
@@ -82,6 +91,7 @@ class SyncScheduler {
       recentItemsTask.start();
       userSyncTask.start();
       jobCleanupTask.start();
+      oldJobCleanupTask.start();
       fullSyncTask.start();
 
       console.log("Scheduler started successfully");
@@ -89,6 +99,7 @@ class SyncScheduler {
       console.log(`Recent items sync: ${this.recentItemsSyncInterval}`);
       console.log(`User sync: ${this.userSyncInterval}`);
       console.log(`Job cleanup: ${this.jobCleanupInterval}`);
+      console.log(`Old job cleanup: ${this.oldJobCleanupInterval}`);
       console.log(`Full sync: ${this.fullSyncInterval}`);
     } catch (error) {
       console.error("Failed to start scheduler:", error);
@@ -131,6 +142,7 @@ class SyncScheduler {
     recentItemsSyncInterval?: string;
     userSyncInterval?: string;
     jobCleanupInterval?: string;
+    oldJobCleanupInterval?: string;
     fullSyncInterval?: string;
   }): void {
     const wasEnabled = this.enabled;
@@ -149,6 +161,10 @@ class SyncScheduler {
 
     if (config.jobCleanupInterval) {
       this.jobCleanupInterval = config.jobCleanupInterval;
+    }
+
+    if (config.oldJobCleanupInterval) {
+      this.oldJobCleanupInterval = config.oldJobCleanupInterval;
     }
 
     if (config.fullSyncInterval) {
@@ -453,21 +469,25 @@ class SyncScheduler {
 
             // Only cleanup if no recent heartbeat (older than 2 minutes)
             if (heartbeatAge > 2 * 60 * 1000) {
-              await db.insert(jobResults).values({
-                jobId: `cleanup-${serverId}-${Date.now()}`,
-                jobName: "generate-item-embeddings",
-                status: "failed",
-                result: {
-                  serverId,
-                  error: "Job cleanup - exceeded maximum processing time",
-                  cleanedAt: new Date().toISOString(),
-                  originalJobId: staleJob.jobId,
-                  staleDuration: heartbeatAge,
-                },
-                processingTime:
-                  Date.now() - new Date(staleJob.createdAt).getTime(),
-                error: "Job exceeded maximum processing time without heartbeat",
-              });
+              const processingTime = Math.min(
+                Date.now() - new Date(staleJob.createdAt).getTime(),
+                3600000
+              );
+
+              await db
+                .update(jobResults)
+                .set({
+                  status: "failed",
+                  error: "Job exceeded maximum processing time without heartbeat",
+                  processingTime,
+                  result: {
+                    ...result,
+                    error: "Job cleanup - exceeded maximum processing time",
+                    cleanedAt: new Date().toISOString(),
+                    staleDuration: heartbeatAge,
+                  },
+                })
+                .where(eq(jobResults.id, staleJob.id));
 
               cleanedCount++;
               console.log(
@@ -487,6 +507,32 @@ class SyncScheduler {
       }
     } catch (error) {
       console.error("Error during job cleanup:", error);
+    }
+  }
+
+  /**
+   * Trigger cleanup of old job results (older than 10 days)
+   */
+  private async triggerOldJobCleanup(): Promise<void> {
+    try {
+      console.log("Cleaning up job results older than 10 days...");
+
+      const result = await db
+        .delete(jobResults)
+        .where(sql`${jobResults.createdAt} < NOW() - INTERVAL '10 days'`)
+        .returning({ id: jobResults.id });
+
+      const deletedCount = result.length;
+
+      if (deletedCount > 0) {
+        console.log(
+          `Old job cleanup completed: deleted ${deletedCount} job results older than 10 days`
+        );
+      } else {
+        console.log("No old job results found to clean up");
+      }
+    } catch (error) {
+      console.error("Error during old job cleanup:", error);
     }
   }
 
@@ -659,6 +705,7 @@ class SyncScheduler {
       recentItemsSyncInterval: this.recentItemsSyncInterval,
       userSyncInterval: this.userSyncInterval,
       jobCleanupInterval: this.jobCleanupInterval,
+      oldJobCleanupInterval: this.oldJobCleanupInterval,
       fullSyncInterval: this.fullSyncInterval,
       runningTasks: Array.from(this.scheduledTasks.keys()),
       healthCheck: this.enabled,

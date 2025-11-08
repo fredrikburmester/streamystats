@@ -57,6 +57,13 @@
       "when": 1753312928902,
       "tag": "0007_update_transcode_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1731053100000,
+      "tag": "0008_fix_stale_jobs",
+      "breakpoints": true
     }
   ]
 }
