@@ -1,15 +1,23 @@
 import OpenAI from "openai";
 
 // Initialize OpenAI client (optional)
-export const openai = process.env.OPENAI_API_KEY
+const {
+  OPENAI_API_KEY,
+  OPENAI_BASE_URL = "https://api.openai.com/v1",
+  EMBEDDING_MODEL = "text-embedding-3-small",
+} = process.env;
+
+export const openai = OPENAI_API_KEY
   ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: OPENAI_API_KEY,
+      baseURL: OPENAI_BASE_URL,
     })
   : null;
 
 // Configuration constants
 export const OPENAI_CONFIG = {
-  EMBEDDING_MODEL: "text-embedding-3-small",
+  BASE_URL: OPENAI_BASE_URL,
+  EMBEDDING_MODEL,
   EMBEDDING_DIMENSIONS: 1536,
   MAX_TEXT_LENGTH: 8000,
   MAX_RETRIES: 3,

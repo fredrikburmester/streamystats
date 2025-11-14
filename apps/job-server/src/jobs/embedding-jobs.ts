@@ -146,6 +146,7 @@ export async function generateItemEmbeddingsJob(job: any) {
 
       const openaiClient = new OpenAI({
         apiKey: config.openaiApiKey,
+        baseURL: OPENAI_CONFIG.BASE_URL,
         timeout: TIMEOUT_CONFIG.DEFAULT,
         maxRetries: OPENAI_CONFIG.MAX_RETRIES,
       });
