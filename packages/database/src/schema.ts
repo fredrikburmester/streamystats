@@ -9,7 +9,6 @@ import {
   integer,
   bigint,
   doublePrecision,
-  vector,
   index,
   unique,
 } from "drizzle-orm/pg-core";
@@ -33,14 +32,6 @@ export const servers = pgTable(
     startupWizardCompleted: boolean("startup_wizard_completed")
       .notNull()
       .default(false),
-    openAiApiToken: text("open_ai_api_token"),
-    autoGenerateEmbeddings: boolean("auto_generate_embeddings")
-      .notNull()
-      .default(false),
-    ollamaApiToken: text("ollama_api_token"),
-    ollamaBaseUrl: text("ollama_base_url"),
-    ollamaModel: text("ollama_model"),
-    embeddingProvider: text("embedding_provider").default("openai"),
 
     // Sync status tracking
     syncStatus: text("sync_status").notNull().default("pending"), // pending, syncing, completed, failed
@@ -217,7 +208,7 @@ export const items = pgTable(
     productionYear: integer("production_year"),
 
     // Structure and hierarchy
-    isFolder: boolean("is_folder").notNull(),
+    isFolder: boolean("is_folder"),
     parentId: text("parent_id"),
     mediaType: text("media_type"),
 
@@ -273,21 +264,10 @@ export const items = pgTable(
     // Hybrid approach - complete BaseItemDto storage
     rawData: jsonb("raw_data").notNull(), // Full Jellyfin BaseItemDto
 
-    // AI and processing
-    embedding: vector("embedding", { dimensions: 1536 }),
-    processed: boolean("processed").default(false),
-
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [
-    // Vector index for embedding similarity search
-    index("items_embedding_idx").using(
-      "hnsw",
-      table.embedding.op("vector_cosine_ops")
-    ),
-  ]
 );
 
 // Sessions table - user sessions and playback information
@@ -384,18 +364,6 @@ export const sessions = pgTable("sessions", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Hidden recommendations table - stores user's hidden recommendations
-export const hiddenRecommendations = pgTable("hidden_recommendations", {
-  id: serial("id").primaryKey(),
-  serverId: integer("server_id")
-    .references(() => servers.id, { onDelete: "cascade" })
-    .notNull(),
-  userId: text("user_id").notNull(), // Jellyfin user ID
-  itemId: text("item_id")
-    .references(() => items.id, { onDelete: "cascade" })
-    .notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
 
 // Define relationships
 export const serversRelations = relations(servers, ({ many }) => ({
@@ -404,7 +372,6 @@ export const serversRelations = relations(servers, ({ many }) => ({
   activities: many(activities),
   items: many(items),
   sessions: many(sessions),
-  hiddenRecommendations: many(hiddenRecommendations),
 }));
 
 export const librariesRelations = relations(libraries, ({ one, many }) => ({
@@ -449,7 +416,6 @@ export const itemsRelations = relations(items, ({ one, many }) => ({
     references: [items.id],
   }),
   sessions: many(sessions),
-  hiddenRecommendations: many(hiddenRecommendations),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -467,19 +433,6 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
   }),
 }));
 
-export const hiddenRecommendationsRelations = relations(
-  hiddenRecommendations,
-  ({ one }) => ({
-    server: one(servers, {
-      fields: [hiddenRecommendations.serverId],
-      references: [servers.id],
-    }),
-    item: one(items, {
-      fields: [hiddenRecommendations.itemId],
-      references: [items.id],
-    }),
-  })
-);
 
 // Type exports
 export type Server = typeof servers.$inferSelect;
@@ -503,5 +456,4 @@ export type NewItem = typeof items.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 
-export type HiddenRecommendation = typeof hiddenRecommendations.$inferSelect;
-export type NewHiddenRecommendation = typeof hiddenRecommendations.$inferInsert;
+

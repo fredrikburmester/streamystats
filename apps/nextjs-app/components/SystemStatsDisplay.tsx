@@ -33,10 +33,8 @@ interface SystemStatsResponse {
   timestamp: string;
   uptime: number;
   queueStats: {
-    generateEmbeddings: number;
     syncServerData: number;
     addServer: number;
-    generateMediaEmbeddings: number;
     sequentialServerSync: number;
     jellyfinFullSync: number;
     jellyfinUsersSync: number;
@@ -497,10 +495,6 @@ export function SystemStatsDisplay() {
             <div className="space-y-2">
               <h4 className="font-medium text-sm">Standard Jobs</h4>
               <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span>Generate Embeddings</span>
-                  <span>{data.queueStats.generateEmbeddings}</span>
-                </div>
               </div>
             </div>
 
@@ -514,10 +508,6 @@ export function SystemStatsDisplay() {
                 <div className="flex justify-between">
                   <span>Add Server</span>
                   <span>{data.queueStats.addServer}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Media Embeddings</span>
-                  <span>{data.queueStats.generateMediaEmbeddings}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Sequential Sync</span>

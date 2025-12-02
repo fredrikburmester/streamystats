@@ -5,7 +5,6 @@ export {
   sequentialServerSyncJob,
 } from "./server-jobs";
 
-export { generateItemEmbeddingsJob } from "./embedding-jobs";
 
 export {
   syncUsers,
@@ -16,7 +15,6 @@ export {
 
 export { logJobResult } from "./job-logger";
 
-export { openai, OPENAI_CONFIG, TIMEOUT_CONFIG } from "./config";
 
 // Export Jellyfin sync workers from the original location
 export {

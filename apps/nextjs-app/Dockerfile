@@ -21,7 +21,7 @@ COPY apps/job-server/package.json ./apps/job-server/
 
 # Install all dependencies with frozen lockfile and ensure proper installation
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+    pnpm install --no-frozen-lockfile
 
 # Database build stage
 FROM deps AS database-builder

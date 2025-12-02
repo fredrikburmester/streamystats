@@ -57,6 +57,20 @@
       "when": 1753312928902,
       "tag": "0007_update_transcode_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1733155200000,
+      "tag": "0008_remove_ai_integration",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1733166000000,
+      "tag": "0009_allow_null_is_folder",
+      "breakpoints": true
     }
   ]
 }

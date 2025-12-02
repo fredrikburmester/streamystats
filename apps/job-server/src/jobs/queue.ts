@@ -3,7 +3,6 @@ import * as dotenv from "dotenv";
 import {
   syncServerDataJob,
   addServerJob,
-  generateItemEmbeddingsJob,
   sequentialServerSyncJob,
   // Import Jellyfin sync workers
   jellyfinFullSyncWorker,
@@ -15,6 +14,7 @@ import {
   jellyfinRecentActivitiesSyncWorker,
   JELLYFIN_JOB_NAMES,
 } from "./workers";
+import { processHistoricalSessionsJob } from "./historical-sessions";
 
 dotenv.config();
 
@@ -58,12 +58,6 @@ async function registerJobHandlers(boss: PgBoss) {
     addServerJob
   );
 
-  // Register item embeddings job
-  await boss.work(
-    "generate-item-embeddings",
-    { teamSize: 1, teamConcurrency: 1 }, // Limited for API rate limiting
-    generateItemEmbeddingsJob
-  );
 
   // Register new sequential server sync job type
   await boss.work(
@@ -109,6 +103,13 @@ async function registerJobHandlers(boss: PgBoss) {
     jellyfinRecentActivitiesSyncWorker
   );
 
+  // Register historical sessions processing job
+  await boss.work(
+    "process-historical-sessions",
+    { teamSize: 1, teamConcurrency: 1 }, // Single worker for heavy processing
+    processHistoricalSessionsJob
+  );
+
   console.log("All job handlers registered successfully");
 }
 
@@ -123,6 +124,6 @@ export async function closeJobQueue(): Promise<void> {
 export const JobTypes = {
   SYNC_SERVER_DATA: "sync-server-data",
   ADD_SERVER: "add-server",
-  GENERATE_ITEM_EMBEDDINGS: "generate-item-embeddings",
   SEQUENTIAL_SERVER_SYNC: "sequential-server-sync",
+  PROCESS_HISTORICAL_SESSIONS: "process-historical-sessions",
 } as const;

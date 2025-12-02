@@ -84,11 +84,6 @@ const settings_items = [
     icon: Settings,
   },
   {
-    title: "AI Recommendations",
-    url: "/settings/ai",
-    icon: TrendingUp,
-  },
-  {
     title: "Backup & Import",
     url: "/settings/backup-and-import",
     icon: BookOpen,

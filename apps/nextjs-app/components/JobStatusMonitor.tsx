@@ -12,12 +12,10 @@ interface JobStatusResponse {
   uptime: number;
   queueStats: {
     fetchExternalData: number;
-    generateEmbeddings: number;
     batchProcessPosts: number;
     customProcessing: number;
     syncServerData: number;
     addServer: number;
-    generateMediaEmbeddings: number;
     sequentialServerSync: number;
     jellyfinFullSync: number;
     jellyfinUsersSync: number;

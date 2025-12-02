@@ -1,7 +1,9 @@
 services:
   # Database migration service - runs once to set up tables
   migrate:
-    image: docker.io/fredrikburmester/streamystats-v2-migrate:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: migration.Dockerfile
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -16,7 +18,9 @@ services:
       - app-network
 
   nextjs-app:
-    image: docker.io/fredrikburmester/streamystats-v2-nextjs:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: apps/nextjs-app/Dockerfile
     ports:
       - "3000:3000"
     environment:
@@ -48,7 +52,9 @@ services:
       - app-network
 
   job-server:
-    image: docker.io/fredrikburmester/streamystats-v2-job-server:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: apps/job-server/Dockerfile
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}

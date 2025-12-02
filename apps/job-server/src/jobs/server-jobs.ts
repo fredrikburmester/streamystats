@@ -121,7 +121,6 @@ export async function addServerJob(job: any) {
       productName: serverInfo.ProductName,
       operatingSystem: serverInfo.OperatingSystem,
       startupWizardCompleted: serverInfo.StartupWizardCompleted || false,
-      autoGenerateEmbeddings: false,
     };
 
     const insertedServers = await db
@@ -277,23 +276,66 @@ export async function sequentialServerSyncJob(job: any) {
         .where(eq(libraries.serverId, serverId));
 
       for (const library of librariesData) {
-        const itemsResponse = await axios.get(
-          `${server.url}/Items?ParentId=${library.id}&Recursive=true&Fields=BasicSyncInfo,MediaSourceCount,Path,Genres`,
-          {
-            headers: {
-              "X-Emby-Token": server.apiKey,
-              "Content-Type": "application/json",
-            },
-            timeout: TIMEOUT_CONFIG.ITEMS_SYNC,
+        console.log(`Starting paginated sync for library ${library.name} (${library.id})`);
+        
+        let startIndex = 0;
+        const limit = 500; // Smaller page size to prevent timeouts
+        let hasMoreItems = true;
+        let libraryItemsTotal = 0;
+
+        while (hasMoreItems) {
+          try {
+            console.log(`Fetching items ${startIndex} to ${startIndex + limit} for library ${library.name}`);
+            
+            const itemsResponse = await axios.get(
+              `${server.url}/Items?ParentId=${library.id}&Recursive=true&Fields=BasicSyncInfo,MediaSourceCount,Path,Genres&StartIndex=${startIndex}&Limit=${limit}`,
+              {
+                headers: {
+                  "X-Emby-Token": server.apiKey,
+                  "Content-Type": "application/json",
+                },
+                timeout: TIMEOUT_CONFIG.ITEMS_SYNC,
+              }
+            );
+
+            const items = itemsResponse.data.Items || [];
+            const totalRecordCount = itemsResponse.data.TotalRecordCount || 0;
+            
+            if (items.length === 0) {
+              hasMoreItems = false;
+              break;
+            }
+
+            const itemsSynced = await syncItems(serverId, library.id, items);
+            libraryItemsTotal += itemsSynced;
+            syncResults.items += itemsSynced;
+            
+            console.log(`Synced ${itemsSynced} items (${startIndex + items.length}/${totalRecordCount}) for library ${library.name}`);
+            
+            // Check if we've reached the end
+            if (startIndex + items.length >= totalRecordCount || items.length < limit) {
+              hasMoreItems = false;
+            } else {
+              startIndex += limit;
+              // Add a small delay between requests to be gentle on the server
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+          } catch (error) {
+            console.error(`Error syncing items page ${startIndex}-${startIndex + limit} for library ${library.name}:`, error);
+            
+            // If it's a timeout, try with smaller batch size
+            if (axios.isAxiosError(error) && (error.code === 'ECONNABORTED' || error.response?.status === 504)) {
+              console.warn(`Timeout detected, skipping this page and continuing with next batch`);
+              startIndex += limit;
+              continue;
+            }
+            
+            // For other errors, rethrow
+            throw error;
           }
-        );
-        const itemsSynced = await syncItems(
-          serverId,
-          library.id,
-          itemsResponse.data.Items || []
-        );
-        syncResults.items += itemsSynced;
-        console.log(`Synced ${itemsSynced} items for library ${library.name}`);
+        }
+        
+        console.log(`Completed sync for library ${library.name}: ${libraryItemsTotal} items total`);
       }
       console.log(`Total synced ${syncResults.items} items`);
     } catch (error) {

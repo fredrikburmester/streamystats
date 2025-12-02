@@ -131,110 +131,6 @@ router.post(
   }
 );
 
-// POST /jobs/start-embedding - Start embedding generation for a server
-router.post(
-  "/start-embedding",
-  async (req: express.Request, res: express.Response) => {
-    try {
-      const { serverId } = req.body;
-
-      if (!serverId) {
-        return res.status(400).json({ error: "Server ID is required" });
-      }
-
-      // Get server configuration
-      const server = await db
-        .select()
-        .from(servers)
-        .where(eq(servers.id, serverId))
-        .limit(1);
-
-      if (!server.length) {
-        return res.status(404).json({ error: "Server not found" });
-      }
-
-      const serverConfig = server[0];
-
-      // Check if embedding provider is configured
-      if (!serverConfig.embeddingProvider) {
-        return res.status(400).json({
-          error:
-            "Embedding provider not configured. Please select either 'openai' or 'ollama' in the server settings.",
-        });
-      }
-
-      // Validate embedding configuration
-      if (
-        serverConfig.embeddingProvider === "openai" &&
-        !serverConfig.openAiApiToken
-      ) {
-        return res.status(400).json({ error: "OpenAI API key not configured" });
-      }
-
-      if (
-        serverConfig.embeddingProvider === "ollama" &&
-        (!serverConfig.ollamaBaseUrl || !serverConfig.ollamaModel)
-      ) {
-        return res
-          .status(400)
-          .json({ error: "Ollama configuration incomplete" });
-      }
-
-      const boss = await getJobQueue();
-      const jobId = await boss.send("generate-item-embeddings", {
-        serverId,
-        provider: serverConfig.embeddingProvider,
-        config: {
-          openaiApiKey: serverConfig.openAiApiToken,
-          ollamaBaseUrl: serverConfig.ollamaBaseUrl,
-          ollamaModel: serverConfig.ollamaModel,
-          ollamaApiToken: serverConfig.ollamaApiToken,
-        },
-      });
-
-      res.json({
-        success: true,
-        jobId,
-        message: "Embedding generation job started successfully",
-      });
-    } catch (error) {
-      console.error("Error starting embedding job:", error);
-      res.status(500).json({ error: "Failed to start embedding job" });
-    }
-  }
-);
-
-// POST /jobs/stop-embedding - Stop embedding generation for a server
-router.post(
-  "/stop-embedding",
-  async (req: express.Request, res: express.Response) => {
-    try {
-      const { serverId } = req.body;
-
-      if (!serverId) {
-        return res.status(400).json({ error: "Server ID is required" });
-      }
-
-      // Use the helper function to cancel embedding jobs for the specific server
-      const cancelledCount = await cancelJobsByName(
-        "generate-item-embeddings",
-        serverId
-      );
-
-      res.json({
-        success: true,
-        message: `Embedding jobs stopped successfully. ${cancelledCount} jobs cancelled.`,
-        cancelledCount,
-      });
-    } catch (error) {
-      console.error("Error stopping embedding job:", error);
-      res.status(500).json({
-        error: "Failed to stop embedding job",
-        details: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-);
 
 // POST /jobs/cancel-by-type - Cancel all jobs of a specific type
 router.post(
@@ -251,7 +147,6 @@ router.post(
       const validJobTypes = [
         JobTypes.SYNC_SERVER_DATA,
         JobTypes.ADD_SERVER,
-        JobTypes.GENERATE_ITEM_EMBEDDINGS,
         JobTypes.SEQUENTIAL_SERVER_SYNC,
         ...Object.values(JELLYFIN_JOB_NAMES),
       ];
@@ -475,7 +370,6 @@ router.get(
       const stats = await Promise.all([
         boss.getQueueSize(JobTypes.SYNC_SERVER_DATA),
         boss.getQueueSize(JobTypes.ADD_SERVER),
-        boss.getQueueSize(JobTypes.GENERATE_ITEM_EMBEDDINGS),
         boss.getQueueSize(JobTypes.SEQUENTIAL_SERVER_SYNC),
       ]);
 
@@ -484,8 +378,7 @@ router.get(
         queueStats: {
           syncServerData: stats[0],
           addServer: stats[1],
-          generateItemEmbeddings: stats[2],
-          sequentialServerSync: stats[3],
+          sequentialServerSync: stats[2],
           total: stats.reduce((sum: number, stat: number) => sum + stat, 0),
         },
       });
@@ -894,6 +787,54 @@ router.post(
   }
 );
 
+// POST /jobs/process-historical-sessions - Process historical activity log entries into sessions
+router.post(
+  "/process-historical-sessions",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const { serverId, startDate, endDate, batchSize } = req.body;
+
+      if (!serverId) {
+        return res.status(400).json({ error: "Server ID is required" });
+      }
+
+      // Verify server exists
+      const server = await db
+        .select({ id: servers.id, name: servers.name })
+        .from(servers)
+        .where(eq(servers.id, parseInt(serverId)))
+        .limit(1);
+
+      if (!server.length) {
+        return res.status(404).json({ error: "Server not found" });
+      }
+
+      const boss = await getJobQueue();
+      const jobId = await boss.send(JobTypes.PROCESS_HISTORICAL_SESSIONS, {
+        serverId: parseInt(serverId),
+        startDate,
+        endDate,
+        batchSize: batchSize || 1000,
+      });
+
+      res.json({
+        success: true,
+        message: `Historical session processing started for server: ${server[0].name}`,
+        jobId,
+        parameters: {
+          serverId: parseInt(serverId),
+          startDate: startDate || "all time",
+          endDate: endDate || "now",
+          batchSize: batchSize || 1000,
+        },
+      });
+    } catch (error) {
+      console.error("Error starting historical session processing:", error);
+      res.status(500).json({ error: "Failed to start historical session processing" });
+    }
+  }
+);
+
 // POST /jobs/scheduler/config - Update scheduler configuration
 router.post(
   "/scheduler/config",
@@ -989,7 +930,6 @@ router.get(
       const queueSizes = await Promise.all([
         boss.getQueueSize(JobTypes.SYNC_SERVER_DATA),
         boss.getQueueSize(JobTypes.ADD_SERVER),
-        boss.getQueueSize(JobTypes.GENERATE_ITEM_EMBEDDINGS),
         boss.getQueueSize(JobTypes.SEQUENTIAL_SERVER_SYNC),
       ]);
 
@@ -1073,8 +1013,7 @@ router.get(
           // Standard job types
           syncServerData: queueSizes[0],
           addServer: queueSizes[1],
-          generateItemEmbeddings: queueSizes[2],
-          sequentialServerSync: queueSizes[3],
+          sequentialServerSync: queueSizes[2],
 
           // Jellyfin job types
           jellyfinFullSync: jellyfinQueueSizes[0],
@@ -1243,82 +1182,5 @@ router.get(
   }
 );
 
-// POST /jobs/cleanup-stale - Manually trigger cleanup of stale embedding jobs
-router.post(
-  "/cleanup-stale",
-  async (req: express.Request, res: express.Response) => {
-    try {
-      console.log("Manual cleanup of stale embedding jobs triggered");
-
-      // Find all processing embedding jobs older than 10 minutes
-      const staleJobs = await db
-        .select()
-        .from(jobResults)
-        .where(
-          and(
-            eq(jobResults.jobName, "generate-item-embeddings"),
-            eq(jobResults.status, "processing"),
-            sql`${jobResults.createdAt} < NOW() - INTERVAL '10 minutes'`
-          )
-        );
-
-      let cleanedCount = 0;
-
-      for (const staleJob of staleJobs) {
-        try {
-          const result = staleJob.result as any;
-          const serverId = result?.serverId;
-
-          if (serverId) {
-            // Check if there's been recent heartbeat activity
-            const lastHeartbeat = result?.lastHeartbeat
-              ? new Date(result.lastHeartbeat).getTime()
-              : new Date(staleJob.createdAt).getTime();
-            const heartbeatAge = Date.now() - lastHeartbeat;
-
-            // Only cleanup if no recent heartbeat (older than 2 minutes)
-            if (heartbeatAge > 2 * 60 * 1000) {
-              await db.insert(jobResults).values({
-                jobId: `manual-cleanup-${serverId}-${Date.now()}`,
-                jobName: "generate-item-embeddings",
-                status: "failed",
-                result: {
-                  serverId,
-                  error:
-                    "Manual cleanup - job exceeded maximum processing time",
-                  cleanedAt: new Date().toISOString(),
-                  originalJobId: staleJob.jobId,
-                  staleDuration: heartbeatAge,
-                  cleanupType: "manual",
-                },
-                processingTime:
-                  Date.now() - new Date(staleJob.createdAt).getTime(),
-                error:
-                  "Manual cleanup: Job exceeded maximum processing time without heartbeat",
-              });
-
-              cleanedCount++;
-              console.log(
-                `Manually cleaned up stale embedding job for server ${serverId}`
-              );
-            }
-          }
-        } catch (error) {
-          console.error("Error cleaning up stale job:", staleJob.jobId, error);
-        }
-      }
-
-      res.json({
-        success: true,
-        message: `Cleanup completed successfully`,
-        cleanedJobs: cleanedCount,
-        totalStaleJobs: staleJobs.length,
-      });
-    } catch (error) {
-      console.error("Error during manual job cleanup:", error);
-      res.status(500).json({ error: "Failed to cleanup stale jobs" });
-    }
-  }
-);
 
 export default router;

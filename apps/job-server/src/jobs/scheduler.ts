@@ -57,12 +57,6 @@ class SyncScheduler {
         });
       });
 
-      // Job cleanup task for stale embedding jobs
-      const jobCleanupTask = cron.schedule(this.jobCleanupInterval, () => {
-        this.triggerJobCleanup().catch((error) => {
-          console.error("Error during scheduled job cleanup:", error);
-        });
-      });
 
       // Full sync task - daily complete sync
       const fullSyncTask = cron.schedule(this.fullSyncInterval, () => {
@@ -74,21 +68,18 @@ class SyncScheduler {
       this.scheduledTasks.set("activity-sync", activityTask);
       this.scheduledTasks.set("recent-items-sync", recentItemsTask);
       this.scheduledTasks.set("user-sync", userSyncTask);
-      this.scheduledTasks.set("job-cleanup", jobCleanupTask);
       this.scheduledTasks.set("full-sync", fullSyncTask);
 
       // Start all tasks
       activityTask.start();
       recentItemsTask.start();
       userSyncTask.start();
-      jobCleanupTask.start();
       fullSyncTask.start();
 
       console.log("Scheduler started successfully");
       console.log(`Activity sync: ${this.activitySyncInterval}`);
       console.log(`Recent items sync: ${this.recentItemsSyncInterval}`);
       console.log(`User sync: ${this.userSyncInterval}`);
-      console.log(`Job cleanup: ${this.jobCleanupInterval}`);
       console.log(`Full sync: ${this.fullSyncInterval}`);
     } catch (error) {
       console.error("Failed to start scheduler:", error);
@@ -420,75 +411,6 @@ class SyncScheduler {
     }
   }
 
-  /**
-   * Trigger cleanup of stale embedding jobs
-   */
-  private async triggerJobCleanup(): Promise<void> {
-    try {
-      // Find all processing embedding jobs older than 10 minutes
-      const staleJobs = await db
-        .select()
-        .from(jobResults)
-        .where(
-          and(
-            eq(jobResults.jobName, "generate-item-embeddings"),
-            eq(jobResults.status, "processing"),
-            sql`${jobResults.createdAt} < NOW() - INTERVAL '10 minutes'`
-          )
-        );
-
-      let cleanedCount = 0;
-
-      for (const staleJob of staleJobs) {
-        try {
-          const result = staleJob.result as any;
-          const serverId = result?.serverId;
-
-          if (serverId) {
-            // Check if there's been recent heartbeat activity
-            const lastHeartbeat = result?.lastHeartbeat
-              ? new Date(result.lastHeartbeat).getTime()
-              : new Date(staleJob.createdAt).getTime();
-            const heartbeatAge = Date.now() - lastHeartbeat;
-
-            // Only cleanup if no recent heartbeat (older than 2 minutes)
-            if (heartbeatAge > 2 * 60 * 1000) {
-              await db.insert(jobResults).values({
-                jobId: `cleanup-${serverId}-${Date.now()}`,
-                jobName: "generate-item-embeddings",
-                status: "failed",
-                result: {
-                  serverId,
-                  error: "Job cleanup - exceeded maximum processing time",
-                  cleanedAt: new Date().toISOString(),
-                  originalJobId: staleJob.jobId,
-                  staleDuration: heartbeatAge,
-                },
-                processingTime:
-                  Date.now() - new Date(staleJob.createdAt).getTime(),
-                error: "Job exceeded maximum processing time without heartbeat",
-              });
-
-              cleanedCount++;
-              console.log(
-                `Cleaned up stale embedding job for server ${serverId}`
-              );
-            }
-          }
-        } catch (error) {
-          console.error("Error cleaning up stale job:", staleJob.jobId, error);
-        }
-      }
-
-      if (cleanedCount > 0) {
-        console.log(
-          `Job cleanup completed: cleaned ${cleanedCount} stale embedding jobs`
-        );
-      }
-    } catch (error) {
-      console.error("Error during job cleanup:", error);
-    }
-  }
 
   /**
    * Manually trigger activity sync for a specific server

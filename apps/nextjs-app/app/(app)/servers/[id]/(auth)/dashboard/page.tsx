@@ -2,8 +2,6 @@ import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getServer } from "@/lib/db/server";
-import { getSimilarStatistics } from "@/lib/db/similar-statistics";
-import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
 import { getMe } from "@/lib/db/users";
 import { showAdminStatistics } from "@/utils/adminTools";
@@ -12,8 +10,6 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActiveSessions } from "./ActiveSessions";
 import { MostWatchedItems } from "./MostWatchedItems";
-import { SimilarStatistics } from "./SimilarStatistics";
-import { SimilarSeriesStatistics } from "./SimilarSeriesStatistics";
 import { UserActivityWrapper } from "./UserActivityWrapper";
 import { UserLeaderboard } from "./UserLeaderboard";
 
@@ -68,17 +64,11 @@ async function GeneralStats({
   const me = await getMe();
   const sas = await showAdminStatistics();
 
-  const [similarData, similarSeriesData, data] = await Promise.all([
-    getSimilarStatistics(server.id),
-    getSimilarSeries(server.id),
-    getMostWatchedItems({ serverId: server.id, userId: sas ? undefined : me?.id }),
-  ]);
+  const data = await getMostWatchedItems({ serverId: server.id, userId: sas ? undefined : me?.id });
 
   return (
     <div className="flex flex-col gap-6">
       {/* <ServerSetupMonitor serverId={server.id} serverName={server.name} /> */}
-      <SimilarStatistics data={similarData} server={server} />
-      <SimilarSeriesStatistics data={similarSeriesData} server={server} />
       <MostWatchedItems data={data} server={server} />
       {sas ? (
         <>

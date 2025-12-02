@@ -40,7 +40,6 @@ export interface ServerStatusResponse {
   queueStats: {
     syncServerData: number;
     addServer: number;
-    generateItemEmbeddings: number;
     sequentialServerSync: number;
     jellyfinFullSync: number;
     jellyfinUsersSync: number;
