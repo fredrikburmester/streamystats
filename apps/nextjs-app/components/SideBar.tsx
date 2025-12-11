@@ -41,7 +41,7 @@ import {
 import { ShowAdminStatisticsSwitch } from "./ShowAdminStatisticsSwitch";
 import Link from "next/link";
 
-const dashboard_items = [
+const dashboardItems = [
   {
     title: "General",
     url: "/dashboard",
@@ -59,7 +59,7 @@ const dashboard_items = [
   },
 ];
 
-const admin_items = [
+const adminItems = [
   {
     title: "Activity Log",
     url: "/activities",
@@ -77,7 +77,7 @@ const admin_items = [
   },
 ];
 
-const settings_items = [
+const settingsItems = [
   {
     title: "General",
     url: "/settings/general",
@@ -160,7 +160,7 @@ export const SideBar: React.FC<Props> = ({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {dashboard_items.map((item) => (
+                      {dashboardItems.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton asChild>
                             <Link href={`/servers/${id}${item.url}`}>
@@ -192,7 +192,7 @@ export const SideBar: React.FC<Props> = ({
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {admin_items.map((item) => (
+                {adminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <Link href={`/servers/${id}${item.url}`}>
@@ -213,7 +213,7 @@ export const SideBar: React.FC<Props> = ({
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {settings_items.map((item) => (
+                        {settingsItems.map((item) => (
                           <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild>
                               <Link href={`/servers/${id}${item.url}`}>
