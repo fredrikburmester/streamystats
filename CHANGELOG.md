@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.8.0](https://github.com/fredrikburmester/streamystats/compare/v2.7.0...v2.8.0) (2025-12-13)
+
+
+### Features
+
+* separate audio from other ([44b2b39](https://github.com/fredrikburmester/streamystats/commit/44b2b399a51eb6ea73c947795687c8813a14293e))
+
+
+### Bug Fixes
+
+* design for recomendatinos ([dab2bf4](https://github.com/fredrikburmester/streamystats/commit/dab2bf4849bb3a52e0ed571dbe0c510a79ef1030))
+* improved design recomendations ([81fd292](https://github.com/fredrikburmester/streamystats/commit/81fd292f71f028b5ee15fb4a6f7970334a888bdb))
+* prevent false deletions when Jellyfin server is down or return 0 items ([8462efb](https://github.com/fredrikburmester/streamystats/commit/8462efbf7c143963df3a2962db47ff366885a28b))
+
 ## [2.7.0](https://github.com/fredrikburmester/streamystats/compare/v2.6.1...v2.7.0) (2025-12-13)
 
 
