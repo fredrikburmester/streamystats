@@ -46,7 +46,7 @@ services:
           "--quiet",
           "--tries=1",
           "--spider",
-          "http://localhost:3000/api/health",
+          "http://127.0.0.1:3000/api/health",
         ]
       interval: 30s
       timeout: 10s
@@ -77,7 +77,7 @@ services:
           "--quiet",
           "--tries=1",
           "--spider",
-          "http://localhost:3005/health",
+          "http://127.0.0.1:3005/health",
         ]
       interval: 30s
       timeout: 10s
