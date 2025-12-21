@@ -1,6 +1,6 @@
 {
   "name": "@streamystats/job-server",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Bun job server with Hono, pg-boss, and Drizzle ORM",
   "type": "module",
   "main": "src/index.ts",
