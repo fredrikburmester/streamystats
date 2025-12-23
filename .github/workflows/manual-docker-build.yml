@@ -26,7 +26,6 @@ jobs:
         part:
           - streamystats-v2-nextjs
           - streamystats-v2-job-server
-          - streamystats-v2-migrate
         include:
           - part: streamystats-v2-nextjs
             folder: .
@@ -34,9 +33,6 @@ jobs:
           - part: streamystats-v2-job-server
             folder: .
             dockerfile: apps/job-server/Dockerfile
-          - part: streamystats-v2-migrate
-            folder: .
-            dockerfile: migration.Dockerfile
 
     steps:
       - name: Checkout code
@@ -101,7 +97,6 @@ jobs:
           echo "### Built Images:" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-nextjs:${{ inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-job-server:${{ inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-migrate:${{ inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Usage:" >> $GITHUB_STEP_SUMMARY
           echo "Update your \`docker-compose.yml\` with:" >> $GITHUB_STEP_SUMMARY

@@ -108,7 +108,6 @@ RUN mkdir -p /var/log/supervisor /app/scripts
 
 # Copy configuration and scripts
 COPY docker/aio/supervisord.conf /etc/supervisor/conf.d/streamystats.conf
-COPY --chmod=755 docker/aio/scripts/migrate-wrapper.sh /app/scripts/
 COPY --chmod=755 docker/aio/scripts/job-server-wrapper.sh /app/scripts/
 COPY --chmod=755 docker/aio/scripts/nextjs-wrapper.sh /app/scripts/
 COPY --chmod=755 docker/aio/scripts/entrypoint.sh /app/entrypoint.sh
