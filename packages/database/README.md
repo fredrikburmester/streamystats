@@ -12,12 +12,10 @@ This package contains the database schema, migrations, and connection logic for 
 
 ### Migrations in Production
 
-Database migrations in production are handled by a **self-contained Docker service** that:
-- Runs independently of application code
-- Contains all migration logic embedded in the Docker image
-- Does NOT use the TypeScript files in this package
-
-The migration service is defined in `/migration.Dockerfile` at the root of the monorepo.
+Database migrations in production are handled by the **job-server container on startup**:
+- The job-server image bundles a compiled migration runner (`migrate-bin`) built from `packages/database/src/migrate-entrypoint.ts`
+- Migration SQL files live in `packages/database/drizzle/` and are copied into the container
+- The Next.js app starts only after the job-server is healthy (so migrations are done)
 
 ### Local Development
 
@@ -25,16 +23,16 @@ For local development, you can use the npm scripts in this package:
 
 ```bash
 # Generate a new migration from schema changes
-pnpm db:generate
+bun run db:generate
 
 # Apply migrations to your local database
-pnpm db:migrate
+bun run db:migrate
 
 # Open Drizzle Studio to explore your database
-pnpm db:studio
+bun run db:studio
 
 # Check migration status
-pnpm db:status
+bun run db:status
 ```
 
 ## Project Structure
@@ -57,11 +55,11 @@ packages/database/
 ## Making Schema Changes
 
 1. **Edit the schema** in `src/schema.ts`
-2. **Generate migration**: `pnpm db:generate`
+2. **Generate migration**: `bun run db:generate`
 3. **Review the generated SQL** in `drizzle/` folder
-4. **Test locally**: `pnpm db:migrate`
+4. **Test locally**: `bun run db:migrate`
 5. **Commit** both schema changes and migration files
-6. **Deploy**: The production migration service will automatically apply new migrations
+6. **Deploy**: The job-server will automatically apply new migrations on startup
 
 ## Environment Variables
 
@@ -81,25 +79,25 @@ packages/database/
 
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Build the package
-pnpm build
+bun run build
 
 # Watch mode for development
-pnpm dev
+bun run dev
 
 # Generate new migration from schema changes
-pnpm db:generate
+bun run db:generate
 
 # Apply migrations locally
-pnpm db:migrate
+bun run db:migrate
 
 # Open database studio
-pnpm db:studio
+bun run db:studio
 
 # Check migration status
-pnpm db:status
+bun run db:status
 ```
 
 ## Production Migration Process
