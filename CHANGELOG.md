@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.15.0](https://github.com/fredrikburmester/streamystats/compare/v2.14.1...v2.15.0) (2025-12-27)
+
+
+### Features
+
+* add OCI source label to Docker images for Renovatebot support ([73dd6ef](https://github.com/fredrikburmester/streamystats/commit/73dd6ef2242ca32287eb75e29680448eff679cd5)), closes [#276](https://github.com/fredrikburmester/streamystats/issues/276)
+* Add session poller resilience and monitoring ([2a2dcdc](https://github.com/fredrikburmester/streamystats/commit/2a2dcdcfec1b073f8215d52605b7eddf0b2f96ef))
+* bun test job in pr builds ([9013145](https://github.com/fredrikburmester/streamystats/commit/9013145c4fbc32d14270b5d35c05680c43adc529))
+* enhance ActivityLogTable with user and activity type filters ([c60786a](https://github.com/fredrikburmester/streamystats/commit/c60786a35678e2f31efa8e9bd9ab0bdb84a44882))
+
+
+### Bug Fixes
+
+* connection issues ([12a0ba6](https://github.com/fredrikburmester/streamystats/commit/12a0ba6a3edd04e78f507d2ee6d03219b4de53a2))
+* date filter ([57e9df3](https://github.com/fredrikburmester/streamystats/commit/57e9df338eb472fc40729768bfee210b2d2fcf10))
+* don't require API key for openai api compatible models ([2a94328](https://github.com/fredrikburmester/streamystats/commit/2a943284fd58bda9d0d567137bb33e6d5925d247))
+* improve loading ([bfe544a](https://github.com/fredrikburmester/streamystats/commit/bfe544ab52d8676b91692758bb99304d78afca60))
+* improved api key saving ([51638a2](https://github.com/fredrikburmester/streamystats/commit/51638a24c316db43dee3fb53811f472f2df6fc36))
+* logs ([61bc665](https://github.com/fredrikburmester/streamystats/commit/61bc665f456b6b6b7c86c50a2bd31b8dfbecfab5))
+* settings menu in sidebar collapsed mode ([12a85a2](https://github.com/fredrikburmester/streamystats/commit/12a85a2636fcbd3df64486e6084dae4640e8b14c))
+* stale job status improvement ([51eae7e](https://github.com/fredrikburmester/streamystats/commit/51eae7e27afb24599004fcadc1277644a447f3b1))
+* use chat for queries ([28c8556](https://github.com/fredrikburmester/streamystats/commit/28c855605507562975af4913f0beb9849b1056ee))
+* wrong db queries $1 ([200c1ed](https://github.com/fredrikburmester/streamystats/commit/200c1edfd917cb4049bf318f9ce55d813ea9c74f))
+
 ## [2.14.1](https://github.com/fredrikburmester/streamystats/compare/v2.14.0...v2.14.1) (2025-12-22)
 
 
