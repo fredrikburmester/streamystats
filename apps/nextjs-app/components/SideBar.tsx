@@ -11,6 +11,7 @@ import {
   Clock,
   EyeOff,
   Library,
+  ListVideo,
   type LucideIcon,
   MessageSquare,
   Monitor,
@@ -236,6 +237,11 @@ export const SideBar: React.FC<Props> = ({
         title: "Library",
         url: "/library",
         icon: Library,
+      },
+      {
+        title: "Watchlists",
+        url: "/watchlists",
+        icon: ListVideo,
       },
       {
         title: "Me",

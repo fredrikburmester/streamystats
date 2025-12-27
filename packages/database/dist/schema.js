@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serversRelations = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.items = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
+exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.items = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 // Custom vector type that supports variable dimensions
 // This allows storing embeddings of any size without hardcoding dimensions
@@ -499,6 +499,40 @@ exports.anomalyEvents = (0, pg_core_1.pgTable)("anomaly_events", {
     (0, pg_core_1.index)("anomaly_events_anomaly_type_idx").on(table.anomalyType),
     (0, pg_core_1.index)("anomaly_events_resolved_idx").on(table.resolved),
 ]);
+// Watchlists table - user-created lists of media items
+exports.watchlists = (0, pg_core_1.pgTable)("watchlists", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    serverId: (0, pg_core_1.integer)("server_id")
+        .notNull()
+        .references(() => exports.servers.id, { onDelete: "cascade" }),
+    userId: (0, pg_core_1.text)("user_id").notNull(), // Jellyfin user ID who owns the list
+    name: (0, pg_core_1.text)("name").notNull(),
+    description: (0, pg_core_1.text)("description"),
+    isPublic: (0, pg_core_1.boolean)("is_public").notNull().default(false),
+    allowedItemType: (0, pg_core_1.text)("allowed_item_type"), // If set, only items of this type can be added (Movie, Series, Episode, etc.)
+    defaultSortOrder: (0, pg_core_1.text)("default_sort_order").notNull().default("custom"), // custom, name, dateAdded, releaseDate
+    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+}, (table) => [
+    (0, pg_core_1.index)("watchlists_server_user_idx").on(table.serverId, table.userId),
+    (0, pg_core_1.index)("watchlists_server_public_idx").on(table.serverId, table.isPublic),
+]);
+// Watchlist items junction table - items within watchlists
+exports.watchlistItems = (0, pg_core_1.pgTable)("watchlist_items", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    watchlistId: (0, pg_core_1.integer)("watchlist_id")
+        .notNull()
+        .references(() => exports.watchlists.id, { onDelete: "cascade" }),
+    itemId: (0, pg_core_1.text)("item_id")
+        .notNull()
+        .references(() => exports.items.id, { onDelete: "cascade" }),
+    position: (0, pg_core_1.integer)("position").notNull().default(0), // For custom ordering
+    addedAt: (0, pg_core_1.timestamp)("added_at").defaultNow().notNull(),
+}, (table) => [
+    (0, pg_core_1.index)("watchlist_items_watchlist_idx").on(table.watchlistId),
+    (0, pg_core_1.index)("watchlist_items_item_idx").on(table.itemId),
+    (0, pg_core_1.unique)("watchlist_items_unique").on(table.watchlistId, table.itemId),
+]);
 // Define relationships
 exports.serversRelations = (0, drizzle_orm_1.relations)(exports.servers, ({ many }) => ({
     libraries: many(exports.libraries),
@@ -509,6 +543,7 @@ exports.serversRelations = (0, drizzle_orm_1.relations)(exports.servers, ({ many
     hiddenRecommendations: many(exports.hiddenRecommendations),
     userFingerprints: many(exports.userFingerprints),
     anomalyEvents: many(exports.anomalyEvents),
+    watchlists: many(exports.watchlists),
 }));
 exports.librariesRelations = (0, drizzle_orm_1.relations)(exports.libraries, ({ one, many }) => ({
     server: one(exports.servers, {
@@ -554,6 +589,7 @@ exports.itemsRelations = (0, drizzle_orm_1.relations)(exports.items, ({ one, man
     }),
     sessions: many(exports.sessions),
     hiddenRecommendations: many(exports.hiddenRecommendations),
+    watchlistItems: many(exports.watchlistItems),
 }));
 exports.sessionsRelations = (0, drizzle_orm_1.relations)(exports.sessions, ({ one, many }) => ({
     server: one(exports.servers, {
@@ -606,6 +642,23 @@ exports.hiddenRecommendationsRelations = (0, drizzle_orm_1.relations)(exports.hi
     }),
     item: one(exports.items, {
         fields: [exports.hiddenRecommendations.itemId],
+        references: [exports.items.id],
+    }),
+}));
+exports.watchlistsRelations = (0, drizzle_orm_1.relations)(exports.watchlists, ({ one, many }) => ({
+    server: one(exports.servers, {
+        fields: [exports.watchlists.serverId],
+        references: [exports.servers.id],
+    }),
+    items: many(exports.watchlistItems),
+}));
+exports.watchlistItemsRelations = (0, drizzle_orm_1.relations)(exports.watchlistItems, ({ one }) => ({
+    watchlist: one(exports.watchlists, {
+        fields: [exports.watchlistItems.watchlistId],
+        references: [exports.watchlists.id],
+    }),
+    item: one(exports.items, {
+        fields: [exports.watchlistItems.itemId],
         references: [exports.items.id],
     }),
 }));

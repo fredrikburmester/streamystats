@@ -10,20 +10,31 @@ export const usePersistantState = <T,>(
   const [state, setState] = useState<T>(initialValue);
 
   useEffect(() => {
-    const storedValue = localStorage.getItem(key);
-    if (storedValue) {
-      try {
-        setState(JSON.parse(storedValue));
-      } catch (e) {
-        console.error(`Failed to parse stored value for key "${key}":`, e);
+    try {
+      const storedValue =
+        typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+      if (storedValue) {
+        try {
+          setState(JSON.parse(storedValue));
+        } catch (e) {
+          console.error(`Failed to parse stored value for key "${key}":`, e);
+        }
       }
+    } catch {
+      // localStorage can throw (e.g. blocked storage / private mode)
     }
     setLoading(false);
   }, [key]);
 
   useEffect(() => {
     if (!loading) {
-      localStorage.setItem(key, JSON.stringify(state));
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(key, JSON.stringify(state));
+        }
+      } catch {
+        // localStorage can throw (e.g. blocked storage / quota exceeded)
+      }
     }
   }, [key, state, loading]);
 

@@ -697,6 +697,50 @@ export const anomalyEvents = pgTable(
   ]
 );
 
+// Watchlists table - user-created lists of media items
+export const watchlists = pgTable(
+  "watchlists",
+  {
+    id: serial("id").primaryKey(),
+    serverId: integer("server_id")
+      .notNull()
+      .references(() => servers.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(), // Jellyfin user ID who owns the list
+    name: text("name").notNull(),
+    description: text("description"),
+    isPublic: boolean("is_public").notNull().default(false),
+    allowedItemType: text("allowed_item_type"), // If set, only items of this type can be added (Movie, Series, Episode, etc.)
+    defaultSortOrder: text("default_sort_order").notNull().default("custom"), // custom, name, dateAdded, releaseDate
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("watchlists_server_user_idx").on(table.serverId, table.userId),
+    index("watchlists_server_public_idx").on(table.serverId, table.isPublic),
+  ]
+);
+
+// Watchlist items junction table - items within watchlists
+export const watchlistItems = pgTable(
+  "watchlist_items",
+  {
+    id: serial("id").primaryKey(),
+    watchlistId: integer("watchlist_id")
+      .notNull()
+      .references(() => watchlists.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0), // For custom ordering
+    addedAt: timestamp("added_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("watchlist_items_watchlist_idx").on(table.watchlistId),
+    index("watchlist_items_item_idx").on(table.itemId),
+    unique("watchlist_items_unique").on(table.watchlistId, table.itemId),
+  ]
+);
+
 // Define relationships
 export const serversRelations = relations(servers, ({ many }) => ({
   libraries: many(libraries),
@@ -707,6 +751,7 @@ export const serversRelations = relations(servers, ({ many }) => ({
   hiddenRecommendations: many(hiddenRecommendations),
   userFingerprints: many(userFingerprints),
   anomalyEvents: many(anomalyEvents),
+  watchlists: many(watchlists),
 }));
 
 export const librariesRelations = relations(libraries, ({ one, many }) => ({
@@ -756,6 +801,7 @@ export const itemsRelations = relations(items, ({ one, many }) => ({
   }),
   sessions: many(sessions),
   hiddenRecommendations: many(hiddenRecommendations),
+  watchlistItems: many(watchlistItems),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one, many }) => ({
@@ -826,6 +872,25 @@ export const hiddenRecommendationsRelations = relations(
   })
 );
 
+export const watchlistsRelations = relations(watchlists, ({ one, many }) => ({
+  server: one(servers, {
+    fields: [watchlists.serverId],
+    references: [servers.id],
+  }),
+  items: many(watchlistItems),
+}));
+
+export const watchlistItemsRelations = relations(watchlistItems, ({ one }) => ({
+  watchlist: one(watchlists, {
+    fields: [watchlistItems.watchlistId],
+    references: [watchlists.id],
+  }),
+  item: one(items, {
+    fields: [watchlistItems.itemId],
+    references: [items.id],
+  }),
+}));
+
 // Type exports
 export type Server = typeof servers.$inferSelect;
 export type NewServer = typeof servers.$inferInsert;
@@ -865,3 +930,9 @@ export type NewUserFingerprint = typeof userFingerprints.$inferInsert;
 
 export type AnomalyEvent = typeof anomalyEvents.$inferSelect;
 export type NewAnomalyEvent = typeof anomalyEvents.$inferInsert;
+
+export type Watchlist = typeof watchlists.$inferSelect;
+export type NewWatchlist = typeof watchlists.$inferInsert;
+
+export type WatchlistItem = typeof watchlistItems.$inferSelect;
+export type NewWatchlistItem = typeof watchlistItems.$inferInsert;

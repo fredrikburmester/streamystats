@@ -39,10 +39,10 @@ export async function syncActivities(
   options: ActivitySyncOptions = {}
 ): Promise<SyncResult<ActivitySyncData>> {
   const {
-    pageSize = 5000,
+    pageSize = 1000,
     maxPages = 5000, // Prevent infinite loops
-    concurrency = 5,
-    apiRequestDelayMs = 100,
+    concurrency = 2,
+    apiRequestDelayMs = 300,
   } = options;
 
   const metrics = new SyncMetricsTracker();
@@ -211,10 +211,10 @@ export async function syncRecentActivities(
   options: ActivitySyncOptions = {}
 ): Promise<SyncResult<ActivitySyncData>> {
   const {
-    pageSize = 5000,
+    pageSize = 1000,
     maxPages = 5000,
-    concurrency = 5,
-    apiRequestDelayMs = 100,
+    concurrency = 2,
+    apiRequestDelayMs = 300,
     intelligent = false,
   } = options;
 

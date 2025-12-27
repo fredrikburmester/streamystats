@@ -1,42 +1,59 @@
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 /**
  * Hook for managing query parameters in the URL with Suspense support
  */
 export function useQueryParams<_T = unknown>() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
 
   /**
    * Updates URL query parameters and triggers Suspense
    */
-  const updateQueryParams = (
-    params: Record<string, string | null>,
-    options: { scroll?: boolean } = { scroll: false },
-  ) => {
-    setIsLoading(true); // Show loading state immediately
+  const updateQueryParams = useCallback(
+    (
+      params: Record<string, string | null>,
+      options: { scroll?: boolean } = { scroll: false },
+    ) => {
+      // Start a transition to update the route
+      startTransition(() => {
+        // Always base changes on the *current* URL (avoids stale snapshots and
+        // avoids coupling callback identity to next/navigation's searchParams object)
+        const currentSearch =
+          typeof window !== "undefined" ? window.location.search : "";
+        const currentSearchParams = new URLSearchParams(currentSearch);
+        const newSearchParams = new URLSearchParams(currentSearch);
 
-    // Start a transition to update the route
-    startTransition(() => {
-      const newSearchParams = new URLSearchParams(searchParams.toString());
-
-      // Update or remove each parameter
-      for (const [key, value] of Object.entries(params)) {
-        if (value === null) {
-          newSearchParams.delete(key);
-        } else {
-          newSearchParams.set(key, value);
+        // Update or remove each parameter
+        for (const [key, value] of Object.entries(params)) {
+          if (value === null) {
+            newSearchParams.delete(key);
+          } else {
+            newSearchParams.set(key, value);
+          }
         }
-      }
 
-      router.replace(`?${newSearchParams.toString()}`, {
-        scroll: options.scroll,
+        const nextQueryString = newSearchParams.toString();
+        const currentQueryString = currentSearchParams.toString();
+
+        // Avoid needless router.replace loops (and avoid setting loading) when
+        // nothing actually changed.
+        if (nextQueryString === currentQueryString) {
+          return;
+        }
+
+        setIsLoading(true); // Show loading state immediately
+        const basePath =
+          typeof window !== "undefined" ? window.location.pathname : "";
+        router.replace(nextQueryString ? `?${nextQueryString}` : basePath, {
+          scroll: options.scroll,
+        });
       });
-    });
-  };
+    },
+    [router],
+  );
 
   // Reset loading state when the transition completes
   useEffect(() => {

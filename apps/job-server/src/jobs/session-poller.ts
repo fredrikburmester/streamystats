@@ -31,7 +31,8 @@ const WATCHDOG_THRESHOLD_MS = 60_000;
 // How often to log heartbeats showing poller is alive (5 minutes)
 const HEARTBEAT_LOG_INTERVAL_MS = 5 * 60_000;
 // Default per-server request timeout (fail fast, let backoff handle longer outages)
-const DEFAULT_SERVER_REQUEST_TIMEOUT_MS = 8_000;
+// Increased to reduce false "server down" during Jellyfin load spikes / cold starts.
+const DEFAULT_SERVER_REQUEST_TIMEOUT_MS = 15_000;
 // Default server poll concurrency
 const DEFAULT_SERVER_CONCURRENCY = 3;
 // DB statement timeout to prevent DB stalls from wedging session tracking

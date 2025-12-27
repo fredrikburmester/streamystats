@@ -671,10 +671,10 @@ class SyncScheduler {
                   // Use job-server defaults (and env overrides) to avoid hammering Jellyfin
                 },
                 activityOptions: {
-                  pageSize: 5000,
+                  pageSize: 1000,
                   maxPages: 5000,
-                  concurrency: 5,
-                  apiRequestDelayMs: 100,
+                  concurrency: 2,
+                  apiRequestDelayMs: 300,
                 },
               },
             },
@@ -992,10 +992,10 @@ class SyncScheduler {
               // Use job-server defaults (and env overrides) to avoid hammering Jellyfin
             },
             activityOptions: {
-              pageSize: 5000,
+              pageSize: 1000,
               maxPages: 1000,
-              concurrency: 5,
-              apiRequestDelayMs: 1000,
+              concurrency: 2,
+              apiRequestDelayMs: 300,
             },
           },
         },

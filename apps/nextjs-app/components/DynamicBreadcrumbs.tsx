@@ -34,6 +34,7 @@ const _map: Record<string, string> = {
   security: "Security",
   anomalies: "Anomalies",
   map: "Map",
+  watchlists: "Watchlists",
 };
 
 export const DynamicBreadcrumbs: React.FC = () => {
@@ -79,6 +80,35 @@ export const DynamicBreadcrumbs: React.FC = () => {
             const user = await getUserById({ userId: segment, serverId: id });
             if (!cancelled && user?.name) {
               setDynamicLabels((prev) => ({ ...prev, [segment]: user.name }));
+            }
+          } catch {
+            // Ignore errors
+          }
+        }
+
+        // Fetch watchlist name if previous segment is "watchlists" and not already fetched
+        if (
+          prevSegment === "watchlists" &&
+          !_map[segment] &&
+          !fetchedRef.current.has(`watchlist-${segment}`)
+        ) {
+          fetchedRef.current.add(`watchlist-${segment}`);
+
+          try {
+            const watchlistId = parseInt(segment, 10);
+            if (!Number.isNaN(watchlistId)) {
+              const response = await fetch(
+                `${basePath}/api/watchlists/${watchlistId}`,
+              );
+              if (response.ok) {
+                const data = await response.json();
+                if (!cancelled && data?.data?.name) {
+                  setDynamicLabels((prev) => ({
+                    ...prev,
+                    [segment]: data.data.name,
+                  }));
+                }
+              }
             }
           } catch {
             // Ignore errors

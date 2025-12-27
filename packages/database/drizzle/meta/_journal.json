@@ -162,6 +162,13 @@
       "when": 1766829356908,
       "tag": "0022_slimy_kabuki",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1766846672311,
+      "tag": "0023_closed_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }
