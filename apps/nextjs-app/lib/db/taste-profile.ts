@@ -2,7 +2,7 @@
 
 import { db, items, sessions } from "@streamystats/database";
 import { and, desc, eq, isNotNull, sql, sum } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
+
 
 export interface TasteProfile {
   userId: string;
@@ -105,9 +105,6 @@ export async function getUserTasteProfile(
   userId: string,
   userName: string,
 ): Promise<TasteProfile> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag(`taste-profile-${serverId}-${userId}`);
 
   // Get total watch time from ALL sessions (not just ones with embeddings)
   const totalWatchTimeResult = await db

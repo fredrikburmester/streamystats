@@ -1,5 +1,4 @@
 // Client statistics types and functions
-"use cache";
 
 import { db, sessions, users } from "@streamystats/database";
 import {
@@ -13,7 +12,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
+
 import { getStatisticsExclusions } from "./exclusions";
 
 export interface ClientStat {
@@ -69,9 +68,6 @@ export async function getClientStatistics(
   endDate?: string,
   userId?: string,
 ): Promise<ClientStatisticsResponse> {
-  "use cache";
-  cacheLife("days");
-  cacheTag(`client-statistics-${serverId}`);
 
   // Get exclusion settings
   const { userExclusion } = await getStatisticsExclusions(serverId);

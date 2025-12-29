@@ -7,7 +7,7 @@ import {
   users,
 } from "@streamystats/database";
 import { and, eq, inArray, notInArray, type SQL } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
+
 
 export interface ExclusionSettings {
   excludedUserIds: string[];
@@ -21,10 +21,7 @@ export interface ExclusionSettings {
 export async function getExclusionSettings(
   serverId: number | string,
 ): Promise<ExclusionSettings> {
-  "use cache";
   const id = Number(serverId);
-  cacheLife("hours");
-  cacheTag(`exclusion-settings-${id}`);
 
   const server = await db.query.servers.findFirst({
     where: eq(servers.id, id),
