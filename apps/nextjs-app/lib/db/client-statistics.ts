@@ -68,7 +68,6 @@ export async function getClientStatistics(
   endDate?: string,
   userId?: string,
 ): Promise<ClientStatisticsResponse> {
-
   // Get exclusion settings
   const { userExclusion } = await getStatisticsExclusions(serverId);
 

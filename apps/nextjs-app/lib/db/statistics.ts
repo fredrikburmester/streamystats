@@ -39,7 +39,6 @@ export async function getMostWatchedItems({
   serverId: string | number;
   userId?: string | number;
 }): Promise<MostWatchedItems> {
-
   // Get exclusion settings
   const { userExclusion, itemLibraryExclusion } =
     await getStatisticsExclusions(serverId);
@@ -216,7 +215,6 @@ export async function getWatchTimePerType({
   endDate: string;
   userId?: string | number;
 }): Promise<WatchTimePerType> {
-
   // Get exclusion settings
   const { userExclusion, itemLibraryExclusion } =
     await getStatisticsExclusions(serverId);
@@ -353,7 +351,6 @@ export async function getWatchTimeByLibrary({
   startDate: string;
   endDate: string;
 }): Promise<LibraryWatchTime> {
-
   // Get exclusion settings
   const { userExclusion, librariesTableExclusion } =
     await getStatisticsExclusions(serverId);

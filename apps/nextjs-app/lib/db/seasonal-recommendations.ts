@@ -83,7 +83,6 @@ async function getSeasonalRecommendationsCached(
   userId: string | null,
   poolSize: number,
 ): Promise<SeasonalRecommendationResult | null> {
-
   // Get server's disabled holidays and exclusion settings
   const [server, exclusions] = await Promise.all([
     db.query.servers.findFirst({

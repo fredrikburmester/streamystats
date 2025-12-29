@@ -56,7 +56,6 @@ async function getUserTopItemsWithEmbeddings(
   startDate?: Date,
   endDate?: Date,
 ): Promise<UserTopItemsResult> {
-
   const whereConditions = [
     eq(sessions.serverId, serverId),
     eq(sessions.userId, userId),
@@ -229,7 +228,6 @@ export async function getSimilarUsers(
   serverId: string | number,
   targetUserId: string,
 ): Promise<UserSimilarityResult> {
-
   const serverIdNum = Number(serverId);
 
   // Get exclusion settings

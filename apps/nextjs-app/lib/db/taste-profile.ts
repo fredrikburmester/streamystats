@@ -3,7 +3,6 @@
 import { db, items, sessions } from "@streamystats/database";
 import { and, desc, eq, isNotNull, sql, sum } from "drizzle-orm";
 
-
 export interface TasteProfile {
   userId: string;
   userName: string;
@@ -105,7 +104,6 @@ export async function getUserTasteProfile(
   userId: string,
   userName: string,
 ): Promise<TasteProfile> {
-
   // Get total watch time from ALL sessions (not just ones with embeddings)
   const totalWatchTimeResult = await db
     .select({
