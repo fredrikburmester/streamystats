@@ -120,7 +120,7 @@ const settings_items = [
     icon: CalendarDays,
   },
   {
-    title: "AI Recommendations",
+    title: "Embeddings",
     url: "/settings/ai",
     icon: TrendingUp,
   },

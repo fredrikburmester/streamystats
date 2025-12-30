@@ -17,7 +17,7 @@ export default async function AISettings(props: {
 
   return (
     <Container className="flex flex-col">
-      <h1 className="text-3xl font-bold mb-8">AI Settings</h1>
+      <h1 className="text-3xl font-bold mb-8">Embeddings</h1>
 
       <div className="space-y-8">
         <EmbeddingsManager server={server} />

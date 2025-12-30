@@ -362,7 +362,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
     <>
       <Card className="w-full mb-6">
         <CardHeader>
-          <CardTitle>AI & Embeddings</CardTitle>
+          <CardTitle>Embeddings and Recommendations</CardTitle>
           <CardDescription>
             Configure your embedding provider for AI-powered recommendations.
             Supports any OpenAI-compatible API.
@@ -440,58 +440,55 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="model">Model</Label>
-                <Input
-                  id="model"
-                  placeholder="text-embedding-3-small"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Enter the embedding model name supported by your provider
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="model">Model</Label>
+                  <Input
+                    id="model"
+                    placeholder="text-embedding-3-small"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dimensions">Dimensions</Label>
+                  <Input
+                    id="dimensions"
+                    type="number"
+                    placeholder="1536"
+                    value={dimensions}
+                    onChange={(e) =>
+                      setDimensions(Number.parseInt(e.target.value, 10) || 1536)
+                    }
+                  />
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="dimensions">Dimensions</Label>
-                <Input
-                  id="dimensions"
-                  type="number"
-                  placeholder="1536"
-                  value={dimensions}
-                  onChange={(e) =>
-                    setDimensions(Number.parseInt(e.target.value, 10) || 1536)
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Must match your embedding model output. OpenAI models support
-                  dimension reduction via the dimensions parameter.
-                  {existingDimension && (
-                    <span className="block mt-1">
-                      Current embeddings: {existingDimension} dimensions
-                    </span>
-                  )}
-                </p>
-                {dimensions > 2000 && (
-                  <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
-                      Dimensions over 2000 skip the HNSW index (pgvector limit).
-                      Queries will work but may be slower for large libraries.
-                    </p>
-                  </div>
+              <p className="text-xs text-muted-foreground">
+                Enter the embedding model name supported by your provider. Dimensions must match your model output.
+                {existingDimension && (
+                  <span className="block mt-1">
+                    Current embeddings: {existingDimension} dimensions
+                  </span>
                 )}
-                {hasDimensionMismatch && (
-                  <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                    <p className="text-xs text-destructive font-medium">
-                      Dimension mismatch: existing embeddings have{" "}
-                      {existingDimension} dimensions, but configured is{" "}
-                      {dimensions}. Clear existing embeddings before changing
-                      dimensions.
-                    </p>
-                  </div>
-                )}
-              </div>
+              </p>
+              {dimensions > 2000 && (
+                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                    Dimensions over 2000 skip the HNSW index (pgvector limit).
+                    Queries will work but may be slower for large libraries.
+                  </p>
+                </div>
+              )}
+              {hasDimensionMismatch && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <p className="text-xs text-destructive font-medium">
+                    Dimension mismatch: existing embeddings have{" "}
+                    {existingDimension} dimensions, but configured is{" "}
+                    {dimensions}. Clear existing embeddings before changing
+                    dimensions.
+                  </p>
+                </div>
+              )}
 
               {selectedPreset === "ollama" && (
                 <div className="text-xs text-muted-foreground space-y-1 p-3 bg-muted rounded-md">
@@ -508,7 +505,6 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
                 type="button"
                 onClick={handleSaveConfig}
                 disabled={isSaving || !baseUrl || !model}
-                className="w-full"
               >
                 {isSaving ? "Saving..." : "Save Configuration"}
               </Button>
@@ -518,7 +514,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
           <Separator />
 
           <div className="space-y-4">
-            <h3 className="text-sm font-medium">Movie Embeddings</h3>
+            <h3 className="text-sm font-medium">Movie and Series Embeddings</h3>
             <div className="flex justify-between mb-2">
               <span className="text-sm font-medium">
                 Status: {getStatusText(progress?.status ?? "idle")}
@@ -582,46 +578,48 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
               </div>
             )}
           </div>
+        </CardContent>
+      </Card>
 
-          <Separator />
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium">Auto-Generate Embeddings</h3>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-sm text-gray-400">
-                  Automatically generate embeddings for all (and new) items
-                </p>
-                <p className="text-xs text-gray-400">
-                  This requires a valid embedding provider configuration
-                </p>
-              </div>
-              <Switch
-                checked={autoEmbeddings}
-                onCheckedChange={handleToggleAutoEmbeddings}
-                disabled={isUpdatingAutoEmbed || !hasValidConfig()}
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium">Clear Embeddings</h3>
-            <p className="text-sm text-gray-400">
-              Clearing embeddings will remove all existing embeddings, reset the
-              vector index, and require re-processing. Use this to fix dimension
-              mismatches when changing embedding models.
+      <Card className="w-full mb-6">
+        <CardHeader>
+          <CardTitle>Auto-Generate Embeddings</CardTitle>
+          <CardDescription>
+            Automatically generate embeddings for all (and new) items. This
+            requires a valid embedding provider configuration.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Enable automatic embedding generation
             </p>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => setShowClearDialog(true)}
-              disabled={isClearing}
-            >
-              {isClearing ? "Clearing..." : "Clear All Embeddings"}
-            </Button>
+            <Switch
+              checked={autoEmbeddings}
+              onCheckedChange={handleToggleAutoEmbeddings}
+              disabled={isUpdatingAutoEmbed || !hasValidConfig()}
+            />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="w-full mb-6">
+        <CardHeader>
+          <CardTitle>Clear Embeddings</CardTitle>
+          <CardDescription>
+            Remove all existing embeddings and reset the vector index. Use this
+            to fix dimension mismatches when changing embedding models.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => setShowClearDialog(true)}
+            disabled={isClearing}
+          >
+            {isClearing ? "Clearing..." : "Clear All Embeddings"}
+          </Button>
         </CardContent>
       </Card>
 
