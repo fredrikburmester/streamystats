@@ -1,6 +1,6 @@
 # External API Authentication
 
-StreamyStats API endpoints support authentication via Jellyfin session tokens, allowing external clients (mobile apps, scripts, third-party integrations) to access the API.
+Streamystats API endpoints support authentication via Jellyfin session tokens, allowing external clients (mobile apps, scripts, third-party integrations) to access the API.
 
 ## Authentication Method
 
@@ -56,7 +56,7 @@ curl -X POST "https://your-jellyfin-server/Users/AuthenticateByName" \
   -d '{"Username": "your-username", "Pw": "your-password"}'
 ```
 
-### Step 2: Use Token with StreamyStats API
+### Step 2: Use Token with Streamystats API
 
 ```bash
 curl "https://your-streamystats/api/search?q=matrix" \
@@ -131,7 +131,7 @@ All endpoints that require a server accept multiple identification methods. Use 
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `serverId` | Internal StreamyStats server ID | `?serverId=1` |
+| `serverId` | Internal Streamystats server ID | `?serverId=1` |
 | `serverName` | Server name (exact match, case-insensitive) | `?serverName=MyServer` |
 | `serverUrl` | Server URL (partial match) | `?serverUrl=jellyfin.example.com` |
 | `jellyfinServerId` | Jellyfin's unique server ID (from `/System/Info`) | `?jellyfinServerId=abc123...` |
@@ -252,4 +252,3 @@ curl -X PATCH "https://your-streamystats/api/watchlists/123" \
 - Use HTTPS in production
 - Tokens inherit the permissions of the Jellyfin user
 - Session tokens can be revoked from Jellyfin's device management
-

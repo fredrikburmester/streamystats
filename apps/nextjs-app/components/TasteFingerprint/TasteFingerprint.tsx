@@ -336,7 +336,7 @@ export function TasteFingerprint({
     exportCtx.font = "16px system-ui";
     exportCtx.fillStyle = "rgba(255, 255, 255, 0.3)";
     exportCtx.fillText(
-      "StreamyStats Taste Fingerprint",
+      "Streamystats Taste Fingerprint",
       exportSize / 2,
       exportSize - 16,
     );
@@ -366,7 +366,7 @@ export function TasteFingerprint({
     exportCtx.font = "16px system-ui";
     exportCtx.fillStyle = "rgba(255, 255, 255, 0.3)";
     exportCtx.fillText(
-      "StreamyStats Taste Fingerprint",
+      "Streamystats Taste Fingerprint",
       exportSize / 2,
       exportSize - 16,
     );
@@ -387,7 +387,7 @@ export function TasteFingerprint({
 
         await navigator.share({
           title: `${profile.userName}'s Taste Fingerprint`,
-          text: "Check out my unique watching fingerprint on StreamyStats!",
+          text: "Check out my unique watching fingerprint on Streamystats!",
           files: [file],
         });
       } else {

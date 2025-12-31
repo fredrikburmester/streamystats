@@ -1,6 +1,6 @@
 # @streamystats/database
 
-This package contains the database schema, migrations, and connection logic for StreamyStats.
+This package contains the database schema, migrations, and connection logic for Streamystats.
 
 ## Overview
 
@@ -104,4 +104,4 @@ pnpm db:status
 
 ## Production Migration Process
 
-See `/packages/database/MIGRATIONS.md` for detailed documentation about how migrations work in production. 
+See `/packages/database/MIGRATIONS.md` for detailed documentation about how migrations work in production.

@@ -12,12 +12,14 @@ import {
   Tv,
   User,
 } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PerLibraryStatistics } from "@/lib/db/library-statistics";
 import { formatBytes, formatDuration, ticksToSeconds } from "@/lib/utils";
 
 interface Props {
   data: PerLibraryStatistics[];
+  serverId: number;
 }
 
 const getLibraryConfig = (type: string) => {
@@ -53,9 +55,10 @@ const getLibraryConfig = (type: string) => {
   }
 };
 
-const LibraryStatCard: React.FC<{ stats: PerLibraryStatistics }> = ({
-  stats,
-}) => {
+const LibraryStatCard: React.FC<{
+  stats: PerLibraryStatistics;
+  serverId: number;
+}> = ({ stats, serverId }) => {
   const config = getLibraryConfig(stats.libraryType);
   const Icon = config.icon;
   const isTvLibrary = stats.libraryType === "tvshows";
@@ -65,7 +68,12 @@ const LibraryStatCard: React.FC<{ stats: PerLibraryStatistics }> = ({
     <Card className={`flex flex-col border-l-4 ${config.borderColor}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-base font-semibold">
-          {stats.libraryName}
+          <Link
+            href={`/servers/${serverId}/library?libraries=${stats.libraryId}`}
+            className="hover:text-primary hover:underline underline-offset-2 transition-colors"
+          >
+            {stats.libraryName}
+          </Link>
         </CardTitle>
         <div
           className={`flex items-center gap-2 px-2 py-1 rounded-full ${config.bgColor}`}
@@ -132,13 +140,29 @@ const LibraryStatCard: React.FC<{ stats: PerLibraryStatistics }> = ({
         {/* Row 4: Last Played with user info */}
         <div className={`p-2 rounded-lg ${config.bgColor} space-y-1`}>
           <p className="text-xs text-muted-foreground">Last Played</p>
-          <p className="text-sm font-medium truncate">
-            {stats.lastPlayedItemName || "Nothing yet"}
-          </p>
+          {stats.lastPlayedItemId ? (
+            <Link
+              href={`/servers/${serverId}/library/${stats.lastPlayedItemId}`}
+              className="text-sm font-medium truncate block hover:text-primary hover:underline underline-offset-2 transition-colors"
+            >
+              {stats.lastPlayedItemName}
+            </Link>
+          ) : (
+            <p className="text-sm font-medium truncate">Nothing yet</p>
+          )}
           {stats.lastPlayedByUserName && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <User className="h-3 w-3" />
-              <span>by {stats.lastPlayedByUserName}</span>
+              {stats.lastPlayedByUserId ? (
+                <Link
+                  href={`/servers/${serverId}/users/${stats.lastPlayedByUserId}`}
+                  className="hover:text-primary hover:underline underline-offset-2 transition-colors"
+                >
+                  by {stats.lastPlayedByUserName}
+                </Link>
+              ) : (
+                <span>by {stats.lastPlayedByUserName}</span>
+              )}
             </div>
           )}
         </div>
@@ -202,7 +226,7 @@ const StatItem: React.FC<{
   </div>
 );
 
-export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
+export const LibraryStatisticsCards: React.FC<Props> = ({ data, serverId }) => {
   if (data.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -214,7 +238,11 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
   return (
     <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {data.map((stats) => (
-        <LibraryStatCard key={stats.libraryId} stats={stats} />
+        <LibraryStatCard
+          key={stats.libraryId}
+          stats={stats}
+          serverId={serverId}
+        />
       ))}
     </div>
   );

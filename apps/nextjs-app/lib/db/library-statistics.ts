@@ -338,6 +338,7 @@ export interface PerLibraryStatistics {
   // Last activity
   lastPlayedItemId: string | null;
   lastPlayedItemName: string | null;
+  lastPlayedByUserId: string | null;
   lastPlayedByUserName: string | null;
   lastActivityTime: Date | null;
 }
@@ -441,6 +442,7 @@ export const getPerLibraryStatistics = async ({
       libraryId: items.libraryId,
       itemId: sessions.itemId,
       itemName: sessions.itemName,
+      userId: sessions.userId,
       userName: sessions.userName,
       startTime: sessions.startTime,
     })
@@ -486,13 +488,19 @@ export const getPerLibraryStatistics = async ({
 
   const lastPlayedMap = new Map<
     string,
-    { itemId: string | null; itemName: string | null; userName: string | null }
+    {
+      itemId: string | null;
+      itemName: string | null;
+      userId: string | null;
+      userName: string | null;
+    }
   >();
   for (const item of lastPlayedItems) {
     if (!item.libraryId) continue;
     lastPlayedMap.set(item.libraryId, {
       itemId: item.itemId,
       itemName: item.itemName,
+      userId: item.userId,
       userName: item.userName,
     });
   }
@@ -509,6 +517,7 @@ export const getPerLibraryStatistics = async ({
     const lastPlayed = lastPlayedMap.get(library.id) || {
       itemId: null,
       itemName: null,
+      userId: null,
       userName: null,
     };
 
@@ -534,6 +543,7 @@ export const getPerLibraryStatistics = async ({
 
       lastPlayedItemId: lastPlayed.itemId,
       lastPlayedItemName: lastPlayed.itemName,
+      lastPlayedByUserId: lastPlayed.userId,
       lastPlayedByUserName: lastPlayed.userName,
       lastActivityTime: sessionData.lastActivity,
     };

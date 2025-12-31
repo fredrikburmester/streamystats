@@ -137,7 +137,7 @@ export function InferWatchtimeAdminManager({
           <p className="text-sm text-muted-foreground">
             Creates watch sessions for items marked as "Played" in Jellyfin.
             Useful for backfilling history for users who started using
-            StreamyStats after they already had watch history.
+            Streamystats after they already had watch history.
           </p>
         </div>
 

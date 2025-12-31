@@ -1,6 +1,6 @@
 # Database Migrations Guide
 
-This document explains how database migrations work in the StreamyStats project.
+This document explains how database migrations work in the Streamystats project.
 
 ## Overview
 
@@ -268,4 +268,4 @@ npx drizzle-kit migrate --config drizzle.config.ts
 
 - [Drizzle ORM Documentation](https://orm.drizzle.team/)
 - [PostgreSQL Best Practices](https://wiki.postgresql.org/wiki/Main_Page)
-- [Docker Compose Health Checks](https://docs.docker.com/compose/compose-file/05-services/#healthcheck) 
+- [Docker Compose Health Checks](https://docs.docker.com/compose/compose-file/05-services/#healthcheck)

@@ -44,7 +44,7 @@ export type PromotedWatchlistFullItem = WatchlistWithItemCountSanitized & {
  * Supports external authentication via MediaBrowser token
  *
  * Server identification (use one):
- * - serverId: Internal StreamyStats server ID
+ * - serverId: Internal Streamystats server ID
  * - serverName: Server name (exact match, case-insensitive)
  * - serverUrl: Server URL (partial match)
  * - jellyfinServerId: Jellyfin's unique server ID

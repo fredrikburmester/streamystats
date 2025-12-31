@@ -1,4 +1,4 @@
-# All-in-One Docker Compose for StreamyStats
+# All-in-One Docker Compose for Streamystats
 # Single container with PostgreSQL + Job Server + Next.js
 #
 # Usage:

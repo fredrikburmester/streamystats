@@ -7,7 +7,7 @@ API endpoints for managing and fetching watchlists.
 All endpoints support two authentication methods:
 
 ### 1. Session Cookie (Web App)
-Automatically included when logged into the StreamyStats web app.
+Automatically included when logged into the Streamystats web app.
 
 ### 2. MediaBrowser Token (External Clients)
 
@@ -36,7 +36,7 @@ Get a single watchlist by ID with all its items.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `serverId` | integer | No | Internal StreamyStats server ID |
+| `serverId` | integer | No | Internal Streamystats server ID |
 | `serverName` | string | No | Server name (exact match, case-insensitive) |
 | `serverUrl` | string | No | Server URL (partial match) |
 | `jellyfinServerId` | string | No | Jellyfin's unique server ID |
@@ -131,7 +131,7 @@ Get all promoted watchlists for a server.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `serverId` | integer | No | Internal StreamyStats server ID |
+| `serverId` | integer | No | Internal Streamystats server ID |
 | `serverName` | string | No | Server name (exact match, case-insensitive) |
 | `serverUrl` | string | No | Server URL (partial match) |
 | `jellyfinServerId` | string | No | Jellyfin's unique server ID |
@@ -256,4 +256,3 @@ Use the item's `id` and `primaryImageTag` to construct Jellyfin image URLs:
 |---------|---------|
 | 1.1 | GET /api/watchlists/[id] now includes items and supports MediaBrowser auth |
 | 1.0 | Initial release with promoted watchlists endpoint |
-

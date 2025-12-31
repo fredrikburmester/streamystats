@@ -2,7 +2,7 @@
 
 ## Overview
 
-StreamyStats supports excluding specific users and libraries from all statistics. This is an admin-only feature that hides data from the UI while still collecting and syncing all underlying data.
+Streamystats supports excluding specific users and libraries from all statistics. This is an admin-only feature that hides data from the UI while still collecting and syncing all underlying data.
 
 ## Database Schema
 

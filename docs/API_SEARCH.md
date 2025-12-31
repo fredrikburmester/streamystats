@@ -13,7 +13,7 @@ GET /api/search
 Supports two authentication methods:
 
 ### 1. Session Cookie (Web App)
-Automatically included when logged into the StreamyStats web app.
+Automatically included when logged into the Streamystats web app.
 
 ### 2. MediaBrowser Token (External Clients)
 
@@ -192,7 +192,7 @@ curl "https://streamystats.example.com/api/search?q=sci-fi&type=series&format=id
 | `subtitle` | string | Secondary text (year, role, etc.) |
 | `imageId` | string | Jellyfin item ID for image |
 | `imageTag` | string | Jellyfin image tag for caching |
-| `href` | string | Relative URL path in StreamyStats |
+| `href` | string | Relative URL path in Streamystats |
 | `rank` | number | Search relevance score (0-1) |
 | `metadata` | object | Additional type-specific metadata |
 
@@ -244,4 +244,3 @@ No rate limiting is currently enforced, but please be respectful with request fr
 | Version | Changes |
 |---------|---------|
 | 1.0 | Initial release with full/ids formats, type filtering, MediaBrowser auth |
-

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-StreamyStats is a Jellyfin analytics platform providing watch statistics, AI-powered recommendations, and data visualization. It's a Bun monorepo with two services: a Next.js web app and a Hono job server.
+Streamystats is a Jellyfin analytics platform providing watch statistics, AI-powered recommendations, and data visualization. It's a Bun monorepo with two services: a Next.js web app and a Hono job server.
 
 ## Commands
 

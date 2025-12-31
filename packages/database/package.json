@@ -1,7 +1,7 @@
 {
   "name": "@streamystats/database",
   "version": "2.0.0",
-  "description": "Shared database package with Drizzle ORM for StreamyStats",
+  "description": "Shared database package with Drizzle ORM for Streamystats",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

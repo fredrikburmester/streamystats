@@ -7,6 +7,5 @@ chown -R postgres:postgres /var/lib/postgresql/data
 mkdir -p /var/run/postgresql
 chown -R postgres:postgres /var/run/postgresql
 
-echo "[AIO] Starting StreamyStats All-in-One..."
+echo "[AIO] Starting Streamystats All-in-One..."
 exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
-

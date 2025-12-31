@@ -1,4 +1,4 @@
-# StreamyStats All-in-One (AIO) Container
+# Streamystats All-in-One (AIO) Container
 
 Single container deployment with PostgreSQL, Job Server, and Next.js bundled together.
 

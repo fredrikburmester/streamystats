@@ -20,7 +20,7 @@ tput civis
 # Show cursor on exit
 trap 'tput cnorm' EXIT
 
-echo -e "${BLUE}StreamyStats v2 Docker Build & Push${NC}"
+echo -e "${BLUE}Streamystats v2 Docker Build & Push${NC}"
 echo -e "${BLUE}=================================${NC}"
 echo "Registry: $REGISTRY"
 echo "Version: $VERSION"
@@ -34,7 +34,7 @@ selected=0
 display_menu() {
     echo -e "${WHITE}Select which service(s) to build and push:${NC}"
     echo ""
-    
+
     for i in "${!options[@]}"; do
         if [ $i -eq $selected ]; then
             echo -e "${CYAN}  ▶ ${options[$i]}${NC}"
@@ -42,7 +42,7 @@ display_menu() {
             echo "    ${options[$i]}"
         fi
     done
-    
+
     echo ""
     echo -e "${WHITE}Use ↑/↓ arrows to navigate, Enter to select, q to quit${NC}"
 }
@@ -52,9 +52,9 @@ build_and_push() {
     local dockerfile=$1
     local image_name=$2
     local display_name=$3
-    
+
     echo -e "${YELLOW}Building $display_name...${NC}"
-    
+
     if docker buildx build --platform linux/amd64,linux/arm64 -f "$dockerfile" -t "$REGISTRY/$image_name:$VERSION" --push .; then
         echo -e "${GREEN}✅ $display_name built and pushed successfully${NC}"
         return 0
@@ -67,17 +67,17 @@ build_and_push() {
 # Main menu loop
 while true; do
     clear
-    echo -e "${BLUE}StreamyStats v2 Docker Build & Push${NC}"
+    echo -e "${BLUE}Streamystats v2 Docker Build & Push${NC}"
     echo -e "${BLUE}=================================${NC}"
     echo "Registry: $REGISTRY"
     echo "Version: $VERSION"
     echo ""
-    
+
     display_menu
-    
+
     # Read single keypress
     read -rsn1 key
-    
+
     case "$key" in
         A) # Up arrow
             ((selected--))
@@ -94,7 +94,7 @@ while true; do
         "") # Enter key
             clear
             tput cnorm # Show cursor during build
-            
+
             case $selected in
                 0) # NextJS App
                     echo -e "${BLUE}Building NextJS App only...${NC}\n"
@@ -110,31 +110,31 @@ while true; do
                     ;;
                 3) # All Services
                     echo -e "${BLUE}Building all services...${NC}\n"
-                    
+
                     # Build in parallel
                     build_and_push "apps/nextjs-app/Dockerfile" "streamystats-v2-nextjs" "NextJS app" &
                     NEXTJS_PID=$!
-                    
+
                     build_and_push "apps/job-server/Dockerfile" "streamystats-v2-job-server" "Job server" &
                     JOBSERVER_PID=$!
-                    
+
                     build_and_push "migration.Dockerfile" "streamystats-v2-migrate" "Migration container" &
                     MIGRATE_PID=$!
-                    
+
                     echo -e "\n${YELLOW}Waiting for all builds to complete...${NC}\n"
-                    
+
                     FAILED=0
                     wait $NEXTJS_PID || FAILED=1
                     wait $JOBSERVER_PID || FAILED=1
                     wait $MIGRATE_PID || FAILED=1
-                    
+
                     if [ $FAILED -eq 1 ]; then
                         echo -e "\n${RED}❌ One or more builds failed${NC}"
                         exit 1
                     fi
                     ;;
             esac
-            
+
             echo -e "\n${GREEN}🚀 Build completed!${NC}"
             echo ""
             echo "Built images:"
@@ -142,13 +142,13 @@ while true; do
                 0) echo "  - $REGISTRY/streamystats-v2-nextjs:$VERSION" ;;
                 1) echo "  - $REGISTRY/streamystats-v2-job-server:$VERSION" ;;
                 2) echo "  - $REGISTRY/streamystats-v2-migrate:$VERSION" ;;
-                3) 
+                3)
                     echo "  - $REGISTRY/streamystats-v2-nextjs:$VERSION"
                     echo "  - $REGISTRY/streamystats-v2-job-server:$VERSION"
                     echo "  - $REGISTRY/streamystats-v2-migrate:$VERSION"
                     ;;
             esac
-            
+
             break
             ;;
         q|Q) # Quit
