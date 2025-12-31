@@ -27,14 +27,49 @@ import {
 import { Input } from "@/components/ui/input";
 import { createServer } from "@/lib/server";
 
+const urlValidation = z
+  .string()
+  .min(2, {
+    message: "URL must be at least 2 characters.",
+  })
+  .refine(
+    (url) => {
+      return url.startsWith("http://") || url.startsWith("https://");
+    },
+    {
+      message: "URL must start with http:// or https://",
+    },
+  )
+  .refine(
+    (url) => {
+      return !url.endsWith("/");
+    },
+    {
+      message: "URL should not end with a slash",
+    },
+  )
+  .refine(
+    (url) => {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    {
+      message: "Please enter a valid URL",
+    },
+  );
+
 const FormSchema = z.object({
-  url: z
+  url: urlValidation,
+  internalUrl: z
     .string()
-    .min(2, {
-      message: "URL must be at least 2 characters.",
-    })
+    .optional()
     .refine(
       (url) => {
+        if (!url || url.length === 0) return true;
         return url.startsWith("http://") || url.startsWith("https://");
       },
       {
@@ -43,23 +78,11 @@ const FormSchema = z.object({
     )
     .refine(
       (url) => {
+        if (!url || url.length === 0) return true;
         return !url.endsWith("/");
       },
       {
         message: "URL should not end with a slash",
-      },
-    )
-    .refine(
-      (url) => {
-        try {
-          new URL(url);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      {
-        message: "Please enter a valid URL",
       },
     ),
   apikey: z.string().min(2, {
@@ -75,6 +98,7 @@ export function SetupForm() {
     defaultValues: {
       apikey: "",
       url: "",
+      internalUrl: "",
     },
   });
 
@@ -108,6 +132,7 @@ export function SetupForm() {
       const serverData = {
         name: hostname, // Extract hostname as name
         url: data.url,
+        internalUrl: data.internalUrl || undefined,
         apiKey: data.apikey,
       };
 
@@ -192,15 +217,34 @@ export function SetupForm() {
               />
               <FormField
                 control={form.control}
+                name="internalUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Internal URL (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="http://192.168.1.100:8096"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Optional internal URL for server-to-server communication
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="apikey"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Jellyfin Api Key</FormLabel>
+                    <FormLabel>Jellyfin API Key</FormLabel>
                     <FormControl>
-                      <Input placeholder="shadcn" {...field} />
+                      <Input placeholder="Your API key" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Get the api key from the admin dashboard in Jellyfin
+                      Get the API key from the admin dashboard in Jellyfin
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
