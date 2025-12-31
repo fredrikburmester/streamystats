@@ -1,6 +1,7 @@
 import { db, servers } from "@streamystats/database";
 import { ilike } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { getInternalUrl } from "@/lib/server-url";
 
 async function getServerByName(name: string) {
   const result = await db
@@ -31,7 +32,7 @@ export async function GET(
 
   // Construct Jellyfin Image URL
   // Default to Primary image
-  let jellyfinUrl = `${server.url}/Items/${itemId}/Images/Primary`;
+  let jellyfinUrl = `${getInternalUrl(server)}/Items/${itemId}/Images/Primary`;
   if (tag) {
     jellyfinUrl += `?tag=${tag}`;
   }

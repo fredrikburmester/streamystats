@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { getServersWithSecrets } from "@/lib/db/server";
+import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET() {
   // The middleware will set this header if there's a server connectivity issue
@@ -25,7 +26,7 @@ export async function GET() {
     for (const server of servers) {
       try {
         // Quick health check to Jellyfin server
-        const healthCheck = await fetch(`${server.url}/System/Ping`, {
+        const healthCheck = await fetch(`${getInternalUrl(server)}/System/Ping`, {
           method: "GET",
           headers: {
             "X-Emby-Token": server.apiKey,

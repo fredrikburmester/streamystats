@@ -9,6 +9,7 @@ import {
 } from "@streamystats/database";
 import { JellyfinClient } from "../client";
 import { formatSyncLogLine } from "./sync-log";
+import { getInternalUrl } from "../../utils/server-url";
 
 export interface PeopleSyncJobData {
   serverId: number;
@@ -277,7 +278,7 @@ async function createClientForServerId(
 
   return {
     client: new JellyfinClient({
-      baseURL: server.url,
+      baseURL: getInternalUrl(server),
       apiKey: server.apiKey,
     }),
     serverName: server.name,

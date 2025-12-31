@@ -4,6 +4,7 @@ import type { Server } from "@streamystats/database";
 import { db, servers, users } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { getInternalUrl } from "./server-url";
 import { getSession, type SessionUser } from "./session";
 
 /**
@@ -95,7 +96,7 @@ export async function authenticateMediaBrowser(
   const allServers = await db.select().from(servers);
 
   for (const server of allServers) {
-    const userInfo = await validateJellyfinToken(server.url, parsed.token);
+    const userInfo = await validateJellyfinToken(getInternalUrl(server), parsed.token);
     if (userInfo) {
       // Check if this user exists in our database for this server
       const dbUser = await db.query.users.findFirst({
@@ -146,7 +147,7 @@ export async function validateApiKey({
     // Validate the API key by making a request to the Jellyfin server
     // Use /Users/Me endpoint which requires valid authentication
     try {
-      const response = await fetch(`${server.url}/System/Info`, {
+      const response = await fetch(`${getInternalUrl(server)}/System/Info`, {
         method: "GET",
         headers: {
           "X-Emby-Token": apiKey,

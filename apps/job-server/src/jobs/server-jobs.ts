@@ -3,6 +3,7 @@ import axios from "axios";
 import { eq, isNull } from "drizzle-orm";
 import { logJobResult } from "./job-logger";
 import { structuredLog as log } from "../utils/structured-log";
+import { getInternalUrl } from "../utils/server-url";
 import type { PgBossJob, AddServerJobData } from "../types/job-status";
 
 export const BACKFILL_JOB_NAMES = {
@@ -99,7 +100,7 @@ export async function backfillJellyfinIdsJob(job: PgBossJob<Record<string, never
 
     for (const server of serversWithoutId) {
       try {
-        const response = await axios.get(`${server.url}/System/Info`, {
+        const response = await axios.get(`${getInternalUrl(server)}/System/Info`, {
           headers: {
             "X-Emby-Token": server.apiKey,
             "Content-Type": "application/json",

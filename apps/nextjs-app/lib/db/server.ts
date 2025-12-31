@@ -18,6 +18,7 @@ const SERVER_PUBLIC_SELECT = {
   jellyfinId: servers.jellyfinId,
   name: servers.name,
   url: servers.url,
+  internalUrl: servers.internalUrl,
   lastSyncedPlaybackId: servers.lastSyncedPlaybackId,
   localAddress: servers.localAddress,
   version: servers.version,
