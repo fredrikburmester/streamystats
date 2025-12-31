@@ -4,36 +4,31 @@ This document explains how database migrations work in the StreamyStats project.
 
 ## Overview
 
-We use [Drizzle ORM](https://orm.drizzle.team/) for database migrations with a dedicated, self-contained migration service in Docker Compose.
+We use [Drizzle ORM](https://orm.drizzle.team/) for database migrations.
+
+For Docker deployments, migrations run automatically **inside the job-server container at startup** (before the job-server starts serving HTTP and becomes healthy). The Next.js app waits for the job-server healthcheck, which enforces the start order:
+
+**db → job-server (run migrations) → nextjs**
 
 ## Migration Strategy
 
 ### Production Setup
-- **Self-Contained Migration Service**: A standalone Docker container with embedded migration logic
-- **No External Dependencies**: Migration service doesn't depend on application code or scripts
-- **Exit Code Based**: Services wait for successful completion (exit code 0) via `service_completed_successfully`
-- **Resource Limits**: Migration service has memory and CPU limits to prevent resource exhaustion
-- **Idempotent**: Migrations can be run multiple times safely
+- **Job-server startup migration**: The job-server image bundles a compiled migration runner (`migrate-bin`) + the `drizzle/` folder.
+- **Healthcheck-gated**: The job-server only becomes healthy after migrations finish and the server is running.
+- **Idempotent**: Migrations can be run multiple times safely.
 
 ### How It Works
 
 1. **Database Startup**: PostgreSQL starts first with health checks
-2. **Migration Service**: 
-   - Contains all migration logic in an embedded shell script
-   - Waits for database to be ready
-   - Creates database if it doesn't exist
-   - Creates required extensions (vector, uuid-ossp)
-   - Runs all pending migrations using drizzle-kit
-   - Exits with code 0 on success
-3. **Application Services**: Start only after migration service completes successfully
+2. **Job Server Startup**:
+   - Waits for PostgreSQL to be ready
+   - Runs all pending migrations (`drizzle-orm` migrator) from `./drizzle`
+   - Starts the job-server HTTP API
+3. **Next.js App**: Starts only after the job-server is healthy
 
 ## Architecture
 
-The migration service is **completely self-contained**:
-- Built from `migration.Dockerfile`
-- Contains only the minimal files needed for migrations
-- Embeds the migration logic directly in the Docker image
-- Does not depend on TypeScript or application code
+Migrations are run by a small compiled binary (`migrate-bin`) built from `packages/database/src/migrate-entrypoint.ts` and executed as part of the job-server container startup.
 
 ## Files Structure
 
@@ -65,7 +60,7 @@ export const newTable = pgTable('new_table', {
 ### 2. Generate Migration
 ```bash
 cd packages/database
-pnpm db:generate
+bun run db:generate
 ```
 
 This creates a new SQL file in `drizzle/` directory.
@@ -83,7 +78,7 @@ docker-compose -f docker-compose.dev.yml up vectorchord
 
 # Run migration locally (for testing)
 cd packages/database
-pnpm db:migrate
+bun run db:migrate
 ```
 
 ### 5. Deploy
@@ -92,7 +87,7 @@ Migrations run automatically when deploying with Docker Compose:
 docker-compose up
 ```
 
-The migration service will automatically pick up new migration files.
+The job-server will automatically pick up new migration files.
 
 ## Migration Scripts
 
@@ -107,10 +102,7 @@ These scripts are for **local development only**:
 
 ### Production Migration (in Docker)
 
-Production migrations are handled by the self-contained migration service:
-- Uses embedded shell script in the Docker image
-- Runs `npx drizzle-kit migrate` directly
-- No dependency on package.json scripts or TypeScript
+Production migrations are handled by the job-server container at startup.
 
 ## Best Practices
 
@@ -136,7 +128,7 @@ pg_dump -h localhost -U postgres -d streamystats > backup.sql
 
 ### 5. Handle Failed Migrations
 If a migration fails:
-1. Check logs: `docker-compose logs migrate`
+1. Check logs: `docker-compose logs job-server`
 2. Fix the issue in schema
 3. Generate a new migration
 4. Never edit failed migration files
@@ -146,28 +138,7 @@ If a migration fails:
 ### Check Migration Status Locally
 ```bash
 cd packages/database
-pnpm db:status
-```
-
-### Migration Service Keeps Restarting
-```bash
-# Check logs
-docker-compose logs migrate
-
-# Common issues:
-# - Database not ready
-# - Wrong credentials
-# - Network issues
-# - Invalid SQL in migration files
-```
-
-### Manually Run Migration Service
-```bash
-# Run migration service manually
-docker-compose run --rm migrate
-
-# Check what's in the container
-docker-compose run --rm migrate ls -la /app/packages/database/drizzle
+bun run db:status
 ```
 
 ### Check Applied Migrations
@@ -177,95 +148,15 @@ docker exec -it <postgres-container> psql -U postgres -d streamystats \
   -c "SELECT * FROM drizzle.__drizzle_migrations ORDER BY id;"
 ```
 
+### Job-server migrations failing in Docker
+- Check logs: `docker-compose logs job-server`
+- Common issues:
+  - Database not ready / wrong host in `DATABASE_URL`
+  - Wrong credentials
+  - Missing permissions to create extensions (warning is logged; migrations still run)
+
 ## Environment Variables
 
-The migration service supports these environment variables:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string (preferred) | - |
-| `POSTGRES_USER` | Database user | postgres |
-| `POSTGRES_PASSWORD` | Database password | postgres |
-| `POSTGRES_DB` | Database name | streamystats |
-| `DB_HOST` | Database host (extracted from DATABASE_URL) | vectorchord |
-| `DB_PORT` | Database port (extracted from DATABASE_URL) | 5432 |
-| `NODE_ENV` | Environment | production |
-
-## Docker Compose Configuration
-
-### Production
-```yaml
-migrate:
-  image: your-registry/migrate:latest
-  environment:
-    - DATABASE_URL=postgresql://user:pass@host:5432/db
-  depends_on:
-    postgres:
-      condition: service_healthy
-  restart: "no"
-  deploy:
-    resources:
-      limits:
-        memory: 512M
-
-# Other services depend on migrate completing successfully
-app:
-  depends_on:
-    migrate:
-      condition: service_completed_successfully
-```
-
-### Development
-```yaml
-migrate:
-  build:
-    context: .
-    dockerfile: migration.Dockerfile
-  volumes:
-    # Mount migrations for live updates during development
-    - ./packages/database/drizzle:/app/packages/database/drizzle:ro
-```
-
-## How the Self-Contained Migration Service Works
-
-The migration Dockerfile:
-
-1. **Build Stage**: Compiles the database package
-2. **Runtime Stage**: 
-   - Installs only essential dependencies (drizzle-kit, drizzle-orm, postgres)
-   - Copies migration files and config
-   - Embeds migration script directly in the image
-   - No dependency on pnpm or application code
-
-The embedded script:
-1. Parses DATABASE_URL or uses individual env vars
-2. Waits for PostgreSQL to be ready
-3. Creates database if needed
-4. Creates extensions
-5. Runs `npx drizzle-kit migrate`
-6. Exits with appropriate code (0 for success, 1 for failure)
-
-## Advanced Topics
-
-### Zero-Downtime Migrations
-For large tables:
-1. Add new columns as nullable
-2. Backfill data in batches
-3. Add constraints in separate migration
-4. Deploy application changes
-
-### Debugging Migration Issues
-```bash
-# Run migration container with shell
-docker-compose run --rm --entrypoint sh migrate
-
-# Inside container, manually run steps:
-cd /app/packages/database
-npx drizzle-kit migrate --config drizzle.config.ts
-```
-
-## Resources
-
-- [Drizzle ORM Documentation](https://orm.drizzle.team/)
-- [PostgreSQL Best Practices](https://wiki.postgresql.org/wiki/Main_Page)
-- [Docker Compose Health Checks](https://docs.docker.com/compose/compose-file/05-services/#healthcheck) 
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string (required) |

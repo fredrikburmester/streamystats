@@ -52,7 +52,7 @@ Recommendations use vector similarity (cosine distance) to find content similar 
 ### Docker
 
 1. Install Docker and Docker Compose if you haven't already.
-2. Copy the `docker-compose.yml` file to your desired location. Use tag `:latest` (read more below in [Version Tags](#version-tags).
+2. Copy the `docker-compose.yml` file to your desired location. Use tag `:latest` (read more below in [Version Tags](#version-tags)).
 3. Change any ports if needed. Default web port is `3000`.
 4. Change the `SESSION_SECRET` in the `docker-compose.yml` file to a random string. You can generate one with `openssl rand -hex 64`.
 5. Start the application with `docker-compose up -d`
@@ -65,7 +65,17 @@ First time load can take a while, depending on the size of your library.
 
 Version tags (e.g., `v1.2.3`) are automatically generated on release. These tags provide stable, tested reference points for production use. I recommend pinning to specific version tags for stability.
 
-The `:latest` tag always points to the latest commit on the main branch. It contains the most recent features and fixes. While typically stable, it may occasionally contain breaking changes
+The `:latest` tag always points to the latest commit on the main branch. It contains the most recent features and fixes. While typically stable, it may occasionally contain breaking changes.
+
+### Rollbacks / Downgrades (Docker)
+
+Database migrations are automated and handled by the **job-server container** (it runs migrations on startup before becoming healthy).
+
+Streamystats does **not** perform automatic rollbacks/downgrades of the database schema for Docker users.
+
+- **No Automatic Downgrade**: If you downgrade the Docker image version (for example changing the tag from `v1.95.0` back to `v1.94.0`), the database remains migrated to the newer version. The older application version will likely fail to start or behave incorrectly because it does not understand the newer schema.
+- **Recommended Strategy**: The official and only supported method to “rollback” a deployment is to **restore a database backup**.
+- **Important**: Always take a **database backup before updating** to a newer image version.
 
 ### Dockerless
 
