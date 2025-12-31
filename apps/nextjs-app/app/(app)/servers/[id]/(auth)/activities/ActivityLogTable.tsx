@@ -137,7 +137,7 @@ export function ActivityLogTable({
                 name: row.getValue("name"),
                 jellyfin_id: row.original.userId?.toString() || "",
               }}
-              serverUrl={server.url}
+              server={server}
               className="h-6 w-6 transition-transform duration-200"
             />
             <span className="capitalize transition-colors duration-200 group-hover:text-primary">

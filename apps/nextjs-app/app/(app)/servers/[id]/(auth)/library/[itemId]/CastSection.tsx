@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { PersonFromDb } from "@/lib/db/actor-types";
+import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 
 interface CastSectionProps {
@@ -29,7 +30,7 @@ function PersonCard({
   const [hasError, setHasError] = useState(false);
 
   const imageUrl = person.primaryImageTag
-    ? `${server.url}/Items/${person.id}/Images/Primary?fillHeight=240&fillWidth=160&quality=96&tag=${person.primaryImageTag}`
+    ? `${getInternalUrl(server)}/Items/${person.id}/Images/Primary?fillHeight=240&fillWidth=160&quality=96&tag=${person.primaryImageTag}`
     : null;
 
   return (

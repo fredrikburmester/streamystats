@@ -96,7 +96,10 @@ export async function authenticateMediaBrowser(
   const allServers = await db.select().from(servers);
 
   for (const server of allServers) {
-    const userInfo = await validateJellyfinToken(getInternalUrl(server), parsed.token);
+    const userInfo = await validateJellyfinToken(
+      getInternalUrl(server),
+      parsed.token,
+    );
     if (userInfo) {
       // Check if this user exists in our database for this server
       const dbUser = await db.query.users.findFirst({
