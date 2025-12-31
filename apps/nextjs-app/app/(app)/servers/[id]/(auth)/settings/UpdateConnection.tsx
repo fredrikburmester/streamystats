@@ -97,17 +97,16 @@ export function UpdateConnection({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="apiKey">API Key</Label>
+            <Label htmlFor="apiKey">API Key (Optional)</Label>
             <Input
               id="apiKey"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your Jellyfin API key"
-              required
+              placeholder="Leave empty to keep current key"
             />
             <p className="text-sm text-muted-foreground">
-              Get the API key from the Jellyfin admin dashboard
+              Only enter a new key if you want to change it
             </p>
           </div>
 

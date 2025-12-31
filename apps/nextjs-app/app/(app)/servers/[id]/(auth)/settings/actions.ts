@@ -42,7 +42,7 @@ interface UpdateConnectionSettingsParams {
   serverId: number;
   url: string;
   internalUrl?: string | null;
-  apiKey: string;
+  apiKey?: string;
 }
 
 interface UpdateConnectionSettingsResult {
@@ -61,6 +61,30 @@ export async function updateConnectionSettingsAction({
   apiKey,
 }: UpdateConnectionSettingsParams): Promise<UpdateConnectionSettingsResult> {
   try {
+    // Fetch existing server to get current API key if none provided
+    const existingServer = await db
+      .select({ apiKey: servers.apiKey })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1);
+
+    if (existingServer.length === 0) {
+      return {
+        success: false,
+        message: "Server not found",
+      };
+    }
+
+    // Use provided API key or fall back to existing one
+    const effectiveApiKey = apiKey || existingServer[0].apiKey;
+
+    if (!effectiveApiKey) {
+      return {
+        success: false,
+        message: "No API key available. Please provide an API key.",
+      };
+    }
+
     // Validate URL format
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       return {
@@ -94,7 +118,7 @@ export async function updateConnectionSettingsAction({
       const testResponse = await fetch(`${normalizedUrl}/System/Info`, {
         method: "GET",
         headers: {
-          "X-Emby-Token": apiKey,
+          "X-Emby-Token": effectiveApiKey,
           "Content-Type": "application/json",
         },
         signal: AbortSignal.timeout(5000),
@@ -121,18 +145,29 @@ export async function updateConnectionSettingsAction({
         Version?: string;
       };
 
+      // Build update object - only include apiKey if a new one was provided
+      const updateData: {
+        url: string;
+        internalUrl: string | null;
+        apiKey?: string;
+        version?: string;
+        name?: string;
+        updatedAt: Date;
+      } = {
+        url: normalizedUrl,
+        internalUrl: normalizedInternalUrl,
+        version: serverInfo.Version ?? undefined,
+        name: serverInfo.ServerName ?? undefined,
+        updatedAt: new Date(),
+      };
+
+      // Only update API key if a new one was explicitly provided
+      if (apiKey) {
+        updateData.apiKey = apiKey;
+      }
+
       // Update the server record
-      await db
-        .update(servers)
-        .set({
-          url: normalizedUrl,
-          internalUrl: normalizedInternalUrl,
-          apiKey,
-          version: serverInfo.Version ?? undefined,
-          name: serverInfo.ServerName ?? undefined,
-          updatedAt: new Date(),
-        })
-        .where(eq(servers.id, serverId));
+      await db.update(servers).set(updateData).where(eq(servers.id, serverId));
 
       // Revalidate relevant paths
       revalidatePath(`/servers/${serverId}/settings`);
