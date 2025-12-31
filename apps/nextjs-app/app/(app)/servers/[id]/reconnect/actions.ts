@@ -10,26 +10,26 @@ import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 export const updateServerConnectionAction = async ({
   serverId,
   url,
+  internalUrl,
   apiKey,
   username,
   password,
-  name,
 }: {
   serverId: number;
   url: string;
+  internalUrl?: string | null;
   apiKey: string;
   username: string;
   password?: string | null;
-  name?: string;
 }): Promise<UpdateServerConnectionResult> => {
   try {
     const result = await updateServerConnection({
       serverId,
       url,
+      internalUrl,
       apiKey,
       username,
       password,
-      name,
     });
 
     if (result.success && result.accessToken && result.userId) {

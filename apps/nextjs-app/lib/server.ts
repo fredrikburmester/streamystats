@@ -6,6 +6,7 @@ import type { ServerPublic } from "@/lib/types";
 interface CreateServerRequest {
   name: string;
   url: string;
+  internalUrl?: string;
   apiKey: string;
   localAddress?: string;
   autoGenerateEmbeddings?: boolean;
