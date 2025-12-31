@@ -42,8 +42,7 @@ export function UpdateConnection({
   const [apiKey, setApiKey] = useState("");
   const [showWarning, setShowWarning] = useState(false);
 
-  const internalUrlChanged =
-    (internalUrl || "") !== (initialInternalUrl || "");
+  const internalUrlChanged = (internalUrl || "") !== (initialInternalUrl || "");
 
   const submitForm = async () => {
     setLoading(true);
