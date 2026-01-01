@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Settings,
   Shield,
+  Sparkles,
   TrendingUp,
   User as UserIcon,
   Users,
@@ -254,6 +255,11 @@ export const SideBar: React.FC<Props> = ({
         title: "Watchlists",
         url: "/watchlists",
         icon: ListVideo,
+      },
+      {
+        title: "Wrapped",
+        url: "/wrapped",
+        icon: Sparkles,
       },
       {
         title: "Me",
