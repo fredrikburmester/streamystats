@@ -62,7 +62,9 @@ export function WrappedComparisonChart({ data }: WrappedComparisonChartProps) {
                     </span>
                     <span className="text-muted-foreground">
                       {formatDuration(
-                        isUser ? item.payload.userSeconds : item.payload.avgSeconds
+                        isUser
+                          ? item.payload.userSeconds
+                          : item.payload.avgSeconds,
                       )}
                     </span>
                     {isUser && (

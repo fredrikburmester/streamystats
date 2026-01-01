@@ -327,56 +327,58 @@ export async function WrappedContent({
               </div>
             </div>
             {data.rewatchStats.mostRewatchedItem && (
-              <>
-                <div className="border-t pt-4">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Most Rewatched
-                  </p>
-                  <Link
-                    href={`/servers/${serverId}/library/${data.rewatchStats.mostRewatchedItem.itemId}`}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors group"
-                  >
-                    <div className="w-10 h-14 relative rounded overflow-hidden bg-background shrink-0">
-                      {data.rewatchStats.mostRewatchedItem.primaryImageTag ? (
-                        <Image
-                          src={`${server.url}/Items/${data.rewatchStats.mostRewatchedItem.itemId}/Images/Primary?fillHeight=150&fillWidth=100&quality=90&tag=${data.rewatchStats.mostRewatchedItem.primaryImageTag}`}
-                          alt={data.rewatchStats.mostRewatchedItem.itemName}
-                          fill
-                          className="object-cover"
-                          sizes="40px"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
-                          N/A
-                        </div>
+              <div className="border-t pt-4">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Most Rewatched
+                </p>
+                <Link
+                  href={`/servers/${serverId}/library/${data.rewatchStats.mostRewatchedItem.itemId}`}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors group"
+                >
+                  <div className="w-10 h-14 relative rounded overflow-hidden bg-background shrink-0">
+                    {data.rewatchStats.mostRewatchedItem.primaryImageTag ? (
+                      <Image
+                        src={`${server.url}/Items/${data.rewatchStats.mostRewatchedItem.itemId}/Images/Primary?fillHeight=150&fillWidth=100&quality=90&tag=${data.rewatchStats.mostRewatchedItem.primaryImageTag}`}
+                        alt={data.rewatchStats.mostRewatchedItem.itemName}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                        N/A
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm truncate group-hover:underline">
+                      {data.rewatchStats.mostRewatchedItem.itemName}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {data.rewatchStats.mostRewatchedItem.seriesName && (
+                        <span>
+                          {data.rewatchStats.mostRewatchedItem.seriesName}
+                        </span>
                       )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate group-hover:underline">
-                        {data.rewatchStats.mostRewatchedItem.itemName}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {data.rewatchStats.mostRewatchedItem.seriesName && (
-                          <span>{data.rewatchStats.mostRewatchedItem.seriesName}</span>
+                      {data.rewatchStats.mostRewatchedItem.seriesName &&
+                        data.rewatchStats.mostRewatchedItem.productionYear && (
+                          <span> · </span>
                         )}
-                        {data.rewatchStats.mostRewatchedItem.seriesName &&
-                          data.rewatchStats.mostRewatchedItem.productionYear && (
-                            <span> · </span>
-                          )}
-                        {data.rewatchStats.mostRewatchedItem.productionYear && (
-                          <span>{data.rewatchStats.mostRewatchedItem.productionYear}</span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-lg font-bold">
-                        {data.rewatchStats.mostRewatchedItem.rewatchCount}
-                      </p>
-                      <p className="text-xs text-muted-foreground">rewatches</p>
-                    </div>
-                  </Link>
-                </div>
-              </>
+                      {data.rewatchStats.mostRewatchedItem.productionYear && (
+                        <span>
+                          {data.rewatchStats.mostRewatchedItem.productionYear}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-lg font-bold">
+                      {data.rewatchStats.mostRewatchedItem.rewatchCount}
+                    </p>
+                    <p className="text-xs text-muted-foreground">rewatches</p>
+                  </div>
+                </Link>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -34,7 +34,7 @@ export function WrappedGenreChart({ genres }: WrappedGenreChartProps) {
           label: g.genre,
           color: `hsl(var(--chart-${(index % 5) + 1}))`,
         },
-      ])
+      ]),
     ),
   } satisfies ChartConfig;
 
