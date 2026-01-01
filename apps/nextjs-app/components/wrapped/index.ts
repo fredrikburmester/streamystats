@@ -1,12 +1,2 @@
-export { WrappedCalendarHeatmap } from "./WrappedCalendarHeatmap";
-export { WrappedCard } from "./WrappedCard";
-export { WrappedComparisonChart } from "./WrappedComparisonChart";
 export { WrappedContent } from "./WrappedContent";
-export { WrappedGenreChart } from "./WrappedGenreChart";
-export { WrappedHourlyChart } from "./WrappedHourlyChart";
 export { WrappedLoading } from "./WrappedLoading";
-export { WrappedMonthlyChart } from "./WrappedMonthlyChart";
-export { WrappedRankedList } from "./WrappedRankedList";
-export { WrappedStatCard } from "./WrappedStatCard";
-export { WrappedTypeChart } from "./WrappedTypeChart";
-export { WrappedYearSelector } from "./WrappedYearSelector";

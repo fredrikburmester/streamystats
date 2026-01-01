@@ -146,3 +146,15 @@ export const fetch = async (
 
   return globalFetch(url, options);
 };
+
+export function getJellyfinImageUrl(
+  serverUrl: string,
+  itemId: string,
+  imageTag: string | null,
+  options?: { width?: number; height?: number },
+): string | null {
+  if (!imageTag) return null;
+  const height = options?.height ?? 400;
+  const width = options?.width ?? 270;
+  return `${serverUrl}/Items/${itemId}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=90&tag=${imageTag}`;
+}
