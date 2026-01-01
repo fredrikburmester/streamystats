@@ -65,7 +65,11 @@ async function HeaderContent({ params }: { params: Promise<{ id: string }> }) {
           <ChatDialogWrapper
             chatConfigured={chatConfigured}
             me={me ?? undefined}
-            serverUrl={server?.url}
+            server={
+              server
+                ? { url: server.url, internalUrl: server.internalUrl }
+                : undefined
+            }
           />
         </div>
       </div>
@@ -77,7 +81,11 @@ async function HeaderContent({ params }: { params: Promise<{ id: string }> }) {
         <ChatDialogWrapper
           chatConfigured={chatConfigured}
           me={me ?? undefined}
-          serverUrl={server?.url}
+          server={
+            server
+              ? { url: server.url, internalUrl: server.internalUrl }
+              : undefined
+          }
         />
       </div>
     </div>

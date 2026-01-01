@@ -325,7 +325,7 @@ export const SideBar: React.FC<Props> = ({
       <SidebarFooter>
         <UserMenu
           me={fullUser || undefined}
-          serverUrl={servers.find((s) => s.id === Number.parseInt(id, 10))?.url}
+          server={servers.find((s) => s.id === Number.parseInt(id, 10))}
         />
       </SidebarFooter>
     </Sidebar>

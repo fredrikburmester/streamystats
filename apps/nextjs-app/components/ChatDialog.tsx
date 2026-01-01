@@ -50,13 +50,14 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getInternalUrl } from "@/lib/server-url";
 import type { User } from "@/lib/types";
 import JellyfinAvatar from "./JellyfinAvatar";
 
 interface ChatDialogProps {
   chatConfigured: boolean;
   me?: User;
-  serverUrl?: string;
+  server?: { url: string; internalUrl?: string | null };
 }
 
 interface ChatItemData {
@@ -73,22 +74,23 @@ interface ChatItemData {
 interface ItemCardProps {
   item: ChatItemData;
   serverId: string;
-  serverUrl: string;
+  server: { url: string; internalUrl?: string | null };
 }
 
-function ItemCard({ item, serverId, serverUrl }: ItemCardProps) {
+function ItemCard({ item, serverId, server }: ItemCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const imageUrl = useMemo(() => {
+    const baseUrl = getInternalUrl(server);
     if (item.primaryImageTag) {
-      return `${serverUrl}/Items/${item.id}/Images/Primary?fillHeight=120&fillWidth=80&quality=96&tag=${item.primaryImageTag}`;
+      return `${baseUrl}/Items/${item.id}/Images/Primary?fillHeight=120&fillWidth=80&quality=96&tag=${item.primaryImageTag}`;
     }
     if (item.seriesId && item.seriesPrimaryImageTag) {
-      return `${serverUrl}/Items/${item.seriesId}/Images/Primary?fillHeight=120&fillWidth=80&quality=96&tag=${item.seriesPrimaryImageTag}`;
+      return `${baseUrl}/Items/${item.seriesId}/Images/Primary?fillHeight=120&fillWidth=80&quality=96&tag=${item.seriesPrimaryImageTag}`;
     }
     // Fallback: try to load image without tag (Jellyfin will return it if it exists)
-    return `${serverUrl}/Items/${item.id}/Images/Primary?fillHeight=120&fillWidth=80&quality=96`;
-  }, [item, serverUrl]);
+    return `${baseUrl}/Items/${item.id}/Images/Primary?fillHeight=120&fillWidth=80&quality=96`;
+  }, [item, server]);
 
   const isMovie = item.type === "Movie";
   const Icon = isMovie ? Film : Tv;
@@ -145,7 +147,7 @@ function ItemCard({ item, serverId, serverUrl }: ItemCardProps) {
   );
 }
 
-export function ChatDialog({ chatConfigured, me, serverUrl }: ChatDialogProps) {
+export function ChatDialog({ chatConfigured, me, server }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
   const params = useParams();
   const serverId = params.id as string;
@@ -272,13 +274,13 @@ export function ChatDialog({ chatConfigured, me, serverUrl }: ChatDialogProps) {
           const cachedItem = itemsCache.get(itemId);
           const itemName = typeof children === "string" ? children : "Unknown";
 
-          if (serverUrl) {
+          if (server) {
             return (
               <span className="block my-2">
                 <ItemCard
                   item={cachedItem || { id: itemId, name: itemName }}
                   serverId={serverId}
-                  serverUrl={serverUrl}
+                  server={server}
                 />
               </span>
             );
@@ -307,7 +309,7 @@ export function ChatDialog({ chatConfigured, me, serverUrl }: ChatDialogProps) {
         );
       },
     }),
-    [itemsCache, serverUrl, serverId],
+    [itemsCache, server, serverId],
   );
 
   const renderMessageText = useCallback(
@@ -498,10 +500,10 @@ export function ChatDialog({ chatConfigured, me, serverUrl }: ChatDialogProps) {
                               </div>
                             )}
                         </MessageContent>
-                        {message.role === "user" && me && serverUrl && (
+                        {message.role === "user" && me && server && (
                           <JellyfinAvatar
                             user={me}
-                            serverUrl={serverUrl}
+                            server={server}
                             className="flex-shrink-0 w-8 h-8"
                           />
                         )}

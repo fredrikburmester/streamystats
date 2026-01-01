@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SeasonEpisode } from "@/lib/db/items";
+import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 
@@ -37,15 +38,15 @@ function EpisodePoster({
     if (!episode.id) return null;
 
     if (episode.primaryImageTag) {
-      return `${server.url}/Items/${episode.id}/Images/Primary?fillHeight=90&fillWidth=160&quality=96&tag=${episode.primaryImageTag}`;
+      return `${getInternalUrl(server)}/Items/${episode.id}/Images/Primary?fillHeight=90&fillWidth=160&quality=96&tag=${episode.primaryImageTag}`;
     }
 
     if (episode.primaryImageThumbTag) {
-      return `${server.url}/Items/${episode.id}/Images/Thumb?fillHeight=90&fillWidth=160&quality=96&tag=${episode.primaryImageThumbTag}`;
+      return `${getInternalUrl(server)}/Items/${episode.id}/Images/Thumb?fillHeight=90&fillWidth=160&quality=96&tag=${episode.primaryImageThumbTag}`;
     }
 
     if (episode.backdropImageTags && episode.backdropImageTags.length > 0) {
-      return `${server.url}/Items/${episode.id}/Images/Backdrop?fillHeight=90&fillWidth=160&quality=96&tag=${episode.backdropImageTags[0]}`;
+      return `${getInternalUrl(server)}/Items/${episode.id}/Images/Backdrop?fillHeight=90&fillWidth=160&quality=96&tag=${episode.backdropImageTags[0]}`;
     }
 
     return null;
@@ -55,6 +56,7 @@ function EpisodePoster({
     episode.primaryImageThumbTag,
     episode.backdropImageTags,
     server.url,
+    server.internalUrl,
   ]);
 
   const blurHash = useMemo(() => {

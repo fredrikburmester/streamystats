@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
 import type { ActiveSession } from "@/lib/db/active-sessions";
 import { getServerWithSecrets } from "@/lib/db/server";
+import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET(request: Request) {
   // Require valid session to view active sessions
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
 
   let jellyfinSessions: JellyfinSession[];
   try {
-    const response = await fetch(`${server.url}/Sessions`, {
+    const response = await fetch(`${getInternalUrl(server)}/Sessions`, {
       method: "GET",
       headers: {
         "X-Emby-Token": server.apiKey,

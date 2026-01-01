@@ -14,6 +14,7 @@ import {
   sum,
 } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { getInternalUrl } from "../server-url";
 import { destroySession, getSession } from "../session";
 import { getExclusionSettings } from "./exclusions";
 import { getServer } from "./server";
@@ -424,7 +425,7 @@ export const validateAdminWithJellyfin = async (): Promise<boolean> => {
   const token = c.get("streamystats-token");
 
   try {
-    const response = await fetch(`${server.url}/Users/Me`, {
+    const response = await fetch(`${getInternalUrl(server)}/Users/Me`, {
       method: "GET",
       headers: {
         "X-Emby-Token": token?.value || "",

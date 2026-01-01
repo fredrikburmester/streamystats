@@ -59,7 +59,7 @@ export const UserTable: React.FC<UserTableProps> = ({
               name: row.original?.name ?? "",
               jellyfin_id: row.original?.id ?? null,
             }}
-            serverUrl={server.url}
+            server={server}
             className="h-6 w-6 transition-transform duration-200"
           />
         </div>

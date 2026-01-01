@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { PersonLibraryStats, PersonStats } from "@/lib/db/people-stats";
+import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ export function PersonCard({ person, server, variant }: Props) {
   const [hasError, setHasError] = useState(false);
 
   const imageUrl = person.primaryImageTag
-    ? `${server.url}/Items/${person.id}/Images/Primary?fillHeight=300&fillWidth=200&quality=96&tag=${person.primaryImageTag}`
+    ? `${getInternalUrl(server)}/Items/${person.id}/Images/Primary?fillHeight=300&fillWidth=200&quality=96&tag=${person.primaryImageTag}`
     : null;
 
   // Generate initials for fallback

@@ -199,7 +199,7 @@ export function HistoryTable({
                   name: row.original.user?.name ?? null,
                   jellyfin_id: row.original.user?.id ?? null,
                 }}
-                serverUrl={server.url}
+                server={server}
                 className="h-6 w-6 transition-transform duration-200"
               />
               <span className="font-medium transition-colors duration-200 group-hover:text-primary">

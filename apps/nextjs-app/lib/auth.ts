@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 import { getServerWithSecrets } from "./db/server";
+import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";
 
 export const login = async ({
@@ -20,14 +21,17 @@ export const login = async ({
     throw new Error("Server not found");
   }
 
-  const res = await fetch(`${server.url}/Users/AuthenticateByName`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Emby-Token": server.apiKey,
+  const res = await fetch(
+    `${getInternalUrl(server)}/Users/AuthenticateByName`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Emby-Token": server.apiKey,
+      },
+      body: JSON.stringify({ Username: username, Pw: password }),
     },
-    body: JSON.stringify({ Username: username, Pw: password }),
-  });
+  );
 
   if (!res.ok) {
     throw new Error("Failed to login");

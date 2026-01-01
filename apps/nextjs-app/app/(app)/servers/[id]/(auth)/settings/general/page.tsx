@@ -33,7 +33,11 @@ export default async function GeneralSettings(props: {
 
       <div className="space-y-8">
         <VersionSection />
-        <UpdateConnection serverId={server.id} />
+        <UpdateConnection
+          serverId={server.id}
+          url={server.url}
+          internalUrl={server.internalUrl}
+        />
         {isAdmin ? (
           <InferWatchtimeAdminManager
             serverId={server.id}

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { basePath } from "@/lib/utils";
 import { getServer, getServers } from "./lib/db/server";
+import { getInternalUrl } from "./lib/server-url";
 
 /**
  * Middleware with Signed Session Authentication
@@ -203,7 +204,7 @@ const validateJellyfinToken = async (
   }
 
   try {
-    const jellyfinResponse = await fetch(`${server.url}/Users/Me`, {
+    const jellyfinResponse = await fetch(`${getInternalUrl(server)}/Users/Me`, {
       method: "GET",
       headers: {
         "X-Emby-Token": tokenCookie.value,

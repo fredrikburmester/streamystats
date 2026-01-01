@@ -20,10 +20,10 @@ import { SidebarMenuButton } from "./ui/sidebar";
 
 interface Props {
   me?: User;
-  serverUrl?: string;
+  server?: { url: string; internalUrl?: string | null };
 }
 
-export const UserMenu: React.FC<Props> = ({ me, serverUrl }) => {
+export const UserMenu: React.FC<Props> = ({ me, server }) => {
   const router = useRouter();
   const params = useParams();
   const [loading, setLoading] = useState(false);
@@ -39,11 +39,13 @@ export const UserMenu: React.FC<Props> = ({ me, serverUrl }) => {
           size="lg"
           className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
         >
-          <JellyfinAvatar
-            user={me}
-            serverUrl={serverUrl}
-            className="h-8 w-8 rounded-lg"
-          />
+          {server && (
+            <JellyfinAvatar
+              user={me}
+              server={server}
+              className="h-8 w-8 rounded-lg"
+            />
+          )}
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">{me.name}</span>
           </div>
@@ -58,11 +60,13 @@ export const UserMenu: React.FC<Props> = ({ me, serverUrl }) => {
       >
         <DropdownMenuLabel className="p-0 font-normal">
           <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-            <JellyfinAvatar
-              user={me}
-              serverUrl={serverUrl}
-              className="h-8 w-8 rounded-lg"
-            />
+            {server && (
+              <JellyfinAvatar
+                user={me}
+                server={server}
+                className="h-8 w-8 rounded-lg"
+              />
+            )}
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-semibold">{me.name}</span>
             </div>

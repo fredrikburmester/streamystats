@@ -18,6 +18,7 @@ const SERVER_PUBLIC_SELECT = {
   jellyfinId: servers.jellyfinId,
   name: servers.name,
   url: servers.url,
+  internalUrl: servers.internalUrl,
   lastSyncedPlaybackId: servers.lastSyncedPlaybackId,
   localAddress: servers.localAddress,
   version: servers.version,
@@ -638,17 +639,17 @@ export interface UpdateServerConnectionResult {
 export const updateServerConnection = async ({
   serverId,
   url,
+  internalUrl,
   apiKey,
   username,
   password,
-  name,
 }: {
   serverId: number;
   url: string;
+  internalUrl?: string | null;
   apiKey: string;
   username: string;
   password?: string | null;
-  name?: string;
 }): Promise<UpdateServerConnectionResult> => {
   try {
     // Validate URL format
@@ -775,19 +776,28 @@ export const updateServerConnection = async ({
         };
       }
 
-      // Update database with normalized URL, API key, and optionally name
+      // Update database with normalized URL, API key, and optionally internalUrl
       const updateData: Partial<typeof servers.$inferInsert> = {
         url: normalizedUrl,
         apiKey,
         updatedAt: new Date(),
       };
 
-      if (name) {
-        updateData.name = name;
+      // Normalize internal URL if provided
+      if (internalUrl !== undefined) {
+        updateData.internalUrl = internalUrl
+          ? internalUrl.endsWith("/")
+            ? internalUrl.slice(0, -1)
+            : internalUrl
+          : null;
       }
 
       if (serverInfo.Version) {
         updateData.version = serverInfo.Version;
+      }
+
+      if (serverInfo.ServerName) {
+        updateData.name = serverInfo.ServerName;
       }
 
       await db.update(servers).set(updateData).where(eq(servers.id, serverId));
