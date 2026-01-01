@@ -1,12 +1,14 @@
 import axios, { AxiosInstance, AxiosResponse } from "axios";
 import Bottleneck from "bottleneck";
 import pRetry from "p-retry";
-import { Server } from "@streamystats/database";
+import { Server, buildAuthHeaders } from "@streamystats/database";
 import { JellyfinSession } from "./types";
 
 export interface JellyfinConfig {
   baseURL: string;
   apiKey: string;
+  serverVersion?: string | null;
+  serverId?: number;
   timeout?: number;
   rateLimitPerSecond?: number;
   maxRetries?: number;
@@ -364,13 +366,19 @@ export class JellyfinClient {
       ...config,
     };
 
+    const headers = buildAuthHeaders(
+      this.config.apiKey,
+      this.config.serverVersion ?? null,
+      {
+        serverId: this.config.serverId,
+        appContext: "job-server",
+      }
+    );
+
     this.client = axios.create({
       baseURL: this.config.baseURL,
       timeout: this.config.timeout,
-      headers: {
-        "X-Emby-Token": this.config.apiKey,
-        "Content-Type": "application/json",
-      },
+      headers,
     });
 
     // Set up rate limiting
@@ -618,17 +626,23 @@ export class JellyfinClient {
   }
 
   /**
-   * Get server system info. Useful for health checks.
+   * Get server system info. Useful for health checks and syncing server metadata.
    */
   async getServerInfo(): Promise<{
     ServerName: string;
     Version: string;
     Id: string;
+    LocalAddress?: string;
+    ProductName?: string;
+    OperatingSystem?: string;
   }> {
     return this.makeRequest<{
       ServerName: string;
       Version: string;
       Id: string;
+      LocalAddress?: string;
+      ProductName?: string;
+      OperatingSystem?: string;
     }>("get", "/System/Info");
   }
 
@@ -777,6 +791,8 @@ export class JellyfinClient {
     return new JellyfinClient({
       baseURL: server.url,
       apiKey: server.apiKey,
+      serverVersion: server.version,
+      serverId: server.id,
     });
   }
 }

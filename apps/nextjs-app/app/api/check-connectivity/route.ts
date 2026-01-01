@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { getServersWithSecrets } from "@/lib/db/server";
+import { getAuthHeaders } from "@/lib/jellyfin-headers";
 
 export async function GET() {
   // The middleware will set this header if there's a server connectivity issue
@@ -27,10 +28,7 @@ export async function GET() {
         // Quick health check to Jellyfin server
         const healthCheck = await fetch(`${server.url}/System/Ping`, {
           method: "GET",
-          headers: {
-            "X-Emby-Token": server.apiKey,
-            "Content-Type": "application/json",
-          },
+          headers: getAuthHeaders(server.apiKey, { id: server.id, version: server.version }),
           // Short timeout to avoid hanging requests
           signal: AbortSignal.timeout(3000),
         });

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 import { getServerWithSecrets } from "./db/server";
 import { createSession } from "./session";
+import { getAuthHeaders } from "./jellyfin-headers";
 
 export const login = async ({
   serverId,
@@ -22,10 +23,7 @@ export const login = async ({
 
   const res = await fetch(`${server.url}/Users/AuthenticateByName`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Emby-Token": server.apiKey,
-    },
+    headers: getAuthHeaders(server.apiKey, { id: server.id, version: server.version }),
     body: JSON.stringify({ Username: username, Pw: password }),
   });
 

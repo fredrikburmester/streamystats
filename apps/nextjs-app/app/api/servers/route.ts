@@ -1,5 +1,6 @@
 import { getServers } from "@/lib/db/server";
 import { createServer } from "@/lib/server";
+import { getAuthHeaders } from "@/lib/jellyfin-headers";
 
 export async function GET() {
   try {
@@ -34,12 +35,10 @@ async function validateJellyfinAdmin(
   apiKey: string,
 ): Promise<{ valid: boolean; error?: string }> {
   try {
+    // Use legacy auth (null version) since we don't know the server version yet
     const response = await fetch(`${url}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders(apiKey, null),
       signal: AbortSignal.timeout(10000),
     });
 

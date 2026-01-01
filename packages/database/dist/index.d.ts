@@ -2,4 +2,5 @@ export { client, db, default as database, closeConnection, getClient, getDatabas
 export * from "./schema";
 export * from "./job-defaults";
 export { migrate } from "./migrate";
+export * from "./jellyfin-auth";
 //# sourceMappingURL=index.d.ts.map

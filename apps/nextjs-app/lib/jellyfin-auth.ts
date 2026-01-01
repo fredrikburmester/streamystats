@@ -1,3 +1,5 @@
+import { getAuthHeaders } from "./jellyfin-headers";
+
 type JellyfinUserMeResponse = {
   Id?: string;
   Name?: string;
@@ -37,26 +39,26 @@ function asNonEmptyString(value: unknown): string | null {
 export async function getUserFromEmbyToken(args: {
   serverUrl: string;
   token: string;
+  server?: { id: number; version: string | null } | null;
 }): Promise<
   { ok: true; user: JellyfinAuthUser } | { ok: false; error: string }
 > {
   const serverUrl = normalizeBaseUrl(args.serverUrl);
   const token = args.token.trim();
-  if (!token) return { ok: false, error: "Empty X-Emby-Token" };
+  if (!token) return { ok: false, error: "Empty token" };
+
+  const headers = getAuthHeaders(token, args.server);
 
   try {
     const res = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": token,
-        "Content-Type": "application/json",
-      },
+      headers,
       signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) {
       if (res.status === 401) {
-        return { ok: false, error: "Invalid X-Emby-Token" };
+        return { ok: false, error: "Invalid token" };
       }
       return { ok: false, error: `Jellyfin returned ${res.status}` };
     }
@@ -83,10 +85,7 @@ export async function getUserFromEmbyToken(args: {
         `${normalizeBaseUrl(args.serverUrl)}/System/Info`,
         {
           method: "GET",
-          headers: {
-            "X-Emby-Token": args.token.trim(),
-            "Content-Type": "application/json",
-          },
+          headers,
           signal: AbortSignal.timeout(5000),
         },
       );

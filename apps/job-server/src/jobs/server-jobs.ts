@@ -1,4 +1,4 @@
-import { db, servers, NewServer } from "@streamystats/database";
+import { db, servers, NewServer, buildAuthHeaders } from "@streamystats/database";
 import axios from "axios";
 import { eq, isNull } from "drizzle-orm";
 import { logJobResult } from "./job-logger";
@@ -18,11 +18,9 @@ export async function addServerJob(job: PgBossJob<AddServerJobData>) {
     log("add-server", { action: "start", name });
 
     // Test server connection
+    // Use legacy auth (null version) since we don't know the server version yet
     const response = await axios.get(`${serverUrl}/System/Info`, {
-      headers: {
-        "X-Emby-Token": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: buildAuthHeaders(apiKey, null, { appContext: "job-server" }),
     });
 
     const serverInfo = response.data;
@@ -85,6 +83,7 @@ export async function backfillJellyfinIdsJob(job: PgBossJob<Record<string, never
         name: servers.name,
         url: servers.url,
         apiKey: servers.apiKey,
+        version: servers.version,
       })
       .from(servers)
       .where(isNull(servers.jellyfinId));
@@ -100,10 +99,10 @@ export async function backfillJellyfinIdsJob(job: PgBossJob<Record<string, never
     for (const server of serversWithoutId) {
       try {
         const response = await axios.get(`${server.url}/System/Info`, {
-          headers: {
-            "X-Emby-Token": server.apiKey,
-            "Content-Type": "application/json",
-          },
+          headers: buildAuthHeaders(server.apiKey, server.version, {
+            serverId: server.id,
+            appContext: "job-server",
+          }),
           timeout: 10000,
         });
 

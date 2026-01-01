@@ -17,3 +17,6 @@ export * from "./job-defaults";
 
 // Export migration utilities
 export { migrate } from "./migrate";
+
+// Export Jellyfin auth utilities
+export * from "./jellyfin-auth";

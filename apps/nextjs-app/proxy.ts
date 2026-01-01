@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { basePath } from "@/lib/utils";
 import { getServer, getServers } from "./lib/db/server";
+import { getAuthHeaders } from "./lib/jellyfin-headers";
 
 /**
  * Middleware with Signed Session Authentication
@@ -205,10 +206,7 @@ const validateJellyfinToken = async (
   try {
     const jellyfinResponse = await fetch(`${server.url}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": tokenCookie.value,
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders(tokenCookie.value, { id: server.id, version: server.version }),
       signal: AbortSignal.timeout(5000),
     });
 

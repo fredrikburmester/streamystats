@@ -5,6 +5,7 @@ import { db, servers, users } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { getSession, type SessionUser } from "./session";
+import { getAuthHeaders } from "./jellyfin-headers";
 
 /**
  * Parse MediaBrowser authorization header
@@ -47,14 +48,12 @@ function parseMediaBrowserHeader(authHeader: string): {
 export async function validateJellyfinToken(
   serverUrl: string,
   token: string,
+  server?: { id: number; version: string | null } | null,
 ): Promise<{ userId: string; userName: string; isAdmin: boolean } | null> {
   try {
     const response = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": token,
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders(token, server),
       signal: AbortSignal.timeout(5000),
     });
 
@@ -77,6 +76,10 @@ export async function validateJellyfinToken(
  * Authenticate using MediaBrowser token header
  * Validates the token against all registered Jellyfin servers
  * Returns session user info if valid
+ *
+ * NOTE: This function is deprecated for internal routes. Internal routes should
+ * use session JWT auth. This function is kept for backward compatibility but
+ * external API clients should migrate to /api/v2/* routes.
  */
 export async function authenticateMediaBrowser(
   request: NextRequest,
@@ -95,7 +98,11 @@ export async function authenticateMediaBrowser(
   const allServers = await db.select().from(servers);
 
   for (const server of allServers) {
-    const userInfo = await validateJellyfinToken(server.url, parsed.token);
+    const userInfo = await validateJellyfinToken(
+      server.url,
+      parsed.token,
+      { id: server.id, version: server.version },
+    );
     if (userInfo) {
       // Check if this user exists in our database for this server
       const dbUser = await db.query.users.findFirst({
@@ -144,14 +151,10 @@ export async function validateApiKey({
 
   try {
     // Validate the API key by making a request to the Jellyfin server
-    // Use /Users/Me endpoint which requires valid authentication
     try {
       const response = await fetch(`${server.url}/System/Info`, {
         method: "GET",
-        headers: {
-          "X-Emby-Token": apiKey,
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(apiKey, { id: server.id, version: server.version }),
         // Short timeout to avoid hanging requests
         signal: AbortSignal.timeout(5000),
       });

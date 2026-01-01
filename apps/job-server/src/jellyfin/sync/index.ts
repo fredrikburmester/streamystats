@@ -1,4 +1,5 @@
-import { Server } from "@streamystats/database";
+import { db, servers, Server } from "@streamystats/database";
+import { eq } from "drizzle-orm";
 import { syncUsers, UserSyncOptions, UserSyncData } from "./users";
 import {
   syncLibraries,
@@ -24,6 +25,7 @@ import {
   createSyncResult,
 } from "../sync-metrics";
 import { formatSyncLogLine } from "./sync-log";
+import { JellyfinClient } from "../client";
 
 export interface SyncOptions {
   // Global options
@@ -60,6 +62,64 @@ export const DEFAULT_SYNC_OPTIONS: SyncOptions = {
 };
 
 /**
+ * Syncs server metadata from Jellyfin's System/Info endpoint.
+ * Updates name, version, localAddress, productName, and operatingSystem.
+ * This ensures we have current server info for auth method detection and display.
+ */
+async function syncServerInfo(server: Server): Promise<void> {
+  try {
+    const client = JellyfinClient.fromServer(server);
+    const systemInfo = await client.getServerInfo();
+
+    const updates: Record<string, string | Date> = {};
+    const changes: string[] = [];
+
+    if (systemInfo.ServerName && systemInfo.ServerName !== server.name) {
+      updates.name = systemInfo.ServerName;
+      changes.push(`name: ${server.name} -> ${systemInfo.ServerName}`);
+    }
+
+    if (systemInfo.Version && systemInfo.Version !== server.version) {
+      updates.version = systemInfo.Version;
+      changes.push(`version: ${server.version ?? "null"} -> ${systemInfo.Version}`);
+    }
+
+    if (systemInfo.LocalAddress && systemInfo.LocalAddress !== server.localAddress) {
+      updates.localAddress = systemInfo.LocalAddress;
+      changes.push(`localAddress: ${server.localAddress ?? "null"} -> ${systemInfo.LocalAddress}`);
+    }
+
+    if (systemInfo.ProductName && systemInfo.ProductName !== server.productName) {
+      updates.productName = systemInfo.ProductName;
+      changes.push(`productName: ${server.productName ?? "null"} -> ${systemInfo.ProductName}`);
+    }
+
+    if (systemInfo.OperatingSystem && systemInfo.OperatingSystem !== server.operatingSystem) {
+      updates.operatingSystem = systemInfo.OperatingSystem;
+      changes.push(`operatingSystem: ${server.operatingSystem ?? "null"} -> ${systemInfo.OperatingSystem}`);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updates.updatedAt = new Date();
+      await db
+        .update(servers)
+        .set(updates)
+        .where(eq(servers.id, server.id));
+
+      console.info(
+        `[server-info-sync] Updated server ${server.name}: ${changes.join(", ")}`
+      );
+    }
+  } catch (error) {
+    // Server info sync failure is non-fatal - log and continue with the sync
+    console.warn(
+      `[server-info-sync] Failed to sync info for server ${server.name}:`,
+      error instanceof Error ? error.message : "Unknown error"
+    );
+  }
+}
+
+/**
  * Main sync coordinator - performs a full sync of all data types
  */
 export async function performFullSync(
@@ -86,6 +146,9 @@ export async function performFullSync(
   );
 
   try {
+    // 0. Sync server info (name, version, localAddress, etc.)
+    await syncServerInfo(server);
+
     // 1. Sync Users
     const usersStart = Date.now();
     console.info(

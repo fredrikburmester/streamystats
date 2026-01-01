@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
 import { getServerWithSecrets } from "@/lib/db/server";
+import { getAuthHeaders } from "@/lib/jellyfin-headers";
 
 type JellyfinSystemInfo = {
   Id?: string;
@@ -15,17 +16,16 @@ function normalizeUrl(url: string) {
 async function tryFetchJellyfinSystemInfo({
   url,
   apiKey,
+  server,
 }: {
   url: string;
   apiKey: string;
+  server: { id: number; version: string | null };
 }): Promise<JellyfinSystemInfo | null> {
   try {
     const res = await fetch(`${normalizeUrl(url)}/System/Info`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders(apiKey, server),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -64,6 +64,7 @@ export async function GET(
     const jellyfinInfo = await tryFetchJellyfinSystemInfo({
       url: server.url,
       apiKey: server.apiKey,
+      server: { id: server.id, version: server.version },
     });
 
     const [exportedSessions, exportedHiddenRecommendations] = await Promise.all(

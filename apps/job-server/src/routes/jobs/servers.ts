@@ -8,6 +8,7 @@ import {
   activities,
   users,
   libraries,
+  buildAuthHeaders,
 } from "@streamystats/database";
 import { eq, desc } from "drizzle-orm";
 
@@ -199,11 +200,9 @@ app.post("/create-server", async (c) => {
     }
 
     try {
+      // Use legacy auth (null version) since we don't know the server version yet
       const testResponse = await fetch(`${url}/System/Info`, {
-        headers: {
-          "X-Emby-Token": apiKey,
-          "Content-Type": "application/json",
-        },
+        headers: buildAuthHeaders(apiKey, null, { appContext: "job-server" }),
       });
 
       if (!testResponse.ok) {

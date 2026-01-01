@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
 import { getServerWithSecrets } from "@/lib/db/server";
+import { getAuthHeaders } from "@/lib/jellyfin-headers";
 
 type JellyfinSystemInfo = { Id?: string };
 
@@ -21,17 +22,16 @@ function normalizeUrl(url: string) {
 async function tryFetchJellyfinSystemId({
   url,
   apiKey,
+  server,
 }: {
   url: string;
   apiKey: string;
+  server?: { id: number; version: string | null };
 }): Promise<string | null> {
   try {
     const res = await fetch(`${normalizeUrl(url)}/System/Info`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders(apiKey, server ?? null),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -246,6 +246,7 @@ export async function POST(req: NextRequest) {
     const targetJellyfinSystemId = await tryFetchJellyfinSystemId({
       url: targetServer.url,
       apiKey: targetServer.apiKey,
+      server: { id: targetServer.id, version: targetServer.version },
     });
 
     if (

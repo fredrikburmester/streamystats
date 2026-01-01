@@ -17,6 +17,7 @@ import { cookies } from "next/headers";
 import { destroySession, getSession } from "../session";
 import { getExclusionSettings } from "./exclusions";
 import { getServer } from "./server";
+import { getAuthHeaders } from "@/lib/jellyfin-headers";
 
 interface JellyfinUser {
   Id: string;
@@ -426,10 +427,7 @@ export const validateAdminWithJellyfin = async (): Promise<boolean> => {
   try {
     const response = await fetch(`${server.url}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": token?.value || "",
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders(token?.value || "", { id: server.id, version: server.version }),
       signal: AbortSignal.timeout(5000),
     });
 

@@ -4,6 +4,7 @@ import { db, items, jobResults, servers } from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import type { ServerPublic } from "@/lib/types";
+import { getAuthHeaders } from "@/lib/jellyfin-headers";
 
 type ServerPublicSelectRow = Omit<
   ServerPublic,
@@ -663,13 +664,11 @@ export const updateServerConnection = async ({
     const normalizedUrl = url.endsWith("/") ? url.slice(0, -1) : url;
 
     // Test connection to new Jellyfin server with new API key
+    // Use legacy auth (null version) since we don't know the new server's version yet
     try {
       const testResponse = await fetch(`${normalizedUrl}/System/Info`, {
         method: "GET",
-        headers: {
-          "X-Emby-Token": apiKey,
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(apiKey, null),
         signal: AbortSignal.timeout(5000),
       });
 
@@ -712,14 +711,12 @@ export const updateServerConnection = async ({
       }
 
       // Authenticate user credentials against new server
+      // Use legacy auth (null version) since we don't know the new server's version yet
       const authResponse = await fetch(
         `${normalizedUrl}/Users/AuthenticateByName`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Emby-Token": apiKey,
-          },
+          headers: getAuthHeaders(apiKey, null),
           body: JSON.stringify({ Username: username, Pw: password }),
           signal: AbortSignal.timeout(5000),
         },

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
 import type { ActiveSession } from "@/lib/db/active-sessions";
 import { getServerWithSecrets } from "@/lib/db/server";
+import { getAuthHeaders } from "@/lib/jellyfin-headers";
 
 export async function GET(request: Request) {
   // Require valid session to view active sessions
@@ -45,10 +46,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(`${server.url}/Sessions`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": server.apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders(server.apiKey, { id: server.id, version: server.version }),
     });
 
     // Pass through the actual status code from Jellyfin for better error handling on the client
