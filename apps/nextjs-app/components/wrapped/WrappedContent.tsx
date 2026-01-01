@@ -79,7 +79,7 @@ export async function WrappedContent({
   const topPercentile = data.genrePercentiles[0];
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6 overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -396,7 +396,7 @@ export async function WrappedContent({
                 <p className="text-sm text-muted-foreground mb-2">
                   First Watch of {year}
                 </p>
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <Link
                     href={`/servers/${serverId}/library/${data.overview.firstWatch.itemId}`}
                     className="w-10 h-14 relative rounded overflow-hidden bg-background shrink-0 hover:opacity-80 transition-opacity"
@@ -415,14 +415,14 @@ export async function WrappedContent({
                       </div>
                     )}
                   </Link>
-                  <div className="min-w-0">
+                  <div className="min-w-0 overflow-hidden flex-1">
                     <Link
                       href={`/servers/${serverId}/library/${data.overview.firstWatch.itemId}`}
-                      className="font-semibold text-sm truncate block hover:underline"
+                      className="font-semibold text-sm line-clamp-2 hover:underline break-words"
                     >
                       {data.overview.firstWatch.itemName}
                     </Link>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground break-words">
                       {data.overview.firstWatch.seriesName && (
                         <span>{data.overview.firstWatch.seriesName}</span>
                       )}
@@ -459,7 +459,7 @@ export async function WrappedContent({
                 <p className="text-sm text-muted-foreground mb-2">
                   Last Watch of {year}
                 </p>
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <Link
                     href={`/servers/${serverId}/library/${data.overview.lastWatch.itemId}`}
                     className="w-10 h-14 relative rounded overflow-hidden bg-background shrink-0 hover:opacity-80 transition-opacity"
@@ -478,14 +478,14 @@ export async function WrappedContent({
                       </div>
                     )}
                   </Link>
-                  <div className="min-w-0">
+                  <div className="min-w-0 overflow-hidden flex-1">
                     <Link
                       href={`/servers/${serverId}/library/${data.overview.lastWatch.itemId}`}
-                      className="font-semibold text-sm truncate block hover:underline"
+                      className="font-semibold text-sm line-clamp-2 hover:underline break-words"
                     >
                       {data.overview.lastWatch.itemName}
                     </Link>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground break-words">
                       {data.overview.lastWatch.seriesName && (
                         <span>{data.overview.lastWatch.seriesName}</span>
                       )}

@@ -104,8 +104,8 @@ export function WrappedRankedList({
             <span className="text-[10px] font-bold text-amber-950">1</span>
           </div>
         </div>
-        <div className="flex-1 min-w-0 py-1">
-          <h4 className="font-semibold text-sm truncate group-hover:underline">
+        <div className="flex-1 min-w-0 overflow-hidden py-1">
+          <h4 className="font-semibold text-sm line-clamp-2 group-hover:underline break-words">
             {topItem.name}
           </h4>
           {topItem.subtitle && (
@@ -164,9 +164,9 @@ export function WrappedRankedList({
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm truncate group-hover:underline">
+                    <span className="text-sm line-clamp-1 group-hover:underline break-words">
                       {item.name}
                     </span>
                     <span className="text-xs text-muted-foreground shrink-0">
