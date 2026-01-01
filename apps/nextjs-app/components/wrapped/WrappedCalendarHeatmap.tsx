@@ -1,148 +1,186 @@
 "use client";
 
-import { useMemo } from "react";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { Fragment, useMemo } from "react";
 import type { DayActivity } from "@/lib/db/wrapped";
+import { cn } from "@/lib/utils";
 
 interface WrappedCalendarHeatmapProps {
   data: DayActivity[];
   year: number;
+  serverId: number;
+  userId: string;
 }
 
 export function WrappedCalendarHeatmap({
   data,
   year,
+  serverId,
+  userId,
 }: WrappedCalendarHeatmapProps) {
-  const { weeks, maxValue } = useMemo(() => {
-    // Create a map for quick lookup
+  const { weeks, maxValue, monthPositions } = useMemo(() => {
     const dataMap = new Map(data.map((d) => [d.date, d.watchTimeSeconds]));
 
-    // Generate all days of the year
-    const startDate = new Date(`${year}-01-01`);
-    const endDate = new Date(`${year}-12-31`);
-    const allDays: Array<{ date: string; value: number }> = [];
+    // Generate all days of the year using local time consistently
+    const formatDate = (d: Date): string => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
 
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split("T")[0];
-      allDays.push({
+    // Monday = 0, Sunday = 6
+    const getMondayBasedDay = (d: Date): number => (d.getDay() + 6) % 7;
+
+    type DaySlot = { date: string; value: number } | null;
+    const weeks: Array<Array<DaySlot>> = [];
+    let currentWeek: Array<DaySlot> = Array(7).fill(null);
+
+    const current = new Date(year, 0, 1); // January 1 in local time
+    while (current.getFullYear() === year) {
+      const dateStr = formatDate(current);
+      const dayOfWeek = getMondayBasedDay(current);
+
+      // If it's Monday and we have data in current week, start a new week
+      if (dayOfWeek === 0 && currentWeek.some((d) => d !== null)) {
+        weeks.push(currentWeek);
+        currentWeek = Array(7).fill(null);
+      }
+
+      currentWeek[dayOfWeek] = {
         date: dateStr,
         value: dataMap.get(dateStr) ?? 0,
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
+      };
+
+      current.setDate(current.getDate() + 1);
     }
 
-    // Group by week
-    const weeks: Array<Array<{ date: string; value: number; dayOfWeek: number }>> = [];
-    let currentWeek: Array<{ date: string; value: number; dayOfWeek: number }> = [];
-
-    // Add empty cells for days before the first day of the year
-    const firstDayOfWeek = new Date(`${year}-01-01`).getDay();
-    for (let i = 0; i < firstDayOfWeek; i++) {
-      currentWeek.push({ date: "", value: -1, dayOfWeek: i });
-    }
-
-    for (const day of allDays) {
-      const dayOfWeek = new Date(day.date).getDay();
-      currentWeek.push({ ...day, dayOfWeek });
-
-      if (dayOfWeek === 6) {
-        weeks.push(currentWeek);
-        currentWeek = [];
-      }
-    }
-
-    // Add remaining days
-    if (currentWeek.length > 0) {
+    // Push the final week
+    if (currentWeek.some((d) => d !== null)) {
       weeks.push(currentWeek);
     }
 
-    // Find max value for color scaling
-    const maxValue = Math.max(...allDays.map((d) => d.value), 1);
+    // Calculate firstDayOfWeek for month position calculation
+    const firstDayOfWeek = getMondayBasedDay(new Date(year, 0, 1));
 
-    return { weeks, maxValue };
+    const allValues = weeks.flatMap((week) =>
+      week
+        .filter((d): d is NonNullable<typeof d> => d !== null)
+        .map((d) => d.value),
+    );
+    const maxValue = Math.max(...allValues, 1);
+
+    // Calculate month start positions (which week each month starts in)
+    const monthPositions: Array<{ month: string; weekIndex: number }> = [];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    for (let m = 0; m < 12; m++) {
+      const firstOfMonth = new Date(year, m, 1);
+      const startOfYear = new Date(year, 0, 1);
+      const dayOfYear = Math.floor(
+        (firstOfMonth.getTime() - startOfYear.getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
+      const weekIndex = Math.floor((dayOfYear + firstDayOfWeek) / 7);
+      monthPositions.push({ month: months[m], weekIndex });
+    }
+
+    return { weeks, maxValue, monthPositions };
   }, [data, year]);
 
   const getIntensityClass = (value: number): string => {
-    if (value < 0) return "bg-transparent"; // Empty cell
-    if (value === 0) return "bg-white/10";
+    if (value < 0) return "bg-transparent";
+    if (value === 0) return "bg-muted/50";
     const intensity = value / maxValue;
-    if (intensity < 0.25) return "bg-emerald-500/40";
-    if (intensity < 0.5) return "bg-emerald-500/60";
-    if (intensity < 0.75) return "bg-emerald-500/80";
-    return "bg-emerald-400";
+    if (intensity < 0.25) return "bg-foreground/25";
+    if (intensity < 0.5) return "bg-foreground/40";
+    if (intensity < 0.75) return "bg-foreground/60";
+    return "bg-foreground/80";
   };
 
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
+  const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   return (
-    <div className="w-full overflow-x-auto">
-      {/* Month labels */}
-      <div className="flex gap-[3px] mb-1 text-xs text-white/60 pl-8">
-        {months.map((month, i) => (
-          <div key={month} className="flex-1 min-w-0" style={{ minWidth: "30px" }}>
-            {i % 2 === 0 ? month : ""}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex gap-1">
-        {/* Day labels */}
-        <div className="flex flex-col gap-[3px] text-xs text-white/60 pr-1">
-          <div className="h-3" />
-          <div className="h-3">Mon</div>
-          <div className="h-3" />
-          <div className="h-3">Wed</div>
-          <div className="h-3" />
-          <div className="h-3">Fri</div>
-          <div className="h-3" />
-        </div>
-
-        {/* Calendar grid */}
-        <div className="flex gap-[3px]">
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="flex flex-col gap-[3px]">
-              {week.map((day, dayIndex) => (
-                <div
-                  key={`${weekIndex}-${dayIndex}`}
-                  className={cn(
-                    "w-3 h-3 rounded-sm",
-                    getIntensityClass(day.value)
-                  )}
-                  title={
-                    day.date
-                      ? `${day.date}: ${Math.round(day.value / 60)} minutes`
-                      : ""
-                  }
-                />
-              ))}
-            </div>
+    <div className="w-full">
+      {/* Month labels row */}
+      <div className="flex">
+        <div className="w-8 shrink-0" /> {/* Space for day labels */}
+        <div className="flex-1 relative h-4 mb-[2px]">
+          {monthPositions.map(({ month, weekIndex }, i) => (
+            <span
+              key={month}
+              className="absolute text-[10px] text-muted-foreground"
+              style={{
+                left: `${(weekIndex / weeks.length) * 100}%`,
+              }}
+            >
+              {month}
+            </span>
           ))}
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center justify-end gap-2 mt-3 text-xs text-white/60">
+      {/* Calendar grid with day labels */}
+      <div
+        className="grid gap-[2px]"
+        style={{
+          gridTemplateColumns: `auto repeat(${weeks.length}, 1fr)`,
+          gridTemplateRows: "repeat(7, 1fr)",
+        }}
+      >
+        {/* Render row by row: day label + all cells for that day */}
+        {dayLabels.map((dayLabel, dayIndex) => (
+          <Fragment key={dayIndex}>
+            <div className="text-[10px] text-muted-foreground pr-2 flex items-center">
+              {dayLabel}
+            </div>
+            {weeks.map((week, weekIndex) => {
+              const day = week[dayIndex];
+              if (!day) {
+                return (
+                  <div
+                    key={`${weekIndex}-${dayIndex}`}
+                    className="aspect-square rounded-[2px] bg-transparent"
+                  />
+                );
+              }
+              return (
+                <Link
+                  key={`${weekIndex}-${dayIndex}`}
+                  href={`/servers/${serverId}/history?startDate=${day.date}&endDate=${day.date}&userId=${userId}`}
+                  className={cn(
+                    "aspect-square rounded-[2px] transition-opacity hover:opacity-80",
+                    getIntensityClass(day.value),
+                  )}
+                  title={`${day.date}: ${Math.round(day.value / 60)} minutes`}
+                />
+              );
+            })}
+          </Fragment>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-end gap-2 mt-3 text-[10px] text-muted-foreground">
         <span>Less</span>
-        <div className="flex gap-[3px]">
-          <div className="w-3 h-3 rounded-sm bg-white/10" />
-          <div className="w-3 h-3 rounded-sm bg-emerald-500/40" />
-          <div className="w-3 h-3 rounded-sm bg-emerald-500/60" />
-          <div className="w-3 h-3 rounded-sm bg-emerald-500/80" />
-          <div className="w-3 h-3 rounded-sm bg-emerald-400" />
+        <div className="flex gap-[2px]">
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-muted/50" />
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-foreground/25" />
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-foreground/40" />
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-foreground/60" />
+          <div className="w-[10px] h-[10px] rounded-[2px] bg-foreground/80" />
         </div>
         <span>More</span>
       </div>

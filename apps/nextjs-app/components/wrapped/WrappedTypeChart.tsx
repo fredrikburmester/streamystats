@@ -7,43 +7,51 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { GenreStats } from "@/lib/db/wrapped";
+import type { TypeBreakdown } from "@/lib/db/wrapped";
 import { formatDuration } from "@/lib/utils";
 
-interface WrappedGenreChartProps {
-  genres: GenreStats[];
+interface WrappedTypeChartProps {
+  data: TypeBreakdown;
 }
 
-export function WrappedGenreChart({ genres }: WrappedGenreChartProps) {
-  const data = genres.slice(0, 5).map((g, index) => ({
-    genre: g.genre,
-    hours: Math.round(g.watchTimeSeconds / 3600),
-    watchTimeSeconds: g.watchTimeSeconds,
-    percentage: g.percentageOfTotal,
-    fill: `var(--color-genre-${index + 1})`,
-  }));
+const chartConfig = {
+  hours: {
+    label: "Hours",
+  },
+  movies: {
+    label: "Movies",
+    color: "hsl(var(--chart-1))",
+  },
+  series: {
+    label: "Series",
+    color: "hsl(var(--chart-2))",
+  },
+} satisfies ChartConfig;
 
-  const chartConfig = {
-    hours: {
-      label: "Hours",
+export function WrappedTypeChart({ data }: WrappedTypeChartProps) {
+  const chartData = [
+    {
+      type: "Movies",
+      hours: Math.round(data.movie.watchTimeSeconds / 3600),
+      watchTimeSeconds: data.movie.watchTimeSeconds,
+      percentage: data.movie.percentage,
+      fill: "var(--color-movies)",
     },
-    ...Object.fromEntries(
-      data.map((g, index) => [
-        `genre-${index + 1}`,
-        {
-          label: g.genre,
-          color: `hsl(var(--chart-${(index % 5) + 1}))`,
-        },
-      ])
-    ),
-  } satisfies ChartConfig;
+    {
+      type: "Series",
+      hours: Math.round(data.episode.watchTimeSeconds / 3600),
+      watchTimeSeconds: data.episode.watchTimeSeconds,
+      percentage: data.episode.percentage,
+      fill: "var(--color-series)",
+    },
+  ];
 
   return (
     <ChartContainer config={chartConfig} className="h-[200px] w-full">
-      <BarChart accessibilityLayer data={data}>
+      <BarChart accessibilityLayer data={chartData}>
         <CartesianGrid vertical={false} />
         <XAxis
-          dataKey="genre"
+          dataKey="type"
           tickLine={false}
           tickMargin={10}
           axisLine={false}
@@ -55,7 +63,7 @@ export function WrappedGenreChart({ genres }: WrappedGenreChartProps) {
             <ChartTooltipContent
               formatter={(value, name, item) => (
                 <div className="flex flex-col gap-1">
-                  <span className="font-medium">{item.payload.genre}</span>
+                  <span className="font-medium">{item.payload.type}</span>
                   <span className="text-muted-foreground">
                     {formatDuration(item.payload.watchTimeSeconds)}
                   </span>

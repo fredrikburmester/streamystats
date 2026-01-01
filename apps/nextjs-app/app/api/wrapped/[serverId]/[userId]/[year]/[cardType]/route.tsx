@@ -5,14 +5,21 @@ import { getWrappedData } from "@/lib/db/wrapped";
 import { getSession } from "@/lib/session";
 import { formatDuration } from "@/lib/utils";
 
-export const runtime = "edge";
-
 const CARD_TYPES = ["summary", "top-content", "watch-time", "genres"] as const;
 type CardType = (typeof CARD_TYPES)[number];
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ serverId: string; userId: string; year: string; cardType: string }> }
+  {
+    params,
+  }: {
+    params: Promise<{
+      serverId: string;
+      userId: string;
+      year: string;
+      cardType: string;
+    }>;
+  },
 ) {
   const { serverId, userId, year, cardType } = await params;
 
@@ -56,7 +63,12 @@ export async function GET(
   });
 
   // Generate the appropriate card
-  const cardElement = generateCard(cardType as CardType, data, user.name, yearNum);
+  const cardElement = generateCard(
+    cardType as CardType,
+    data,
+    user.name,
+    yearNum,
+  );
 
   return new ImageResponse(cardElement, {
     width: 1200,
@@ -68,7 +80,7 @@ function generateCard(
   cardType: CardType,
   data: Awaited<ReturnType<typeof getWrappedData>>,
   userName: string,
-  year: number
+  year: number,
 ) {
   switch (cardType) {
     case "summary":
@@ -102,14 +114,17 @@ function SummaryCard({ data, userName, year }: CardProps) {
         flexDirection: "column",
         width: "100%",
         height: "100%",
-        background: "linear-gradient(135deg, #7c3aed 0%, #db2777 50%, #f97316 100%)",
+        background:
+          "linear-gradient(135deg, #7c3aed 0%, #db2777 50%, #f97316 100%)",
         padding: "48px",
         fontFamily: "system-ui, sans-serif",
         color: "white",
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", marginBottom: "32px" }}>
+      <div
+        style={{ display: "flex", alignItems: "center", marginBottom: "32px" }}
+      >
         <div
           style={{
             display: "flex",
@@ -192,7 +207,9 @@ function SummaryCard({ data, userName, year }: CardProps) {
               flex: "1 1 45%",
             }}
           >
-            <div style={{ fontSize: "18px", opacity: 0.8, marginBottom: "8px" }}>
+            <div
+              style={{ fontSize: "18px", opacity: 0.8, marginBottom: "8px" }}
+            >
               Top Movie
             </div>
             <div
@@ -221,7 +238,9 @@ function SummaryCard({ data, userName, year }: CardProps) {
               flex: "1 1 45%",
             }}
           >
-            <div style={{ fontSize: "18px", opacity: 0.8, marginBottom: "8px" }}>
+            <div
+              style={{ fontSize: "18px", opacity: 0.8, marginBottom: "8px" }}
+            >
               Top Genre
             </div>
             <div style={{ fontSize: "24px", fontWeight: "bold" }}>
@@ -265,7 +284,9 @@ function TopContentCard({ data, userName, year }: CardProps) {
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", marginBottom: "32px" }}>
+      <div
+        style={{ display: "flex", alignItems: "center", marginBottom: "32px" }}
+      >
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: "36px", fontWeight: "bold" }}>
             {userName}&apos;s Top Content
@@ -288,10 +309,18 @@ function TopContentCard({ data, userName, year }: CardProps) {
               backgroundColor: "rgba(255,255,255,0.15)",
             }}
           >
-            <div style={{ fontSize: "14px", opacity: 0.8, marginBottom: "16px" }}>
+            <div
+              style={{ fontSize: "14px", opacity: 0.8, marginBottom: "16px" }}
+            >
               🎬 TOP MOVIE
             </div>
-            <div style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "8px" }}>
+            <div
+              style={{
+                fontSize: "32px",
+                fontWeight: "bold",
+                marginBottom: "8px",
+              }}
+            >
               {topMovie.name}
             </div>
             <div style={{ fontSize: "18px", opacity: 0.8 }}>
@@ -315,10 +344,18 @@ function TopContentCard({ data, userName, year }: CardProps) {
               backgroundColor: "rgba(255,255,255,0.15)",
             }}
           >
-            <div style={{ fontSize: "14px", opacity: 0.8, marginBottom: "16px" }}>
+            <div
+              style={{ fontSize: "14px", opacity: 0.8, marginBottom: "16px" }}
+            >
               📺 TOP SERIES
             </div>
-            <div style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "8px" }}>
+            <div
+              style={{
+                fontSize: "32px",
+                fontWeight: "bold",
+                marginBottom: "8px",
+              }}
+            >
               {topSeries.name}
             </div>
             <div style={{ fontSize: "18px", opacity: 0.8 }}>
@@ -399,19 +436,37 @@ function WatchTimeCard({ data, userName, year }: CardProps) {
           marginTop: "48px",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
           <div style={{ fontSize: "36px", fontWeight: "bold" }}>
             {data.overview.totalPlays.toLocaleString()}
           </div>
           <div style={{ fontSize: "14px", opacity: 0.7 }}>plays</div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
           <div style={{ fontSize: "36px", fontWeight: "bold" }}>
             {data.overview.uniqueItemsWatched}
           </div>
           <div style={{ fontSize: "14px", opacity: 0.7 }}>titles</div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
           <div style={{ fontSize: "36px", fontWeight: "bold" }}>
             {data.activityPatterns.longestStreak}
           </div>
@@ -444,7 +499,8 @@ function GenresCard({ data, userName, year }: CardProps) {
         flexDirection: "column",
         width: "100%",
         height: "100%",
-        background: "linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #d946ef 100%)",
+        background:
+          "linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #d946ef 100%)",
         padding: "48px",
         fontFamily: "system-ui, sans-serif",
         color: "white",
@@ -459,7 +515,14 @@ function GenresCard({ data, userName, year }: CardProps) {
       </div>
 
       {/* Genres */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px", flex: 1 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          flex: 1,
+        }}
+      >
         {topGenres.map((genre, index) => (
           <div
             key={genre.genre}
@@ -488,7 +551,9 @@ function GenresCard({ data, userName, year }: CardProps) {
               {index + 1}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "24px", fontWeight: "bold" }}>{genre.genre}</div>
+              <div style={{ fontSize: "24px", fontWeight: "bold" }}>
+                {genre.genre}
+              </div>
               <div style={{ fontSize: "14px", opacity: 0.7 }}>
                 {formatDuration(genre.watchTimeSeconds)}
               </div>

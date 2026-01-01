@@ -5,8 +5,8 @@ import { Container } from "@/components/Container";
 import { WrappedContent } from "@/components/wrapped/WrappedContent";
 import { WrappedLoading } from "@/components/wrapped/WrappedLoading";
 import { getServer } from "@/lib/db/server";
+import { getMe } from "@/lib/db/users";
 import { getAvailableWrappedYears, getWrappedOverview } from "@/lib/db/wrapped";
-import { getMe } from "@/lib/me";
 import { formatDuration } from "@/lib/utils";
 
 export async function generateMetadata({

@@ -48,12 +48,18 @@ export interface WrappedOverview {
     itemName: string;
     itemType: string;
     timestamp: string;
+    primaryImageTag: string | null;
+    seriesName: string | null;
+    productionYear: number | null;
   } | null;
   lastWatch: {
     itemId: string;
     itemName: string;
     itemType: string;
     timestamp: string;
+    primaryImageTag: string | null;
+    seriesName: string | null;
+    productionYear: number | null;
   } | null;
 }
 
@@ -164,6 +170,9 @@ export interface RewatchStats {
     itemName: string;
     itemType: string;
     rewatchCount: number;
+    primaryImageTag: string | null;
+    seriesName: string | null;
+    productionYear: number | null;
   } | null;
   totalRewatches: number;
   rewatchPercentage: number;
@@ -249,11 +258,13 @@ const WEEKDAY_NAMES = [
 // =============================================================================
 
 export async function getWrappedOverview(
-  params: WrappedParams
+  params: WrappedParams,
 ): Promise<WrappedOverview> {
   "use cache";
   getCacheLifeForYear(params.year);
-  cacheTag(`wrapped-overview-${params.serverId}-${params.userId}-${params.year}`);
+  cacheTag(
+    `wrapped-overview-${params.serverId}-${params.userId}-${params.year}`,
+  );
 
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
@@ -295,6 +306,9 @@ export async function getWrappedOverview(
       itemName: items.name,
       itemType: items.type,
       timestamp: sessions.startTime,
+      primaryImageTag: items.primaryImageTag,
+      seriesName: items.seriesName,
+      productionYear: items.productionYear,
     })
     .from(sessions)
     .innerJoin(items, eq(sessions.itemId, items.id))
@@ -309,6 +323,9 @@ export async function getWrappedOverview(
       itemName: items.name,
       itemType: items.type,
       timestamp: sessions.startTime,
+      primaryImageTag: items.primaryImageTag,
+      seriesName: items.seriesName,
+      productionYear: items.productionYear,
     })
     .from(sessions)
     .innerJoin(items, eq(sessions.itemId, items.id))
@@ -330,6 +347,9 @@ export async function getWrappedOverview(
           itemName: firstWatchResult.itemName,
           itemType: firstWatchResult.itemType,
           timestamp: firstWatchResult.timestamp?.toISOString() ?? "",
+          primaryImageTag: firstWatchResult.primaryImageTag,
+          seriesName: firstWatchResult.seriesName,
+          productionYear: firstWatchResult.productionYear,
         }
       : null,
     lastWatch: lastWatchResult?.itemId
@@ -338,6 +358,9 @@ export async function getWrappedOverview(
           itemName: lastWatchResult.itemName,
           itemType: lastWatchResult.itemType,
           timestamp: lastWatchResult.timestamp?.toISOString() ?? "",
+          primaryImageTag: lastWatchResult.primaryImageTag,
+          seriesName: lastWatchResult.seriesName,
+          productionYear: lastWatchResult.productionYear,
         }
       : null,
   };
@@ -345,11 +368,13 @@ export async function getWrappedOverview(
 
 export async function getWrappedTopItems(
   params: WrappedParams,
-  limit = 10
+  limit = 10,
 ): Promise<WrappedTopItems> {
   "use cache";
   getCacheLifeForYear(params.year);
-  cacheTag(`wrapped-top-items-${params.serverId}-${params.userId}-${params.year}`);
+  cacheTag(
+    `wrapped-top-items-${params.serverId}-${params.userId}-${params.year}`,
+  );
 
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
@@ -398,7 +423,10 @@ export async function getWrappedTopItems(
 
   const itemsData =
     itemIds.length > 0
-      ? await db.select().from(items).where(and(...itemConditions))
+      ? await db
+          .select()
+          .from(items)
+          .where(and(...itemConditions))
       : [];
 
   const itemsMap = new Map(itemsData.map((item) => [item.id, item]));
@@ -440,11 +468,11 @@ export async function getWrappedTopItems(
   for (const [seriesId, episodes] of episodesBySeriesId) {
     const totalPlayCount = episodes.reduce(
       (sum, ep) => sum + ep.totalPlayCount,
-      0
+      0,
     );
     const totalPlayDuration = episodes.reduce(
       (sum, ep) => sum + ep.totalPlayDuration,
-      0
+      0,
     );
     seriesStatsMap.set(seriesId, { totalPlayCount, totalPlayDuration });
   }
@@ -460,8 +488,8 @@ export async function getWrappedTopItems(
         and(
           inArray(items.id, seriesIds),
           eq(items.type, "Series"),
-          eq(items.serverId, serverId)
-        )
+          eq(items.serverId, serverId),
+        ),
       );
 
     for (const seriesItem of seriesItems) {
@@ -487,7 +515,7 @@ export async function getWrappedTopItems(
 }
 
 export async function getWrappedGenreStats(
-  params: WrappedParams
+  params: WrappedParams,
 ): Promise<WrappedGenres> {
   "use cache";
   getCacheLifeForYear(params.year);
@@ -531,7 +559,7 @@ export async function getWrappedGenreStats(
   // Calculate total for percentages
   const totalWatchTime = genreStats.reduce(
     (sum, g) => sum + Number(g.watchTimeSeconds ?? 0),
-    0
+    0,
   );
 
   const topGenres: GenreStats[] = genreStats.slice(0, 10).map((g) => ({
@@ -556,16 +584,19 @@ export async function getWrappedGenreStats(
     .where(and(...whereConditions))
     .groupBy(
       sql`EXTRACT(MONTH FROM ${sessions.startTime})`,
-      sql`unnest(${items.genres})`
+      sql`unnest(${items.genres})`,
     )
     .orderBy(
       sql`EXTRACT(MONTH FROM ${sessions.startTime})`,
-      desc(sum(sessions.playDuration))
+      desc(sum(sessions.playDuration)),
     );
 
   // Group by month and get top 3 genres per month
   const genreEvolution: GenreEvolution[] = [];
-  const monthGroups = new Map<number, Array<{ genre: string; watchTimeSeconds: number }>>();
+  const monthGroups = new Map<
+    number,
+    Array<{ genre: string; watchTimeSeconds: number }>
+  >();
 
   for (const stat of monthlyGenreStats) {
     const month = Number(stat.month);
@@ -595,7 +626,7 @@ export async function getWrappedGenreStats(
 
 export async function getWrappedPeopleStats(
   params: WrappedParams,
-  limit = 10
+  limit = 10,
 ): Promise<WrappedPeopleStats> {
   "use cache";
   getCacheLifeForYear(params.year);
@@ -608,7 +639,7 @@ export async function getWrappedPeopleStats(
     await getStatisticsExclusions(serverId);
 
   async function getTopPeopleByType(
-    personType: "Actor" | "Director"
+    personType: "Actor" | "Director",
   ): Promise<PersonStats[]> {
     const results: PersonStats[] = [];
 
@@ -642,8 +673,8 @@ export async function getWrappedPeopleStats(
         people,
         and(
           eq(itemPeople.personId, people.id),
-          eq(itemPeople.serverId, people.serverId)
-        )
+          eq(itemPeople.serverId, people.serverId),
+        ),
       )
       .where(and(...movieConditions))
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
@@ -693,8 +724,8 @@ export async function getWrappedPeopleStats(
         people,
         and(
           eq(itemPeople.personId, people.id),
-          eq(itemPeople.serverId, people.serverId)
-        )
+          eq(itemPeople.serverId, people.serverId),
+        ),
       )
       .where(and(...seriesConditions))
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
@@ -735,11 +766,13 @@ export async function getWrappedPeopleStats(
 }
 
 export async function getWrappedActivityPatterns(
-  params: WrappedParams
+  params: WrappedParams,
 ): Promise<WrappedActivityPatterns> {
   "use cache";
   getCacheLifeForYear(params.year);
-  cacheTag(`wrapped-activity-${params.serverId}-${params.userId}-${params.year}`);
+  cacheTag(
+    `wrapped-activity-${params.serverId}-${params.userId}-${params.year}`,
+  );
 
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
@@ -803,7 +836,9 @@ export async function getWrappedActivityPatterns(
   // Weekday patterns
   const weekdayStats = await db
     .select({
-      dayIndex: sql<number>`EXTRACT(DOW FROM ${sessions.startTime})`.as("dayIndex"),
+      dayIndex: sql<number>`EXTRACT(DOW FROM ${sessions.startTime})`.as(
+        "dayIndex",
+      ),
       watchTimeSeconds: sum(sessions.playDuration),
       playCount: count(sessions.id),
     })
@@ -849,17 +884,17 @@ export async function getWrappedActivityPatterns(
 
   // Calculate peaks
   const peakHourStat = hourlyPatterns.reduce((max, h) =>
-    h.watchTimeSeconds > max.watchTimeSeconds ? h : max
+    h.watchTimeSeconds > max.watchTimeSeconds ? h : max,
   );
   const peakWeekdayStat = weekdayPatterns.reduce((max, w) =>
-    w.watchTimeSeconds > max.watchTimeSeconds ? w : max
+    w.watchTimeSeconds > max.watchTimeSeconds ? w : max,
   );
   const peakMonthStat = monthlyTotals.reduce((max, m) =>
-    m.watchTimeSeconds > max.watchTimeSeconds ? m : max
+    m.watchTimeSeconds > max.watchTimeSeconds ? m : max,
   );
   const mostActiveDay = calendarHeatmap.reduce<DayActivity | null>(
     (max, d) => (!max || d.watchTimeSeconds > max.watchTimeSeconds ? d : max),
-    null
+    null,
   );
 
   // Calculate longest streak
@@ -876,7 +911,7 @@ export async function getWrappedActivityPatterns(
       const prevDate = new Date(sortedDates[i - 1]);
       const currDate = new Date(sortedDates[i]);
       const diffDays = Math.round(
-        (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+        (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24),
       );
       if (diffDays === 1) {
         currentStreak++;
@@ -901,11 +936,13 @@ export async function getWrappedActivityPatterns(
 }
 
 export async function getWrappedTypeBreakdown(
-  params: WrappedParams
+  params: WrappedParams,
 ): Promise<TypeBreakdown> {
   "use cache";
   getCacheLifeForYear(params.year);
-  cacheTag(`wrapped-type-breakdown-${params.serverId}-${params.userId}-${params.year}`);
+  cacheTag(
+    `wrapped-type-breakdown-${params.serverId}-${params.userId}-${params.year}`,
+  );
 
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
@@ -951,7 +988,8 @@ export async function getWrappedTypeBreakdown(
     episode: {
       watchTimeSeconds: episodeTime,
       playCount: episodeStats?.playCount ?? 0,
-      percentage: totalTime > 0 ? Math.round((episodeTime / totalTime) * 100) : 0,
+      percentage:
+        totalTime > 0 ? Math.round((episodeTime / totalTime) * 100) : 0,
     },
     total: {
       watchTimeSeconds: totalTime,
@@ -961,11 +999,13 @@ export async function getWrappedTypeBreakdown(
 }
 
 export async function getWrappedRewatchStats(
-  params: WrappedParams
+  params: WrappedParams,
 ): Promise<RewatchStats> {
   "use cache";
   getCacheLifeForYear(params.year);
-  cacheTag(`wrapped-rewatch-${params.serverId}-${params.userId}-${params.year}`);
+  cacheTag(
+    `wrapped-rewatch-${params.serverId}-${params.userId}-${params.year}`,
+  );
 
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
@@ -990,13 +1030,23 @@ export async function getWrappedRewatchStats(
       itemId: sessions.itemId,
       itemName: items.name,
       itemType: items.type,
+      primaryImageTag: items.primaryImageTag,
+      seriesName: items.seriesName,
+      productionYear: items.productionYear,
       playCount: count(sessions.id),
       totalWatchTimeSeconds: sum(sessions.playDuration),
     })
     .from(sessions)
     .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions))
-    .groupBy(sessions.itemId, items.name, items.type)
+    .groupBy(
+      sessions.itemId,
+      items.name,
+      items.type,
+      items.primaryImageTag,
+      items.seriesName,
+      items.productionYear,
+    )
     .having(sql`COUNT(${sessions.id}) > 1`)
     .orderBy(desc(count(sessions.id)));
 
@@ -1011,7 +1061,7 @@ export async function getWrappedRewatchStats(
   // Calculate rewatch stats
   const totalRewatches = itemPlayCounts.reduce(
     (sum, item) => sum + (item.playCount - 1),
-    0
+    0,
   );
 
   // Get total plays for percentage
@@ -1034,6 +1084,9 @@ export async function getWrappedRewatchStats(
           itemName: mostRewatched.itemName,
           itemType: mostRewatched.itemType,
           rewatchCount: mostRewatched.playCount - 1,
+          primaryImageTag: mostRewatched.primaryImageTag,
+          seriesName: mostRewatched.seriesName,
+          productionYear: mostRewatched.productionYear,
         }
       : null,
     totalRewatches,
@@ -1043,11 +1096,13 @@ export async function getWrappedRewatchStats(
 }
 
 export async function getWrappedGenrePercentiles(
-  params: WrappedParams
+  params: WrappedParams,
 ): Promise<GenrePercentile[]> {
   "use cache";
   getCacheLifeForYear(params.year);
-  cacheTag(`wrapped-percentiles-${params.serverId}-${params.userId}-${params.year}`);
+  cacheTag(
+    `wrapped-percentiles-${params.serverId}-${params.userId}-${params.year}`,
+  );
 
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
@@ -1148,7 +1203,7 @@ export async function getWrappedGenrePercentiles(
 
 export async function getAvailableWrappedYears(
   serverId: number,
-  userId: string
+  userId: string,
 ): Promise<number[]> {
   "use cache";
   cacheLife("hours");
@@ -1175,7 +1230,9 @@ export async function getAvailableWrappedYears(
   return years.map((y) => Number(y.year)).filter((y) => !Number.isNaN(y));
 }
 
-export async function getWrappedData(params: WrappedParams): Promise<WrappedData> {
+export async function getWrappedData(
+  params: WrappedParams,
+): Promise<WrappedData> {
   "use cache";
   getCacheLifeForYear(params.year);
   cacheTag(`wrapped-data-${params.serverId}-${params.userId}-${params.year}`);
@@ -1184,7 +1241,7 @@ export async function getWrappedData(params: WrappedParams): Promise<WrappedData
   const user = await db.query.users.findFirst({
     where: and(
       eq(users.id, params.userId),
-      eq(users.serverId, params.serverId)
+      eq(users.serverId, params.serverId),
     ),
     columns: { name: true },
   });

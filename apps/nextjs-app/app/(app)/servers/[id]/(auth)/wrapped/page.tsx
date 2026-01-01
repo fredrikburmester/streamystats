@@ -1,13 +1,18 @@
-import { redirect } from "next/navigation";
-import { Container } from "@/components/Container";
-import { PageTitle } from "@/components/PageTitle";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getServer } from "@/lib/db/server";
-import { getAvailableWrappedYears } from "@/lib/db/wrapped";
-import { getMe } from "@/lib/me";
 import { Calendar, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Container } from "@/components/Container";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getServer } from "@/lib/db/server";
+import { getMe } from "@/lib/db/users";
+import { getAvailableWrappedYears } from "@/lib/db/wrapped";
 
 export default async function WrappedPage({
   params,
@@ -49,7 +54,8 @@ export default async function WrappedPage({
           </div>
           <CardTitle>No Wrapped Data Yet</CardTitle>
           <CardDescription>
-            Start watching some content and come back later to see your year in review!
+            Start watching some content and come back later to see your year in
+            review!
           </CardDescription>
         </CardHeader>
         <CardContent>

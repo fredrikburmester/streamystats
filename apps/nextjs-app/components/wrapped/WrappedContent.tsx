@@ -1,28 +1,24 @@
-import {
-  Calendar,
-  Clock,
-  Film,
-  Flame,
-  Play,
-  Repeat,
-  Sparkles,
-  TrendingUp,
-  Tv,
-  Users,
-} from "lucide-react";
+import { Flame, Repeat, Sparkles, TrendingUp } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { getWrappedData } from "@/lib/db/wrapped";
 import type { ServerPublic } from "@/lib/types";
-import { cn, formatDuration } from "@/lib/utils";
+import { formatDuration } from "@/lib/utils";
 import { WrappedCalendarHeatmap } from "./WrappedCalendarHeatmap";
-import { WrappedCard } from "./WrappedCard";
+import { WrappedComparisonChart } from "./WrappedComparisonChart";
 import { WrappedGenreChart } from "./WrappedGenreChart";
 import { WrappedHourlyChart } from "./WrappedHourlyChart";
 import { WrappedMonthlyChart } from "./WrappedMonthlyChart";
 import { WrappedRankedList } from "./WrappedRankedList";
-import { WrappedShareButton } from "./WrappedShareButton";
 import { WrappedStatCard } from "./WrappedStatCard";
+import { WrappedTypeChart } from "./WrappedTypeChart";
 import { WrappedYearSelector } from "./WrappedYearSelector";
 
 interface WrappedContentProps {
@@ -46,7 +42,6 @@ export async function WrappedContent({
 }: WrappedContentProps) {
   const data = await getWrappedData({ serverId, userId, year });
 
-  // Prepare ranked items for top movies
   const topMovies = data.topItems.movies.map((item) => ({
     id: item.id,
     name: item.name,
@@ -55,7 +50,6 @@ export async function WrappedContent({
     playCount: item.totalPlayCount,
   }));
 
-  // Prepare ranked items for top series
   const topSeries = data.topItems.series.map((item) => ({
     id: item.id,
     name: item.name,
@@ -64,7 +58,6 @@ export async function WrappedContent({
     playCount: item.totalPlayCount,
   }));
 
-  // Prepare ranked items for top actors
   const topActors = data.people.topActors.map((person) => ({
     id: person.id,
     name: person.name,
@@ -74,7 +67,6 @@ export async function WrappedContent({
     playCount: person.totalPlayCount,
   }));
 
-  // Prepare ranked items for top directors
   const topDirectors = data.people.topDirectors.map((person) => ({
     id: person.id,
     name: person.name,
@@ -84,360 +76,487 @@ export async function WrappedContent({
     playCount: person.totalPlayCount,
   }));
 
-  const topGenre = data.genres.topGenres[0];
   const topPercentile = data.genrePercentiles[0];
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
       {/* Header */}
-      <WrappedCard gradient="purple" className="relative">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20">
-              <Sparkles className="h-7 w-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-                {userName}&apos;s {year} Wrapped
-              </h1>
-              <p className="text-white/70 text-sm md:text-base">
-                {isAdminView ? "Admin view" : "Your year in review"}
-              </p>
-            </div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <Sparkles className="h-6 w-6 text-primary" />
           </div>
-          <div className="flex items-center gap-2">
-            <WrappedShareButton
-              serverId={serverId}
-              userId={userId}
-              year={year}
-            />
-            <WrappedYearSelector
-              currentYear={year}
-              availableYears={availableYears}
-              serverId={serverId}
-              userId={isAdminView ? userId : undefined}
-            />
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              {userName}&apos;s {year} Wrapped
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {isAdminView ? "Admin view" : "Your year in review"}
+            </p>
           </div>
         </div>
-      </WrappedCard>
+        <WrappedYearSelector
+          currentYear={year}
+          availableYears={availableYears}
+          serverId={serverId}
+          userId={isAdminView ? userId : undefined}
+        />
+      </div>
 
       {/* Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <WrappedCard gradient="blue" className="p-4">
-          <WrappedStatCard
-            value={formatDuration(data.overview.totalWatchTimeSeconds)}
-            label="Total Watch Time"
-            icon={Clock}
-          />
-        </WrappedCard>
-        <WrappedCard gradient="emerald" className="p-4">
-          <WrappedStatCard
-            value={data.overview.totalPlays.toLocaleString()}
-            label="Total Plays"
-            icon={Play}
-          />
-        </WrappedCard>
-        <WrappedCard gradient="amber" className="p-4">
-          <WrappedStatCard
-            value={data.overview.uniqueItemsWatched.toLocaleString()}
-            label="Unique Titles"
-            icon={Film}
-          />
-        </WrappedCard>
-        <WrappedCard gradient="rose" className="p-4">
-          <WrappedStatCard
-            value={data.overview.totalDaysWithActivity.toLocaleString()}
-            label="Days Watched"
-            icon={Calendar}
-          />
-        </WrappedCard>
+        <WrappedStatCard
+          value={formatDuration(data.overview.totalWatchTimeSeconds)}
+          label="Total Watch Time"
+          icon="clock"
+        />
+        <WrappedStatCard
+          value={data.overview.totalPlays.toLocaleString()}
+          label="Total Plays"
+          icon="play"
+        />
+        <WrappedStatCard
+          value={data.overview.uniqueItemsWatched.toLocaleString()}
+          label="Unique Titles"
+          icon="film"
+        />
+        <WrappedStatCard
+          value={data.overview.totalDaysWithActivity.toLocaleString()}
+          label="Days Watched"
+          icon="calendar"
+        />
       </div>
 
       {/* Top Content Section */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Top Movies */}
         {topMovies.length > 0 && (
-          <WrappedCard gradient="amber" title="Top Movies">
-            <WrappedRankedList
-              items={topMovies}
-              server={server}
-              serverId={serverId}
-              type="movie"
-              maxItems={5}
-            />
-          </WrappedCard>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Top Movies</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WrappedRankedList
+                items={topMovies}
+                server={server}
+                serverId={serverId}
+                type="movie"
+                maxItems={5}
+              />
+            </CardContent>
+          </Card>
         )}
 
-        {/* Top Series */}
         {topSeries.length > 0 && (
-          <WrappedCard gradient="indigo" title="Top Series">
-            <WrappedRankedList
-              items={topSeries}
-              server={server}
-              serverId={serverId}
-              type="series"
-              maxItems={5}
-            />
-          </WrappedCard>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Top Series</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WrappedRankedList
+                items={topSeries}
+                server={server}
+                serverId={serverId}
+                type="series"
+                maxItems={5}
+              />
+            </CardContent>
+          </Card>
         )}
       </div>
 
       {/* Genre Stats */}
       {data.genres.topGenres.length > 0 && (
-        <WrappedCard gradient="violet" title="Top Genres" subtitle={`You explored ${data.genres.totalGenresExplored} genres this year`}>
-          <div className="grid md:grid-cols-2 gap-6 items-center">
-            <WrappedGenreChart genres={data.genres.topGenres} />
-            <div className="space-y-3">
-              {data.genres.topGenres.slice(0, 5).map((genre, index) => (
-                <div
-                  key={genre.genre}
-                  className="flex items-center justify-between p-2 rounded-lg bg-white/10"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold text-white/60">
-                      {index + 1}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Top Genres</CardTitle>
+            <CardDescription>
+              You explored {data.genres.totalGenresExplored} genres this year
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-6 items-center">
+              <WrappedGenreChart genres={data.genres.topGenres} />
+              <div className="space-y-1">
+                {data.genres.topGenres.slice(0, 5).map((genre, index) => (
+                  <div
+                    key={genre.genre}
+                    className="flex items-center justify-between py-2 border-b last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-5 text-sm font-medium text-muted-foreground">
+                        {index + 1}.
+                      </span>
+                      <span className="text-sm">{genre.genre}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {genre.percentageOfTotal}%
                     </span>
-                    <span className="font-medium">{genre.genre}</span>
                   </div>
-                  <span className="text-white/70">{genre.percentageOfTotal}%</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </WrappedCard>
+          </CardContent>
+        </Card>
       )}
 
       {/* People Stats */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Top Actors */}
         {topActors.length > 0 && (
-          <WrappedCard gradient="cyan" title="Top Actors" subtitle="Most watched performers">
-            <WrappedRankedList
-              items={topActors}
-              server={server}
-              serverId={serverId}
-              type="actor"
-              maxItems={5}
-            />
-          </WrappedCard>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Top Actors</CardTitle>
+              <CardDescription>Most watched performers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WrappedRankedList
+                items={topActors}
+                server={server}
+                serverId={serverId}
+                type="actor"
+                maxItems={5}
+              />
+            </CardContent>
+          </Card>
         )}
 
-        {/* Top Directors */}
         {topDirectors.length > 0 && (
-          <WrappedCard gradient="pink" title="Top Directors" subtitle="Most watched filmmakers">
-            <WrappedRankedList
-              items={topDirectors}
-              server={server}
-              serverId={serverId}
-              type="director"
-              maxItems={5}
-            />
-          </WrappedCard>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Top Directors</CardTitle>
+              <CardDescription>Most watched filmmakers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WrappedRankedList
+                items={topDirectors}
+                server={server}
+                serverId={serverId}
+                type="director"
+                maxItems={5}
+              />
+            </CardContent>
+          </Card>
         )}
       </div>
 
       {/* Activity Patterns */}
-      <WrappedCard gradient="emerald" title="Watching Patterns">
-        <div className="grid gap-6">
-          {/* Calendar Heatmap */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Watching Patterns</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
           <div>
-            <h4 className="text-sm font-medium text-white/70 mb-3">
+            <h4 className="text-sm font-medium text-muted-foreground mb-3">
               Activity Calendar
             </h4>
             <WrappedCalendarHeatmap
               data={data.activityPatterns.calendarHeatmap}
               year={year}
+              serverId={serverId}
+              userId={userId}
             />
           </div>
 
-          {/* Hourly Pattern */}
           <div>
-            <h4 className="text-sm font-medium text-white/70 mb-3">
+            <h4 className="text-sm font-medium text-muted-foreground mb-3">
               When You Watch
             </h4>
             <WrappedHourlyChart
               data={data.activityPatterns.hourlyPatterns}
               peakHour={data.activityPatterns.peakHour}
             />
-            <p className="text-sm text-white/60 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               Peak watching time:{" "}
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-foreground">
                 {data.activityPatterns.peakHour.toString().padStart(2, "0")}:00
               </span>
             </p>
           </div>
-        </div>
-      </WrappedCard>
+        </CardContent>
+      </Card>
 
       {/* Monthly Trends */}
-      <WrappedCard
-        gradient="blue"
-        title="Monthly Trends"
-        subtitle={`Your peak month was ${data.activityPatterns.monthlyTotals.find((m) => m.month === data.activityPatterns.peakMonth)?.monthName ?? "Unknown"}`}
-      >
-        <WrappedMonthlyChart data={data.activityPatterns.monthlyTotals} />
-      </WrappedCard>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Monthly Trends</CardTitle>
+          <CardDescription>
+            Your peak month was{" "}
+            {data.activityPatterns.monthlyTotals.find(
+              (m) => m.month === data.activityPatterns.peakMonth,
+            )?.monthName ?? "Unknown"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WrappedMonthlyChart data={data.activityPatterns.monthlyTotals} />
+        </CardContent>
+      </Card>
 
       {/* Type Breakdown & Rewatch Stats */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Movies vs Series */}
-        <WrappedCard gradient="neutral" title="Movies vs Series">
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Film className="h-8 w-8 text-amber-400" />
-              <div className="flex-1">
-                <div className="flex justify-between mb-1">
-                  <span className="font-medium">Movies</span>
-                  <span className="text-white/70">
-                    {data.typeBreakdown.movie.percentage}%
-                  </span>
-                </div>
-                <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-amber-400 rounded-full"
-                    style={{ width: `${data.typeBreakdown.movie.percentage}%` }}
-                  />
-                </div>
-                <p className="text-xs text-white/60 mt-1">
-                  {formatDuration(data.typeBreakdown.movie.watchTimeSeconds)}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Tv className="h-8 w-8 text-indigo-400" />
-              <div className="flex-1">
-                <div className="flex justify-between mb-1">
-                  <span className="font-medium">Series</span>
-                  <span className="text-white/70">
-                    {data.typeBreakdown.episode.percentage}%
-                  </span>
-                </div>
-                <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-indigo-400 rounded-full"
-                    style={{ width: `${data.typeBreakdown.episode.percentage}%` }}
-                  />
-                </div>
-                <p className="text-xs text-white/60 mt-1">
-                  {formatDuration(data.typeBreakdown.episode.watchTimeSeconds)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </WrappedCard>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Movies vs Series</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WrappedTypeChart data={data.typeBreakdown} />
+          </CardContent>
+        </Card>
 
-        {/* Rewatch Stats */}
-        <WrappedCard gradient="rose" title="Rewatch Stats">
-          <div className="space-y-4">
-            {data.rewatchStats.mostRewatchedItem && (
-              <div className="p-3 rounded-lg bg-white/10">
-                <p className="text-sm text-white/70 mb-1">Most Rewatched</p>
-                <p className="font-semibold">
-                  {data.rewatchStats.mostRewatchedItem.itemName}
-                </p>
-                <p className="text-sm text-white/60">
-                  Rewatched {data.rewatchStats.mostRewatchedItem.rewatchCount} times
-                </p>
-              </div>
-            )}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Rewatch Stats</CardTitle>
+            <CardDescription>Across all content</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-lg bg-white/10 text-center">
-                <Repeat className="h-5 w-5 mx-auto mb-1 text-white/60" />
-                <p className="text-xl font-bold">{data.rewatchStats.totalRewatches}</p>
-                <p className="text-xs text-white/60">Total Rewatches</p>
+              <div className="p-3 rounded-lg bg-muted text-center">
+                <Repeat className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-xl font-bold">
+                  {data.rewatchStats.totalRewatches}
+                </p>
+                <p className="text-xs text-muted-foreground">Total Rewatches</p>
               </div>
-              <div className="p-3 rounded-lg bg-white/10 text-center">
-                <TrendingUp className="h-5 w-5 mx-auto mb-1 text-white/60" />
-                <p className="text-xl font-bold">{data.rewatchStats.rewatchPercentage}%</p>
-                <p className="text-xs text-white/60">Rewatch Rate</p>
+              <div className="p-3 rounded-lg bg-muted text-center">
+                <TrendingUp className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-xl font-bold">
+                  {data.rewatchStats.rewatchPercentage}%
+                </p>
+                <p className="text-xs text-muted-foreground">Rewatch Rate</p>
+                <p className="text-[10px] text-muted-foreground/70 mt-1">
+                  {100 - data.rewatchStats.rewatchPercentage}% new content
+                </p>
               </div>
             </div>
-          </div>
-        </WrappedCard>
+            {data.rewatchStats.mostRewatchedItem && (
+              <>
+                <div className="border-t pt-4">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Most Rewatched
+                  </p>
+                  <Link
+                    href={`/servers/${serverId}/library/${data.rewatchStats.mostRewatchedItem.itemId}`}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors group"
+                  >
+                    <div className="w-10 h-14 relative rounded overflow-hidden bg-background shrink-0">
+                      {data.rewatchStats.mostRewatchedItem.primaryImageTag ? (
+                        <Image
+                          src={`${server.url}/Items/${data.rewatchStats.mostRewatchedItem.itemId}/Images/Primary?fillHeight=150&fillWidth=100&quality=90&tag=${data.rewatchStats.mostRewatchedItem.primaryImageTag}`}
+                          alt={data.rewatchStats.mostRewatchedItem.itemName}
+                          fill
+                          className="object-cover"
+                          sizes="40px"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                          N/A
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm truncate group-hover:underline">
+                        {data.rewatchStats.mostRewatchedItem.itemName}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {data.rewatchStats.mostRewatchedItem.seriesName && (
+                          <span>{data.rewatchStats.mostRewatchedItem.seriesName}</span>
+                        )}
+                        {data.rewatchStats.mostRewatchedItem.seriesName &&
+                          data.rewatchStats.mostRewatchedItem.productionYear && (
+                            <span> · </span>
+                          )}
+                        {data.rewatchStats.mostRewatchedItem.productionYear && (
+                          <span>{data.rewatchStats.mostRewatchedItem.productionYear}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-lg font-bold">
+                        {data.rewatchStats.mostRewatchedItem.rewatchCount}
+                      </p>
+                      <p className="text-xs text-muted-foreground">rewatches</p>
+                    </div>
+                  </Link>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Milestones */}
-      <WrappedCard gradient="indigo" title="Milestones">
-        <div className="grid md:grid-cols-3 gap-4">
-          {/* First Watch */}
-          {data.overview.firstWatch && (
-            <div className="p-4 rounded-xl bg-white/10">
-              <p className="text-sm text-white/70 mb-2">First Watch of {year}</p>
-              <p className="font-semibold truncate">
-                {data.overview.firstWatch.itemName}
-              </p>
-              <p className="text-xs text-white/60 mt-1">
-                {new Date(data.overview.firstWatch.timestamp).toLocaleDateString(
-                  "en-US",
-                  { month: "short", day: "numeric" }
-                )}
-              </p>
-            </div>
-          )}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Milestones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-3 gap-4">
+            {data.overview.firstWatch && (
+              <div className="p-4 rounded-lg bg-muted">
+                <p className="text-sm text-muted-foreground mb-2">
+                  First Watch of {year}
+                </p>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={`/servers/${serverId}/library/${data.overview.firstWatch.itemId}`}
+                    className="w-10 h-14 relative rounded overflow-hidden bg-background shrink-0 hover:opacity-80 transition-opacity"
+                  >
+                    {data.overview.firstWatch.primaryImageTag ? (
+                      <Image
+                        src={`${server.url}/Items/${data.overview.firstWatch.itemId}/Images/Primary?fillHeight=150&fillWidth=100&quality=90&tag=${data.overview.firstWatch.primaryImageTag}`}
+                        alt={data.overview.firstWatch.itemName}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                        N/A
+                      </div>
+                    )}
+                  </Link>
+                  <div className="min-w-0">
+                    <Link
+                      href={`/servers/${serverId}/library/${data.overview.firstWatch.itemId}`}
+                      className="font-semibold text-sm truncate block hover:underline"
+                    >
+                      {data.overview.firstWatch.itemName}
+                    </Link>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {data.overview.firstWatch.seriesName && (
+                        <span>{data.overview.firstWatch.seriesName}</span>
+                      )}
+                      {data.overview.firstWatch.seriesName &&
+                        data.overview.firstWatch.productionYear && (
+                          <span> · </span>
+                        )}
+                      {data.overview.firstWatch.productionYear && (
+                        <span>{data.overview.firstWatch.productionYear}</span>
+                      )}
+                      {(data.overview.firstWatch.seriesName ||
+                        data.overview.firstWatch.productionYear) && (
+                        <span> · </span>
+                      )}
+                      <Link
+                        href={`/servers/${serverId}/history?startDate=${data.overview.firstWatch.timestamp.split("T")[0]}&endDate=${data.overview.firstWatch.timestamp.split("T")[0]}&userId=${userId}`}
+                        className="hover:underline"
+                      >
+                        {new Date(
+                          data.overview.firstWatch.timestamp,
+                        ).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          {/* Last Watch */}
-          {data.overview.lastWatch && (
-            <div className="p-4 rounded-xl bg-white/10">
-              <p className="text-sm text-white/70 mb-2">Last Watch of {year}</p>
-              <p className="font-semibold truncate">
-                {data.overview.lastWatch.itemName}
-              </p>
-              <p className="text-xs text-white/60 mt-1">
-                {new Date(data.overview.lastWatch.timestamp).toLocaleDateString(
-                  "en-US",
-                  { month: "short", day: "numeric" }
-                )}
-              </p>
-            </div>
-          )}
+            {data.overview.lastWatch && (
+              <div className="p-4 rounded-lg bg-muted">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Last Watch of {year}
+                </p>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={`/servers/${serverId}/library/${data.overview.lastWatch.itemId}`}
+                    className="w-10 h-14 relative rounded overflow-hidden bg-background shrink-0 hover:opacity-80 transition-opacity"
+                  >
+                    {data.overview.lastWatch.primaryImageTag ? (
+                      <Image
+                        src={`${server.url}/Items/${data.overview.lastWatch.itemId}/Images/Primary?fillHeight=150&fillWidth=100&quality=90&tag=${data.overview.lastWatch.primaryImageTag}`}
+                        alt={data.overview.lastWatch.itemName}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                        N/A
+                      </div>
+                    )}
+                  </Link>
+                  <div className="min-w-0">
+                    <Link
+                      href={`/servers/${serverId}/library/${data.overview.lastWatch.itemId}`}
+                      className="font-semibold text-sm truncate block hover:underline"
+                    >
+                      {data.overview.lastWatch.itemName}
+                    </Link>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {data.overview.lastWatch.seriesName && (
+                        <span>{data.overview.lastWatch.seriesName}</span>
+                      )}
+                      {data.overview.lastWatch.seriesName &&
+                        data.overview.lastWatch.productionYear && (
+                          <span> · </span>
+                        )}
+                      {data.overview.lastWatch.productionYear && (
+                        <span>{data.overview.lastWatch.productionYear}</span>
+                      )}
+                      {(data.overview.lastWatch.seriesName ||
+                        data.overview.lastWatch.productionYear) && (
+                        <span> · </span>
+                      )}
+                      <Link
+                        href={`/servers/${serverId}/history?startDate=${data.overview.lastWatch.timestamp.split("T")[0]}&endDate=${data.overview.lastWatch.timestamp.split("T")[0]}&userId=${userId}`}
+                        className="hover:underline"
+                      >
+                        {new Date(
+                          data.overview.lastWatch.timestamp,
+                        ).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          {/* Longest Streak */}
-          <div className="p-4 rounded-xl bg-white/10">
-            <p className="text-sm text-white/70 mb-2">Longest Streak</p>
-            <div className="flex items-center gap-2">
-              <Flame className="h-6 w-6 text-orange-400" />
-              <span className="text-2xl font-bold">
-                {data.activityPatterns.longestStreak}
-              </span>
-              <span className="text-white/60">days</span>
+            <div className="p-4 rounded-lg bg-muted">
+              <p className="text-sm text-muted-foreground mb-2">
+                Longest Streak
+              </p>
+              <div className="flex items-center gap-2">
+                <Flame className="h-6 w-6 text-orange-500" />
+                <span className="text-2xl font-bold">
+                  {data.activityPatterns.longestStreak}
+                </span>
+                <span className="text-muted-foreground">days</span>
+              </div>
             </div>
           </div>
-        </div>
-      </WrappedCard>
+        </CardContent>
+      </Card>
 
       {/* Genre Percentiles */}
       {topPercentile && (
-        <WrappedCard
-          gradient="purple"
-          title="How You Compare"
-          subtitle="Your watching habits vs other users on this server"
-        >
-          <div className="grid md:grid-cols-2 gap-4">
-            {data.genrePercentiles.slice(0, 4).map((p) => (
-              <div
-                key={p.genre}
-                className="p-4 rounded-xl bg-white/10"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">{p.genre}</span>
-                  <span className="text-sm text-white/70">
-                    Top {100 - p.percentile}%
-                  </span>
-                </div>
-                <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-violet-400 to-purple-500 rounded-full"
-                    style={{ width: `${p.percentile}%` }}
-                  />
-                </div>
-                <p className="text-xs text-white/60 mt-2">
-                  You watched {formatDuration(p.userWatchTimeSeconds)} (avg:{" "}
-                  {formatDuration(p.serverAverageSeconds)})
-                </p>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">How You Compare</CardTitle>
+            <CardDescription>
+              Your watching habits vs the server average
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <WrappedComparisonChart data={data.genrePercentiles} />
+            <div className="flex items-center justify-center gap-6 mt-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: "#1D4ED8" }}
+                />
+                <span>You</span>
               </div>
-            ))}
-          </div>
-        </WrappedCard>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-muted-foreground/30" />
+                <span>Server Avg</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Footer */}

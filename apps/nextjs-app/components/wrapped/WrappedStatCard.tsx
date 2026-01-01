@@ -1,33 +1,35 @@
-"use client";
+import { Calendar, Clock, Film, Play } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import type { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+const ICONS = {
+  clock: Clock,
+  play: Play,
+  film: Film,
+  calendar: Calendar,
+} as const;
+
+type IconName = keyof typeof ICONS;
 
 interface WrappedStatCardProps {
   value: string | number;
   label: string;
-  icon?: LucideIcon;
-  className?: string;
+  icon?: IconName;
 }
 
-export function WrappedStatCard({
-  value,
-  label,
-  icon: Icon,
-  className,
-}: WrappedStatCardProps) {
+export function WrappedStatCard({ value, label, icon }: WrappedStatCardProps) {
+  const Icon = icon ? ICONS[icon] : null;
+
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center p-4 md:p-6",
-        "rounded-xl bg-white/10 backdrop-blur-sm",
-        "text-center",
-        className
-      )}
-    >
-      {Icon && <Icon className="h-6 w-6 mb-2 text-white/80" />}
-      <div className="text-2xl md:text-4xl font-bold tracking-tight">{value}</div>
-      <div className="text-xs md:text-sm text-white/80 mt-1">{label}</div>
-    </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
+        <CardTitle className="text-sm font-medium">
+          <span className="text-muted-foreground">{label}</span>
+        </CardTitle>
+        {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-bold">{value}</p>
+      </CardContent>
+    </Card>
   );
 }

@@ -27,7 +27,7 @@ interface WrappedRankedListProps {
 function getImageUrl(
   item: RankedItem,
   server: ServerPublic,
-  type: "movie" | "series" | "actor" | "director"
+  type: "movie" | "series" | "actor" | "director",
 ): string | null {
   if (type === "actor" || type === "director") {
     if (item.imageTag) {
@@ -36,17 +36,14 @@ function getImageUrl(
     return null;
   }
 
-  // For series, use series image
   if (type === "series" && item.imageTag) {
     return `${server.url}/Items/${item.id}/Images/Primary?fillHeight=150&fillWidth=100&quality=90&tag=${item.imageTag}`;
   }
 
-  // For movies
   if (item.imageTag) {
     return `${server.url}/Items/${item.id}/Images/Primary?fillHeight=150&fillWidth=100&quality=90&tag=${item.imageTag}`;
   }
 
-  // Fallback to series image for episodes
   if (item.seriesId && item.seriesPrimaryImageTag) {
     return `${server.url}/Items/${item.seriesId}/Images/Primary?fillHeight=150&fillWidth=100&quality=90&tag=${item.seriesPrimaryImageTag}`;
   }
@@ -57,7 +54,7 @@ function getImageUrl(
 function getItemLink(
   item: RankedItem,
   serverId: number,
-  type: "movie" | "series" | "actor" | "director"
+  type: "movie" | "series" | "actor" | "director",
 ): string {
   if (type === "actor" || type === "director") {
     return `/servers/${serverId}/actors/${item.id}`;
@@ -70,75 +67,124 @@ export function WrappedRankedList({
   server,
   serverId,
   type,
-  maxItems = 10,
+  maxItems = 5,
 }: WrappedRankedListProps) {
   const displayItems = items.slice(0, maxItems);
+  const maxWatchTime = Math.max(...displayItems.map((i) => i.watchTimeSeconds));
+
+  if (displayItems.length === 0) return null;
+
+  const topItem = displayItems[0];
+  const restItems = displayItems.slice(1);
+  const topImageUrl = getImageUrl(topItem, server, type);
+  const topLink = getItemLink(topItem, serverId, type);
 
   return (
-    <div className="space-y-3">
-      {displayItems.map((item, index) => {
-        const imageUrl = getImageUrl(item, server, type);
-        const link = getItemLink(item, serverId, type);
-        const rank = index + 1;
-
-        return (
-          <Link
-            key={item.id}
-            href={link}
-            className={cn(
-              "flex items-center gap-3 p-2 rounded-lg",
-              "bg-white/5 hover:bg-white/10 transition-colors",
-              "group"
-            )}
-          >
-            {/* Rank badge */}
-            <div
-              className={cn(
-                "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
-                rank === 1 && "bg-amber-500 text-amber-950",
-                rank === 2 && "bg-zinc-300 text-zinc-800",
-                rank === 3 && "bg-amber-700 text-amber-100",
-                rank > 3 && "bg-white/20 text-white"
-              )}
-            >
-              {rank}
+    <div className="space-y-4">
+      {/* #1 Item - Featured */}
+      <Link
+        href={topLink}
+        className="flex gap-4 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors group"
+      >
+        <div className="relative w-16 h-24 rounded-lg overflow-hidden bg-muted shrink-0">
+          {topImageUrl ? (
+            <Image
+              src={topImageUrl}
+              alt={topItem.name}
+              fill
+              className="object-cover"
+              sizes="64px"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+              N/A
             </div>
+          )}
+          <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
+            <span className="text-[10px] font-bold text-amber-950">1</span>
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 py-1">
+          <h4 className="font-semibold text-sm truncate group-hover:underline">
+            {topItem.name}
+          </h4>
+          {topItem.subtitle && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {topItem.subtitle}
+            </p>
+          )}
+          <p className="text-lg font-bold mt-2">
+            {formatDuration(topItem.watchTimeSeconds)}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {topItem.playCount} {topItem.playCount === 1 ? "play" : "plays"}
+          </p>
+        </div>
+      </Link>
 
-            {/* Poster */}
-            <div className="flex-shrink-0 w-12 h-16 md:w-14 md:h-20 relative rounded overflow-hidden bg-white/10">
-              {imageUrl ? (
-                <Image
-                  src={imageUrl}
-                  alt={item.name}
-                  fill
-                  className="object-cover"
-                  sizes="56px"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white/40 text-xs">
-                  N/A
+      {/* Rest of items */}
+      {restItems.length > 0 && (
+        <div className="space-y-1">
+          {restItems.map((item, index) => {
+            const imageUrl = getImageUrl(item, server, type);
+            const link = getItemLink(item, serverId, type);
+            const rank = index + 2;
+            const barWidth = (item.watchTimeSeconds / maxWatchTime) * 100;
+
+            return (
+              <Link
+                key={item.id}
+                href={link}
+                className="flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-muted/50 transition-colors group"
+              >
+                <span
+                  className={cn(
+                    "w-5 text-xs font-medium text-center shrink-0",
+                    rank === 2 && "text-zinc-400",
+                    rank === 3 && "text-amber-700",
+                    rank > 3 && "text-muted-foreground",
+                  )}
+                >
+                  {rank}
+                </span>
+
+                <div className="w-8 h-12 relative rounded overflow-hidden bg-muted shrink-0">
+                  {imageUrl ? (
+                    <Image
+                      src={imageUrl}
+                      alt={item.name}
+                      fill
+                      className="object-cover"
+                      sizes="32px"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground text-[8px]">
+                      N/A
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm md:text-base truncate group-hover:text-white/90">
-                {item.name}
-              </div>
-              {item.subtitle && (
-                <div className="text-xs text-white/60 truncate">
-                  {item.subtitle}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm truncate group-hover:underline">
+                      {item.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {formatDuration(item.watchTimeSeconds)}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className="h-full bg-foreground/20 rounded-full"
+                      style={{ width: `${barWidth}%` }}
+                    />
+                  </div>
                 </div>
-              )}
-              <div className="text-xs text-white/60 mt-0.5">
-                {formatDuration(item.watchTimeSeconds)} &middot; {item.playCount}{" "}
-                {item.playCount === 1 ? "play" : "plays"}
-              </div>
-            </div>
-          </Link>
-        );
-      })}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

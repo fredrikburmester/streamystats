@@ -1,19 +1,27 @@
 "use client";
 
+import { Bar, BarChart, XAxis, YAxis } from "recharts";
 import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import type { MonthlyTotal } from "@/lib/db/wrapped";
 import { formatDuration } from "@/lib/utils";
 
 interface WrappedMonthlyChartProps {
   data: MonthlyTotal[];
 }
+
+const CHART_PRIMARY = "#1D4ED8";
+
+const chartConfig = {
+  hours: {
+    label: "Hours",
+    color: CHART_PRIMARY,
+  },
+} satisfies ChartConfig;
 
 export function WrappedMonthlyChart({ data }: WrappedMonthlyChartProps) {
   const chartData = data.map((d) => ({
@@ -23,44 +31,41 @@ export function WrappedMonthlyChart({ data }: WrappedMonthlyChartProps) {
   }));
 
   return (
-    <div className="w-full h-[200px]">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData}>
-          <XAxis
-            dataKey="month"
-            tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }}
-            axisLine={{ stroke: "rgba(255,255,255,0.2)" }}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }}
-            axisLine={{ stroke: "rgba(255,255,255,0.2)" }}
-            tickLine={false}
-            tickFormatter={(value) => `${value}h`}
-          />
-          <Tooltip
-            content={({ active, payload }) => {
-              if (active && payload && payload.length) {
-                const data = payload[0].payload;
-                return (
-                  <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3 shadow-lg">
-                    <p className="font-semibold text-white">{data.month}</p>
-                    <p className="text-sm text-zinc-400">
-                      {formatDuration(data.watchTimeSeconds)}
-                    </p>
-                  </div>
-                );
-              }
-              return null;
-            }}
-          />
-          <Bar
-            dataKey="hours"
-            fill="rgba(255,255,255,0.3)"
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <ChartContainer config={chartConfig} className="h-[200px] w-full">
+      <BarChart data={chartData}>
+        <XAxis
+          dataKey="month"
+          tickLine={false}
+          axisLine={false}
+          fontSize={12}
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          fontSize={12}
+          tickFormatter={(value) => `${value}h`}
+        />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              formatter={(value, name, item) => (
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium">{item.payload.month}</span>
+                  <span className="text-muted-foreground">
+                    {formatDuration(item.payload.watchTimeSeconds)}
+                  </span>
+                </div>
+              )}
+            />
+          }
+        />
+        <Bar
+          dataKey="hours"
+          fill={CHART_PRIMARY}
+          opacity={0.7}
+          radius={[4, 4, 0, 0]}
+        />
+      </BarChart>
+    </ChartContainer>
   );
 }
