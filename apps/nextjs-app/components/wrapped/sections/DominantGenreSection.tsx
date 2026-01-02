@@ -147,8 +147,10 @@ export function DominantGenreSection({
             <div className="space-y-3">
               {topGenres.slice(1, 6).map((genre, index) => {
                 const percentage =
-                  (genre.watchTimeSeconds / dominantGenre.watchTimeSeconds) *
-                  100;
+                  dominantGenre.watchTimeSeconds > 0
+                    ? (genre.watchTimeSeconds / dominantGenre.watchTimeSeconds) *
+                      100
+                    : 0;
                 return (
                   <div key={genre.genre} className="flex items-center gap-4">
                     <span className="w-8 text-sm text-white/40">
