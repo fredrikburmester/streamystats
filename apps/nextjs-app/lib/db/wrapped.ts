@@ -129,6 +129,7 @@ export interface MonthlyTotal {
 }
 
 export interface WrappedActivityPatterns {
+  calendarHeatmap: DayActivity[];
   hourlyPatterns: HourlyPattern[];
   weekdayPatterns: WeekdayPattern[];
   monthlyTotals: MonthlyTotal[];
@@ -906,6 +907,7 @@ export async function getWrappedActivityPatterns(
   }
 
   return {
+    calendarHeatmap,
     hourlyPatterns,
     weekdayPatterns,
     monthlyTotals,

@@ -78,7 +78,12 @@ export async function WrappedContent({
         activityPatterns={data.activityPatterns}
       />
 
-      <ActivityPatternsSection activityPatterns={data.activityPatterns} />
+      <ActivityPatternsSection
+        activityPatterns={data.activityPatterns}
+        year={year}
+        serverId={serverId}
+        userId={userId}
+      />
 
       <MostWatchedPeopleSection
         year={year}

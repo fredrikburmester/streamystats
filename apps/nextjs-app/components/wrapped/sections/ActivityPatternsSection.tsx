@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import type { WrappedActivityPatterns } from "@/lib/db/wrapped";
+import { CalendarHeatmap } from "./CalendarHeatmap";
 
 type ViewMode = "hours" | "days" | "months";
 
@@ -56,10 +57,16 @@ function ChartBar({
 
 interface ActivityPatternsSectionProps {
   activityPatterns: WrappedActivityPatterns;
+  year: number;
+  serverId: number;
+  userId: string;
 }
 
 export function ActivityPatternsSection({
   activityPatterns,
+  year,
+  serverId,
+  userId,
 }: ActivityPatternsSectionProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("days");
 
@@ -118,18 +125,6 @@ export function ActivityPatternsSection({
   }
   return (
     <section className="relative py-24 px-4 md:px-8 overflow-hidden">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
-        <motion.span
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 0.03 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.8 }}
-          className="text-[10rem] md:text-[16rem] font-black text-white uppercase tracking-tighter"
-        >
-          {backgroundText}
-        </motion.span>
-      </div>
-
       <div className="max-w-6xl mx-auto relative">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -163,93 +158,128 @@ export function ActivityPatternsSection({
           </div>
         </motion.div>
 
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
+            <motion.span
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 0.03 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.8 }}
+              className="text-[10rem] md:text-[16rem] font-black text-white uppercase tracking-tighter"
+            >
+              {backgroundText}
+            </motion.span>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="relative"
+          >
+            <div className="absolute left-0 top-0 bottom-8 w-12 flex flex-col justify-between text-xs text-white/40">
+              <span>{formatWatchTime(maxValue)}</span>
+              <span>{formatWatchTime(Math.round(maxValue / 2))}</span>
+              <span>0</span>
+            </div>
+
+            <div className="ml-14 h-64 flex items-end gap-1">
+              {viewMode === "hours" &&
+                activityPatterns.hourlyPatterns.map((item, index) => (
+                  <ChartBar
+                    key={item.hour}
+                    height={
+                      maxValue > 0
+                        ? (item.watchTimeSeconds / maxValue) * 100
+                        : 0
+                    }
+                    isPeak={item.hour === activityPatterns.peakHour}
+                    label={`${item.hour}:00`}
+                    watchTimeSeconds={item.watchTimeSeconds}
+                    index={index}
+                    delayMultiplier={0.02}
+                  />
+                ))}
+              {viewMode === "days" &&
+                activityPatterns.weekdayPatterns.map((item, index) => (
+                  <ChartBar
+                    key={item.day}
+                    height={
+                      maxValue > 0
+                        ? (item.watchTimeSeconds / maxValue) * 100
+                        : 0
+                    }
+                    isPeak={item.day === activityPatterns.peakWeekday}
+                    label={item.day}
+                    watchTimeSeconds={item.watchTimeSeconds}
+                    index={index}
+                    delayMultiplier={0.05}
+                  />
+                ))}
+              {viewMode === "months" &&
+                activityPatterns.monthlyTotals.map((item, index) => (
+                  <ChartBar
+                    key={item.month}
+                    height={
+                      maxValue > 0
+                        ? (item.watchTimeSeconds / maxValue) * 100
+                        : 0
+                    }
+                    isPeak={item.month === activityPatterns.peakMonth}
+                    label={item.monthName}
+                    watchTimeSeconds={item.watchTimeSeconds}
+                    index={index}
+                    delayMultiplier={0.05}
+                  />
+                ))}
+            </div>
+
+            <div className="ml-14 flex gap-1 mt-2">
+              {viewMode === "hours" &&
+                activityPatterns.hourlyPatterns.map((item) => (
+                  <div
+                    key={item.hour}
+                    className="flex-1 text-center text-[10px] text-white/40"
+                  >
+                    {item.hour % 3 === 0 ? item.hour : ""}
+                  </div>
+                ))}
+              {viewMode === "days" &&
+                activityPatterns.weekdayPatterns.map((item) => (
+                  <div
+                    key={item.day}
+                    className="flex-1 text-center text-xs text-white/40"
+                  >
+                    {item.day.slice(0, 3)}
+                  </div>
+                ))}
+              {viewMode === "months" &&
+                activityPatterns.monthlyTotals.map((item) => (
+                  <div
+                    key={item.month}
+                    className="flex-1 text-center text-[10px] text-white/40"
+                  >
+                    {item.monthName.slice(0, 3)}
+                  </div>
+                ))}
+            </div>
+          </motion.div>
+        </div>
+
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="relative"
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-20 pt-16 border-t border-white/10"
         >
-          <div className="absolute left-0 top-0 bottom-8 w-12 flex flex-col justify-between text-xs text-white/40">
-            <span>{formatWatchTime(maxValue)}</span>
-            <span>{formatWatchTime(Math.round(maxValue / 2))}</span>
-            <span>0</span>
-          </div>
-
-          <div className="ml-14 h-64 flex items-end gap-1">
-            {viewMode === "hours" &&
-              activityPatterns.hourlyPatterns.map((item, index) => (
-                <ChartBar
-                  key={item.hour}
-                  height={
-                    maxValue > 0 ? (item.watchTimeSeconds / maxValue) * 100 : 0
-                  }
-                  isPeak={item.hour === activityPatterns.peakHour}
-                  label={`${item.hour}:00`}
-                  watchTimeSeconds={item.watchTimeSeconds}
-                  index={index}
-                  delayMultiplier={0.02}
-                />
-              ))}
-            {viewMode === "days" &&
-              activityPatterns.weekdayPatterns.map((item, index) => (
-                <ChartBar
-                  key={item.day}
-                  height={
-                    maxValue > 0 ? (item.watchTimeSeconds / maxValue) * 100 : 0
-                  }
-                  isPeak={item.day === activityPatterns.peakWeekday}
-                  label={item.day}
-                  watchTimeSeconds={item.watchTimeSeconds}
-                  index={index}
-                  delayMultiplier={0.05}
-                />
-              ))}
-            {viewMode === "months" &&
-              activityPatterns.monthlyTotals.map((item, index) => (
-                <ChartBar
-                  key={item.month}
-                  height={
-                    maxValue > 0 ? (item.watchTimeSeconds / maxValue) * 100 : 0
-                  }
-                  isPeak={item.month === activityPatterns.peakMonth}
-                  label={item.monthName}
-                  watchTimeSeconds={item.watchTimeSeconds}
-                  index={index}
-                  delayMultiplier={0.05}
-                />
-              ))}
-          </div>
-
-          <div className="ml-14 flex gap-1 mt-2">
-            {viewMode === "hours" &&
-              activityPatterns.hourlyPatterns.map((item) => (
-                <div
-                  key={item.hour}
-                  className="flex-1 text-center text-[10px] text-white/40"
-                >
-                  {item.hour % 3 === 0 ? item.hour : ""}
-                </div>
-              ))}
-            {viewMode === "days" &&
-              activityPatterns.weekdayPatterns.map((item) => (
-                <div
-                  key={item.day}
-                  className="flex-1 text-center text-xs text-white/40"
-                >
-                  {item.day.slice(0, 3)}
-                </div>
-              ))}
-            {viewMode === "months" &&
-              activityPatterns.monthlyTotals.map((item) => (
-                <div
-                  key={item.month}
-                  className="flex-1 text-center text-[10px] text-white/40"
-                >
-                  {item.monthName.slice(0, 3)}
-                </div>
-              ))}
-          </div>
+          <CalendarHeatmap
+            data={activityPatterns.calendarHeatmap}
+            year={year}
+            serverId={serverId}
+            userId={userId}
+          />
         </motion.div>
       </div>
     </section>
