@@ -10,16 +10,25 @@ interface ChartBarProps {
   height: number;
   isPeak: boolean;
   label: string;
-  playCount: number;
+  watchTimeSeconds: number;
   index: number;
   delayMultiplier: number;
+}
+
+function formatWatchTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
 }
 
 function ChartBar({
   height,
   isPeak,
   label,
-  playCount,
+  watchTimeSeconds,
   index,
   delayMultiplier,
 }: ChartBarProps) {
@@ -36,10 +45,10 @@ function ChartBar({
       className={`flex-1 rounded-t-sm ${
         isPeak ? "bg-blue-500" : "bg-blue-500/40 hover:bg-blue-500/60"
       } transition-colors cursor-pointer group relative`}
-      title={`${label} - ${playCount} plays`}
+      title={`${label} - ${formatWatchTime(watchTimeSeconds)}`}
     >
       <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:block bg-white/10 backdrop-blur px-2 py-1 rounded text-xs whitespace-nowrap">
-        {playCount} plays
+        {formatWatchTime(watchTimeSeconds)}
       </div>
     </motion.div>
   );
@@ -57,7 +66,7 @@ export function ActivityPatternsSection({
   const { maxValue, peakLabel, backgroundText } = useMemo(() => {
     if (viewMode === "hours") {
       const max = Math.max(
-        ...activityPatterns.hourlyPatterns.map((d) => d.playCount),
+        ...activityPatterns.hourlyPatterns.map((d) => d.watchTimeSeconds),
       );
       return {
         maxValue: max,
@@ -67,7 +76,7 @@ export function ActivityPatternsSection({
     }
     if (viewMode === "days") {
       const max = Math.max(
-        ...activityPatterns.weekdayPatterns.map((d) => d.playCount),
+        ...activityPatterns.weekdayPatterns.map((d) => d.watchTimeSeconds),
       );
       return {
         maxValue: max,
@@ -76,7 +85,7 @@ export function ActivityPatternsSection({
       };
     }
     const max = Math.max(
-      ...activityPatterns.monthlyTotals.map((d) => d.playCount),
+      ...activityPatterns.monthlyTotals.map((d) => d.watchTimeSeconds),
     );
     const peakMonth = activityPatterns.monthlyTotals.find(
       (m) => m.month === activityPatterns.peakMonth,
@@ -162,8 +171,8 @@ export function ActivityPatternsSection({
           className="relative"
         >
           <div className="absolute left-0 top-0 bottom-8 w-12 flex flex-col justify-between text-xs text-white/40">
-            <span>{maxValue}</span>
-            <span>{Math.round(maxValue / 2)}</span>
+            <span>{formatWatchTime(maxValue)}</span>
+            <span>{formatWatchTime(Math.round(maxValue / 2))}</span>
             <span>0</span>
           </div>
 
@@ -172,10 +181,12 @@ export function ActivityPatternsSection({
               activityPatterns.hourlyPatterns.map((item, index) => (
                 <ChartBar
                   key={item.hour}
-                  height={maxValue > 0 ? (item.playCount / maxValue) * 100 : 0}
+                  height={
+                    maxValue > 0 ? (item.watchTimeSeconds / maxValue) * 100 : 0
+                  }
                   isPeak={item.hour === activityPatterns.peakHour}
                   label={`${item.hour}:00`}
-                  playCount={item.playCount}
+                  watchTimeSeconds={item.watchTimeSeconds}
                   index={index}
                   delayMultiplier={0.02}
                 />
@@ -184,10 +195,12 @@ export function ActivityPatternsSection({
               activityPatterns.weekdayPatterns.map((item, index) => (
                 <ChartBar
                   key={item.day}
-                  height={maxValue > 0 ? (item.playCount / maxValue) * 100 : 0}
+                  height={
+                    maxValue > 0 ? (item.watchTimeSeconds / maxValue) * 100 : 0
+                  }
                   isPeak={item.day === activityPatterns.peakWeekday}
                   label={item.day}
-                  playCount={item.playCount}
+                  watchTimeSeconds={item.watchTimeSeconds}
                   index={index}
                   delayMultiplier={0.05}
                 />
@@ -196,10 +209,12 @@ export function ActivityPatternsSection({
               activityPatterns.monthlyTotals.map((item, index) => (
                 <ChartBar
                   key={item.month}
-                  height={maxValue > 0 ? (item.playCount / maxValue) * 100 : 0}
+                  height={
+                    maxValue > 0 ? (item.watchTimeSeconds / maxValue) * 100 : 0
+                  }
                   isPeak={item.month === activityPatterns.peakMonth}
                   label={item.monthName}
-                  playCount={item.playCount}
+                  watchTimeSeconds={item.watchTimeSeconds}
                   index={index}
                   delayMultiplier={0.05}
                 />
