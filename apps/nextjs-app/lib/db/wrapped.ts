@@ -236,13 +236,13 @@ const MONTH_NAMES = [
 ];
 
 const WEEKDAY_NAMES = [
-  "Sunday",
   "Monday",
   "Tuesday",
   "Wednesday",
   "Thursday",
   "Friday",
   "Saturday",
+  "Sunday",
 ];
 
 // =============================================================================
@@ -828,7 +828,9 @@ export async function getWrappedActivityPatterns(
     .orderBy(sql`EXTRACT(DOW FROM ${sessions.startTime})`);
 
   const weekdayPatterns: WeekdayPattern[] = WEEKDAY_NAMES.map((day, index) => {
-    const stat = weekdayStats.find((s) => Number(s.dayIndex) === index);
+    // Convert from Monday-first index to PostgreSQL DOW (0=Sunday, 1=Monday, etc.)
+    const dbDowIndex = index === 6 ? 0 : index + 1;
+    const stat = weekdayStats.find((s) => Number(s.dayIndex) === dbDowIndex);
     return {
       day,
       dayIndex: index,
