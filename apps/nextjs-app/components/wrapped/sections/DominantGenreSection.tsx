@@ -148,7 +148,8 @@ export function DominantGenreSection({
               {topGenres.slice(1, 6).map((genre, index) => {
                 const percentage =
                   dominantGenre.watchTimeSeconds > 0
-                    ? (genre.watchTimeSeconds / dominantGenre.watchTimeSeconds) *
+                    ? (genre.watchTimeSeconds /
+                        dominantGenre.watchTimeSeconds) *
                       100
                     : 0;
                 return (

@@ -174,6 +174,8 @@ export interface RewatchStats {
     playCount: number;
     totalWatchTimeSeconds: number;
     primaryImageTag: string | null;
+    seriesName: string | null;
+    productionYear: number | null;
   }>;
 }
 
@@ -1036,6 +1038,8 @@ export async function getWrappedRewatchStats(
     playCount: item.playCount,
     totalWatchTimeSeconds: Number(item.totalWatchTimeSeconds ?? 0),
     primaryImageTag: item.primaryImageTag,
+    seriesName: item.seriesName,
+    productionYear: item.productionYear,
   }));
 
   // Calculate rewatch stats

@@ -14,6 +14,19 @@ interface RewatchSectionProps {
   serverId: number;
 }
 
+function getItemSubtitle(
+  seriesName: string | null,
+  productionYear: number | null,
+): string | null {
+  if (seriesName !== null) {
+    return seriesName;
+  }
+  if (productionYear !== null) {
+    return `(${productionYear})`;
+  }
+  return null;
+}
+
 export function RewatchSection({
   rewatchStats,
   server,
@@ -77,6 +90,10 @@ export function RewatchSection({
                   item.itemId,
                   item.primaryImageTag,
                 );
+                const subtitle = getItemSubtitle(
+                  item.seriesName,
+                  item.productionYear,
+                );
 
                 return (
                   <Link
@@ -108,6 +125,9 @@ export function RewatchSection({
                     <h4 className="font-semibold text-sm group-hover:text-blue-300 transition-colors truncate uppercase">
                       {item.itemName}
                     </h4>
+                    {subtitle !== null && (
+                      <p className="text-xs text-white/50">{subtitle}</p>
+                    )}
                     <p className="text-xs text-white/50">
                       {item.playCount} plays
                     </p>
