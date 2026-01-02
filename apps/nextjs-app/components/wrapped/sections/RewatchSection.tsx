@@ -7,6 +7,13 @@ import Link from "next/link";
 import type { RewatchStats } from "@/lib/db/wrapped";
 import type { ServerPublic } from "@/lib/types";
 import { getJellyfinImageUrl } from "@/lib/utils";
+import {
+  AccentHighlight,
+  Highlight,
+  SectionHeader,
+  SubsectionHeader,
+  Tagline,
+} from "./shared";
 
 interface RewatchSectionProps {
   rewatchStats: RewatchStats;
@@ -37,40 +44,35 @@ export function RewatchSection({
   const topRewatched = rewatchStats.topRewatchedItems.slice(0, 5);
 
   return (
-    <section className="relative py-24 px-4 md:px-8 overflow-hidden">
+    <section className="relative py-28 px-4 md:px-8 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-950/30 via-transparent to-transparent" />
 
       <div className="max-w-6xl mx-auto relative">
+        <SectionHeader icon={Repeat} label="On repeat" title="Most Replayed" />
+
         <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          whileInView={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
-          className="mb-8"
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="mb-12"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <Repeat className="w-8 h-8 text-blue-400" strokeWidth={1.5} />
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold">
-              Most Replayed
-            </h2>
+          <div className="flex items-start gap-4">
+            <div className="hidden md:block w-px self-stretch bg-gradient-to-b from-blue-400 to-transparent" />
+            <p className="text-xl md:text-2xl text-white/70 max-w-2xl leading-relaxed">
+              <AccentHighlight>
+                {rewatchStats.rewatchPercentage}%
+              </AccentHighlight>{" "}
+              of your watches were replays
+              {rewatchStats.totalRewatches > 0 && (
+                <>
+                  . That's{" "}
+                  <Highlight>{rewatchStats.totalRewatches} rewatches</Highlight>
+                </>
+              )}
+              . <Tagline>Familiar favorites hit different.</Tagline>
+            </p>
           </div>
-          <p className="text-lg md:text-xl text-white/70 max-w-2xl">
-            Not to brag, but{" "}
-            <span className="text-blue-400 font-bold">
-              {rewatchStats.rewatchPercentage}%
-            </span>{" "}
-            of your watches this year have been replays.
-            {rewatchStats.totalRewatches > 0 && (
-              <>
-                {" "}
-                That's a total of{" "}
-                <span className="text-white font-bold">
-                  {rewatchStats.totalRewatches}
-                </span>{" "}
-                rewatches. Familiar favorites really hit different!
-              </>
-            )}
-          </p>
         </motion.div>
 
         {topRewatched.length > 0 && (
@@ -80,9 +82,9 @@ export function RewatchSection({
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <h3 className="text-lg text-white/60 mb-6">
-              Your Top {topRewatched.length} Most Replayed
-            </h3>
+            <SubsectionHeader>
+              Top {topRewatched.length} most replayed
+            </SubsectionHeader>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-4 md:gap-6">
               {topRewatched.map((item, index) => {
                 const imageUrl = getJellyfinImageUrl(

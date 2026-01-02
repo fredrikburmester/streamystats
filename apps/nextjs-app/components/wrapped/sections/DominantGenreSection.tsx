@@ -4,16 +4,15 @@ import { TrendingUp } from "lucide-react";
 import { motion } from "motion/react";
 import type { GenrePercentile, GenreStats } from "@/lib/db/wrapped";
 import { formatDuration } from "@/lib/utils";
+import { Highlight, SectionDescription, SubsectionHeader } from "./shared";
 
 interface DominantGenreSectionProps {
-  year: number;
   topGenres: GenreStats[];
   genrePercentiles: GenrePercentile[];
   totalGenresExplored: number;
 }
 
 export function DominantGenreSection({
-  year,
   topGenres,
   genrePercentiles,
   totalGenresExplored,
@@ -27,14 +26,14 @@ export function DominantGenreSection({
   const hours = Math.round(dominantGenre.watchTimeSeconds / 3600);
 
   return (
-    <section className="relative py-32 px-4 md:px-8 overflow-hidden">
+    <section className="relative py-28 px-4 md:px-8 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-950/30 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-tl from-blue-950/30 via-transparent to-transparent" />
 
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
         <motion.span
           initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 0.05, y: 0 }}
+          whileInView={{ opacity: 0.04, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
           className="text-[8rem] md:text-[14rem] lg:text-[18rem] font-black text-white uppercase whitespace-nowrap tracking-tighter"
@@ -45,56 +44,40 @@ export function DominantGenreSection({
 
       <div className="max-w-6xl mx-auto relative">
         <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
-          className="flex items-center gap-3 mb-12"
-        >
-          <TrendingUp className="w-8 h-8 text-blue-400" strokeWidth={1.5} />
-          <span className="text-xl text-white/60">
-            Your dominant genre in {year} was
-          </span>
-        </motion.div>
-
-        <motion.h2
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-5xl md:text-7xl lg:text-8xl font-black mb-8"
+          transition={{ duration: 0.6 }}
+          className="mb-12"
         >
-          <span className="text-blue-400">{dominantGenre.genre}</span>
-          <span className="text-white">.</span>
-        </motion.h2>
+          <div className="flex items-center gap-3 mb-4">
+            <TrendingUp className="w-7 h-7 text-blue-400" strokeWidth={1.5} />
+            <p className="text-base text-white/50 uppercase tracking-wider">
+              Dominant genre
+            </p>
+          </div>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
+            You're a{" "}
+            <span className="text-blue-400">{dominantGenre.genre}</span> fan
+          </h2>
+          {topPercentile && topPercentile.percentile >= 50 && (
+            <p className="text-lg text-white/60">
+              Top{" "}
+              <span className="text-blue-400 font-semibold">
+                {100 - topPercentile.percentile}%
+              </span>{" "}
+              of {dominantGenre.genre.toLowerCase()} watchers
+            </p>
+          )}
+        </motion.div>
 
-        {topPercentile && topPercentile.percentile >= 50 && (
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-xl md:text-2xl text-white/80 mb-6"
-          >
-            In fact you placed in the{" "}
-            <span className="text-blue-400 font-bold">
-              top {100 - topPercentile.percentile}%
-            </span>{" "}
-            of {dominantGenre.genre} connoisseurs.
-          </motion.p>
-        )}
-
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="text-lg md:text-xl text-white/60 mb-12 max-w-2xl"
-        >
-          With <span className="font-bold text-white">{hours}</span> hours of{" "}
-          {dominantGenre.genre.toLowerCase()} content, this genre powered your
-          screens this year.
-        </motion.p>
+        <SectionDescription delay={0.2}>
+          <Highlight>{hours} hours</Highlight> of{" "}
+          {dominantGenre.genre.toLowerCase()} content powered your screens.{" "}
+          <span className="text-white/50 italic">
+            This genre defined your year.
+          </span>
+        </SectionDescription>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -143,7 +126,7 @@ export function DominantGenreSection({
             transition={{ duration: 0.6, delay: 0.5 }}
             className="mt-16"
           >
-            <h3 className="text-lg text-white/60 mb-6">Other top genres:</h3>
+            <SubsectionHeader>Other top genres</SubsectionHeader>
             <div className="space-y-3">
               {topGenres.slice(1, 6).map((genre, index) => {
                 const percentage =

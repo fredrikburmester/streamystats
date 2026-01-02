@@ -6,6 +6,12 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ServerPublic } from "@/lib/types";
 import { getJellyfinImageUrl } from "@/lib/utils";
+import {
+  AccentHighlight,
+  SectionDescription,
+  SectionHeader,
+  Tagline,
+} from "./shared";
 
 interface WatchData {
   itemId: string;
@@ -122,62 +128,41 @@ export function FirstLastPlaysSection({
     : null;
 
   return (
-    <section className="relative py-24 px-4 md:px-8 overflow-hidden">
+    <section className="relative py-28 px-4 md:px-8 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-tr from-blue-950/30 via-transparent to-transparent" />
 
       <div className="max-w-6xl mx-auto relative">
-        <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
-          className="flex items-center gap-3 mb-8"
-        >
-          <Play className="w-8 h-8 text-blue-400" strokeWidth={1.5} />
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight">
-            First & Last Plays
-            <br />
-            <span className="text-white/60">of the Year</span>
-          </h2>
-        </motion.div>
+        <SectionHeader
+          icon={Play}
+          label="The full circle"
+          title="First & Last Plays"
+        />
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-lg md:text-xl text-white/70 max-w-xl mb-12"
-        >
+        <SectionDescription>
           {firstGenre && lastGenre ? (
             <>
-              You kicked off {year} watching{" "}
-              <span className="text-blue-400 font-semibold">{firstGenre}</span>{" "}
-              mode{" "}
+              Kicked off {year} in{" "}
+              <AccentHighlight>{firstGenre}</AccentHighlight> mode
               {firstGenre === lastGenre ? (
                 <>
-                  and wrapped it up with{" "}
-                  <span className="text-blue-400 font-semibold">
-                    {lastGenre}
-                  </span>
-                  . You really know what you like!
+                  {" "}
+                  and wrapped it up the same way.{" "}
+                  <Tagline>You know what you like.</Tagline>
                 </>
               ) : (
                 <>
-                  only to wrap it up like a true{" "}
-                  <span className="text-blue-400 font-semibold">
-                    {lastGenre}
-                  </span>{" "}
-                  aficionado.
+                  , wrapped it up as a true{" "}
+                  <AccentHighlight>{lastGenre}</AccentHighlight> aficionado.
                 </>
               )}
             </>
           ) : (
             <>
-              From the first play to the last, here's how you bookended your{" "}
-              {year} viewing journey.
+              From the opening scene to the final credits, here's how you
+              bookended {year}.
             </>
           )}
-        </motion.p>
+        </SectionDescription>
 
         <div className="grid md:grid-cols-2 gap-8 lg:gap-16">
           {firstWatch && (

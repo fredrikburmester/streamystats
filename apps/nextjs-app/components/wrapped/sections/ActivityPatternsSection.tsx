@@ -1,9 +1,11 @@
 "use client";
 
+import { Activity } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import type { WrappedActivityPatterns } from "@/lib/db/wrapped";
 import { CalendarHeatmap } from "./CalendarHeatmap";
+import { Highlight, Tagline } from "./shared";
 
 type ViewMode = "hours" | "days" | "months";
 
@@ -70,91 +72,128 @@ export function ActivityPatternsSection({
 }: ActivityPatternsSectionProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("days");
 
-  const { maxValue, peakLabel, backgroundText } = useMemo(() => {
-    if (viewMode === "hours") {
+  const { maxValue, peakLabel, backgroundText, viewModeText, description } =
+    useMemo(() => {
+      const peakHour = activityPatterns.peakHour;
+      let timeOfDayLabel = "evening watcher";
+      let timeOfDayTagline = "The work ends, the watch begins.";
+
+      if (peakHour >= 22 || peakHour < 5) {
+        timeOfDayLabel = "night owl";
+        timeOfDayTagline = "Just one more episode is your love language.";
+      } else if (peakHour >= 5 && peakHour < 12) {
+        timeOfDayLabel = "morning person";
+        timeOfDayTagline = "Starting your day strong!";
+      } else if (peakHour >= 12 && peakHour < 17) {
+        timeOfDayLabel = "afternoon viewer";
+        timeOfDayTagline = "Your break time is screen time.";
+      }
+
+      if (viewMode === "hours") {
+        const max = Math.max(
+          ...activityPatterns.hourlyPatterns.map((d) => d.watchTimeSeconds),
+        );
+        return {
+          maxValue: max,
+          peakLabel: `${peakHour.toString().padStart(2, "0")}:00`,
+          backgroundText: "HOURS",
+          viewModeText: "was your peak",
+          description: {
+            highlight: timeOfDayLabel,
+            text: ".",
+            tagline: timeOfDayTagline,
+          },
+        };
+      }
+      if (viewMode === "days") {
+        const max = Math.max(
+          ...activityPatterns.weekdayPatterns.map((d) => d.watchTimeSeconds),
+        );
+        return {
+          maxValue: max,
+          peakLabel: activityPatterns.peakWeekday,
+          backgroundText: "DAYS",
+          viewModeText: "took the crown",
+          description: {
+            highlight: "Weekends or weekdays",
+            text: ", you have your rhythm.",
+            tagline: "Your favorite day to unwind.",
+          },
+        };
+      }
       const max = Math.max(
-        ...activityPatterns.hourlyPatterns.map((d) => d.watchTimeSeconds),
+        ...activityPatterns.monthlyTotals.map((d) => d.watchTimeSeconds),
       );
+      const peakMonth = activityPatterns.monthlyTotals.find(
+        (m) => m.month === activityPatterns.peakMonth,
+      );
+      const monthName = peakMonth?.monthName ?? "Unknown";
       return {
         maxValue: max,
-        peakLabel: `${activityPatterns.peakHour.toString().padStart(2, "0")}:00`,
-        backgroundText: "HOURS",
+        peakLabel: monthName,
+        backgroundText: "MONTHS",
+        viewModeText: "was your biggest month",
+        description: {
+          highlight: "It really had you committed.",
+          text: "",
+          tagline: "When the screen called, you answered.",
+        },
       };
-    }
-    if (viewMode === "days") {
-      const max = Math.max(
-        ...activityPatterns.weekdayPatterns.map((d) => d.watchTimeSeconds),
-      );
-      return {
-        maxValue: max,
-        peakLabel: activityPatterns.peakWeekday,
-        backgroundText: "DAYS",
-      };
-    }
-    const max = Math.max(
-      ...activityPatterns.monthlyTotals.map((d) => d.watchTimeSeconds),
-    );
-    const peakMonth = activityPatterns.monthlyTotals.find(
-      (m) => m.month === activityPatterns.peakMonth,
-    );
-    return {
-      maxValue: max,
-      peakLabel: peakMonth?.monthName ?? "Unknown",
-      backgroundText: "MONTHS",
-    };
-  }, [viewMode, activityPatterns]);
+    }, [viewMode, activityPatterns]);
 
   const tabs = [
     { key: "hours" as const, label: "HOURS" },
     { key: "days" as const, label: "DAYS" },
     { key: "months" as const, label: "MONTHS" },
   ];
-
-  let viewModeText: string;
-
-  switch (viewMode) {
-    case "hours":
-      viewModeText = "was your peak";
-      break;
-    case "days":
-      viewModeText = "took the crown";
-      break;
-    case "months":
-      viewModeText = "was your biggest month";
-      break;
-  }
   return (
-    <section className="relative py-24 px-4 md:px-8 overflow-hidden">
+    <section className="relative py-28 px-4 md:px-8 overflow-hidden">
       <div className="max-w-6xl mx-auto relative">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6 }}
-          className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-12"
+          className="mb-12"
         >
-          <div>
-            <p className="text-lg text-white/60 mb-2">Most active</p>
-            <h2 className="text-3xl md:text-4xl font-bold">
-              <span className="text-blue-400">{peakLabel}</span> {viewModeText}
-            </h2>
-          </div>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-6">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Activity className="w-7 h-7 text-blue-400" strokeWidth={1.5} />
+                <p className="text-base text-white/50 uppercase tracking-wider">
+                  Activity patterns
+                </p>
+              </div>
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
+                <span className="text-blue-400">{peakLabel}</span>{" "}
+                <span className="text-white/80">{viewModeText}</span>
+              </h2>
+            </div>
 
-          <div className="flex gap-1 bg-white/5 p-1 rounded-full">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setViewMode(tab.key)}
-                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
-                  viewMode === tab.key
-                    ? "bg-white/10 text-white"
-                    : "text-white/50 hover:text-white/70"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            <div className="flex gap-1 bg-white/5 p-1 rounded-full w-fit">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setViewMode(tab.key)}
+                  className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
+                    viewMode === tab.key
+                      ? "bg-white/10 text-white"
+                      : "text-white/50 hover:text-white/70"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-start gap-4">
+            <div className="hidden md:block w-px self-stretch bg-gradient-to-b from-blue-400 to-transparent" />
+            <p className="text-xl md:text-2xl text-white/70 max-w-2xl leading-relaxed">
+              {viewMode === "hours" ? "You're a " : ""}
+              <Highlight>{description.highlight}</Highlight>
+              {description.text} <Tagline>{description.tagline}</Tagline>
+            </p>
           </div>
         </motion.div>
 

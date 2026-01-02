@@ -57,7 +57,6 @@ export async function WrappedContent({
       />
 
       <DominantGenreSection
-        year={year}
         topGenres={data.genres.topGenres}
         genrePercentiles={data.genrePercentiles}
         totalGenresExplored={data.genres.totalGenresExplored}

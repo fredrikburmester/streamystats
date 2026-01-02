@@ -1,6 +1,14 @@
 "use client";
 
-import { Calendar, Clock, Film, Flame, Play, Repeat } from "lucide-react";
+import {
+  BarChart3,
+  Calendar,
+  Clock,
+  Film,
+  Flame,
+  Play,
+  Repeat,
+} from "lucide-react";
 import { motion } from "motion/react";
 import type {
   RewatchStats,
@@ -9,6 +17,7 @@ import type {
   WrappedOverview,
 } from "@/lib/db/wrapped";
 import { formatDuration } from "@/lib/utils";
+import { Highlight, SubsectionHeader, Tagline } from "./shared";
 
 interface YearInNumbersSectionProps {
   year: number;
@@ -58,8 +67,8 @@ export function YearInNumbersSection({
   const episodeCount = typeBreakdown.episode.playCount;
 
   return (
-    <section className="relative py-32 px-4 md:px-8 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-blue-950/15 to-transparent" />
+    <section className="relative py-28 px-4 md:px-8 overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-950/20 to-transparent" />
 
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
         <motion.span
@@ -79,12 +88,30 @@ export function YearInNumbersSection({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6 }}
-          className="mb-16"
+          className="mb-12"
         >
-          <p className="text-lg text-white/60 mb-2">Now, let's talk figures!</p>
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold">
-            Here's {year} in numbers:
+          <div className="flex items-center gap-3 mb-4">
+            <BarChart3 className="w-7 h-7 text-blue-400" strokeWidth={1.5} />
+            <p className="text-base text-white/50 uppercase tracking-wider">
+              By the numbers
+            </p>
+          </div>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
+            Your {year} in Stats
           </h2>
+          <div className="flex items-start gap-4">
+            <div className="hidden md:block w-px self-stretch bg-gradient-to-b from-blue-400 to-transparent" />
+            <p className="text-xl md:text-2xl text-white/70 max-w-2xl leading-relaxed">
+              <Highlight>
+                {overview.totalPlays.toLocaleString()} plays
+              </Highlight>{" "}
+              across{" "}
+              <Highlight>
+                {overview.uniqueItemsWatched.toLocaleString()} titles
+              </Highlight>
+              . <Tagline>Here's how you spent your time.</Tagline>
+            </p>
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
@@ -133,7 +160,7 @@ export function YearInNumbersSection({
           transition={{ duration: 0.6, delay: 0.4 }}
           className="mt-16 pt-16 border-t border-white/10"
         >
-          <h3 className="text-xl text-white/60 mb-8">Content breakdown</h3>
+          <SubsectionHeader>Content breakdown</SubsectionHeader>
 
           <div className="flex flex-col md:flex-row gap-8">
             <div className="flex-1">

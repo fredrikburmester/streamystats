@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { PersonStats } from "@/lib/db/wrapped";
 import type { ServerPublic } from "@/lib/types";
 import { getJellyfinImageUrl } from "@/lib/utils";
+import { Highlight, SectionHeader, SubsectionHeader, Tagline } from "./shared";
 
 interface MostWatchedPeopleSectionProps {
   year: number;
@@ -95,42 +96,37 @@ export function MostWatchedPeopleSection({
   if (topActors.length === 0 && topDirectors.length === 0) return null;
 
   return (
-    <section className="relative py-24 px-4 md:px-8 overflow-hidden">
+    <section className="relative py-28 px-4 md:px-8 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-tr from-blue-950/30 via-transparent to-transparent" />
 
       <div className="max-w-6xl mx-auto relative">
+        <SectionHeader
+          icon={Users}
+          label="Familiar faces"
+          title="Most Watched People"
+        />
+
         <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          whileInView={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
-          className="mb-8"
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="mb-12"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <Users className="w-8 h-8 text-blue-400" strokeWidth={1.5} />
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold">
-              Most Watched
-            </h2>
+          <div className="flex items-start gap-4">
+            <div className="hidden md:block w-px self-stretch bg-gradient-to-b from-blue-400 to-transparent" />
+            <p className="text-xl md:text-2xl text-white/70 max-w-2xl leading-relaxed">
+              <Highlight>{movieCount} movies</Highlight>
+              {episodeCount > 0 && (
+                <>
+                  {" "}
+                  and <Highlight>{episodeCount} episodes</Highlight>
+                </>
+              )}{" "}
+              brought to life by countless talents.{" "}
+              <Tagline>The faces that defined your {year}.</Tagline>
+            </p>
           </div>
-          <p className="text-lg text-white/60 max-w-2xl">
-            In <span className="text-white font-semibold">{year}</span> you
-            watched{" "}
-            <span className="text-blue-400 font-semibold">
-              {movieCount} movies
-            </span>
-            {episodeCount > 0 && (
-              <>
-                , and{" "}
-                <span className="text-blue-400 font-semibold">
-                  {episodeCount} episodes
-                </span>
-              </>
-            )}
-            . During this journey you discovered stories brought to life by
-            countless actors and directors. Here's the{" "}
-            <span className="text-white font-semibold">top 5</span> of each
-            category.
-          </p>
         </motion.div>
 
         {topActors.length > 0 && (
@@ -141,7 +137,7 @@ export function MostWatchedPeopleSection({
             transition={{ duration: 0.6, delay: 0.1 }}
             className="mb-16"
           >
-            <h3 className="text-xl font-semibold mb-6">Actors</h3>
+            <SubsectionHeader>Actors</SubsectionHeader>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-4 md:gap-6">
               {topActors.slice(0, 5).map((actor, index) => (
                 <PersonCard
@@ -164,7 +160,7 @@ export function MostWatchedPeopleSection({
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <h3 className="text-xl font-semibold mb-6">Directors</h3>
+            <SubsectionHeader>Directors</SubsectionHeader>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-4 md:gap-6">
               {topDirectors.slice(0, 5).map((director, index) => (
                 <PersonCard
