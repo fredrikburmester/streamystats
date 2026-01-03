@@ -37,7 +37,7 @@ function ContentToggle({
   if (!showBoth) return null;
 
   return (
-    <div className="relative p-1 rounded-full bg-white/5 backdrop-blur-sm border border-white/10">
+    <div className="relative p-1 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 w-fit">
       <div className="relative flex">
         <button
           type="button"
@@ -310,7 +310,7 @@ export function MostPlayedSection({
         </motion.div>
 
         {restItems.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-14 px-28 py-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-8 lg:gap-14 px-4 sm:px-8 lg:px-28 py-6">
             {restItems.map((item, index) => (
               <PosterCard
                 key={item.id}
