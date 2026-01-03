@@ -26,6 +26,9 @@ function YearTimeline({
   getYearUrl: (y: number) => string;
 }) {
   const sortedYears = [...years].sort((a, b) => a - b);
+  if (sortedYears.length === 0) {
+    return null;
+  }
   const minYear = sortedYears[0];
   const maxYear = sortedYears[sortedYears.length - 1];
   const displayYears: number[] = [];

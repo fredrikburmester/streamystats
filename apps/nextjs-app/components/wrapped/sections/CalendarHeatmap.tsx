@@ -17,6 +17,7 @@ interface CalendarHeatmapProps {
   year: number;
   serverId: number;
   userId: string;
+  longestStreak: number;
 }
 
 function formatWatchTime(seconds: number): string {
@@ -30,7 +31,8 @@ function formatWatchTime(seconds: number): string {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
   return date.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -49,101 +51,91 @@ export function CalendarHeatmap({
   year,
   serverId,
   userId,
+  longestStreak,
 }: CalendarHeatmapProps) {
-  const { weeks, maxValue, monthPositions, activeDays, longestStreak } =
-    useMemo(() => {
-      const dataMap = new Map(data.map((d) => [d.date, d.watchTimeSeconds]));
+  const { weeks, maxValue, monthPositions, activeDays } = useMemo(() => {
+    const dataMap = new Map(data.map((d) => [d.date, d.watchTimeSeconds]));
 
-      const formatDateStr = (d: Date): string => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        return `${y}-${m}-${day}`;
-      };
+    const formatDateStr = (d: Date): string => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
 
-      const getMondayBasedDay = (d: Date): number => (d.getDay() + 6) % 7;
+    const getMondayBasedDay = (d: Date): number => (d.getDay() + 6) % 7;
 
-      type DaySlot = { date: string; value: number } | null;
-      const weeks: Array<Array<DaySlot>> = [];
-      let currentWeek: Array<DaySlot> = Array(7).fill(null);
-      let totalDays = 0;
-      let activeDays = 0;
-      let longestStreak = 0;
-      let currentStreak = 0;
+    type DaySlot = { date: string; value: number } | null;
+    const weeks: Array<Array<DaySlot>> = [];
+    let currentWeek: Array<DaySlot> = Array(7).fill(null);
+    let activeDays = 0;
 
-      const current = new Date(year, 0, 1);
-      while (current.getFullYear() === year) {
-        const dateStr = formatDateStr(current);
-        const dayOfWeek = getMondayBasedDay(current);
+    const current = new Date(year, 0, 1);
+    while (current.getFullYear() === year) {
+      const dateStr = formatDateStr(current);
+      const dayOfWeek = getMondayBasedDay(current);
 
-        if (dayOfWeek === 0 && currentWeek.some((d) => d !== null)) {
-          weeks.push(currentWeek);
-          currentWeek = Array(7).fill(null);
-        }
-
-        const value = dataMap.get(dateStr) ?? 0;
-        currentWeek[dayOfWeek] = { date: dateStr, value };
-        totalDays++;
-        if (value > 0) {
-          activeDays++;
-          currentStreak++;
-          longestStreak = Math.max(longestStreak, currentStreak);
-        } else {
-          currentStreak = 0;
-        }
-
-        current.setDate(current.getDate() + 1);
-      }
-
-      if (currentWeek.some((d) => d !== null)) {
+      if (dayOfWeek === 0 && currentWeek.some((d) => d !== null)) {
         weeks.push(currentWeek);
+        currentWeek = Array(7).fill(null);
       }
 
-      const firstDayOfWeek = getMondayBasedDay(new Date(year, 0, 1));
+      const value = dataMap.get(dateStr) ?? 0;
+      currentWeek[dayOfWeek] = { date: dateStr, value };
+      if (value > 0) {
+        activeDays++;
+      }
 
-      const allValues = weeks.flatMap((week) =>
-        week
-          .filter((d): d is NonNullable<typeof d> => d !== null)
-          .map((d) => d.value),
+      current.setDate(current.getDate() + 1);
+    }
+
+    if (currentWeek.some((d) => d !== null)) {
+      weeks.push(currentWeek);
+    }
+
+    const firstDayOfWeek = getMondayBasedDay(new Date(year, 0, 1));
+
+    const allValues = weeks.flatMap((week) =>
+      week
+        .filter((d): d is NonNullable<typeof d> => d !== null)
+        .map((d) => d.value),
+    );
+    const maxValue = Math.max(...allValues, 1);
+
+    const monthPositions: Array<{ month: string; weekIndex: number }> = [];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    for (let m = 0; m < 12; m++) {
+      const firstOfMonth = new Date(year, m, 1);
+      const startOfYear = new Date(year, 0, 1);
+      const dayOfYear = Math.floor(
+        (firstOfMonth.getTime() - startOfYear.getTime()) /
+          (1000 * 60 * 60 * 24),
       );
-      const maxValue = Math.max(...allValues, 1);
+      const weekIndex = Math.floor((dayOfYear + firstDayOfWeek) / 7);
+      monthPositions.push({ month: months[m], weekIndex });
+    }
 
-      const monthPositions: Array<{ month: string; weekIndex: number }> = [];
-      const months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-
-      for (let m = 0; m < 12; m++) {
-        const firstOfMonth = new Date(year, m, 1);
-        const startOfYear = new Date(year, 0, 1);
-        const dayOfYear = Math.floor(
-          (firstOfMonth.getTime() - startOfYear.getTime()) /
-            (1000 * 60 * 60 * 24),
-        );
-        const weekIndex = Math.floor((dayOfYear + firstDayOfWeek) / 7);
-        monthPositions.push({ month: months[m], weekIndex });
-      }
-
-      return {
-        weeks,
-        maxValue,
-        monthPositions,
-        totalDays,
-        activeDays,
-        longestStreak,
-      };
-    }, [data, year]);
+    return {
+      weeks,
+      maxValue,
+      monthPositions,
+      activeDays,
+    };
+  }, [data, year]);
 
   const getIntensityClass = (value: number): string => {
     if (value < 0) return "bg-transparent";

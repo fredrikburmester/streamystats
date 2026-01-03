@@ -90,9 +90,8 @@ export function ActivityPatternsSection({
       }
 
       if (viewMode === "hours") {
-        const max = Math.max(
-          ...activityPatterns.hourlyPatterns.map((d) => d.watchTimeSeconds),
-        );
+        const values = activityPatterns.hourlyPatterns.map((d) => d.watchTimeSeconds);
+        const max = values.length > 0 ? Math.max(...values) : 0;
         return {
           maxValue: max,
           peakLabel: `${peakHour.toString().padStart(2, "0")}:00`,
@@ -106,9 +105,8 @@ export function ActivityPatternsSection({
         };
       }
       if (viewMode === "days") {
-        const max = Math.max(
-          ...activityPatterns.weekdayPatterns.map((d) => d.watchTimeSeconds),
-        );
+        const values = activityPatterns.weekdayPatterns.map((d) => d.watchTimeSeconds);
+        const max = values.length > 0 ? Math.max(...values) : 0;
         return {
           maxValue: max,
           peakLabel: activityPatterns.peakWeekday,
@@ -121,9 +119,8 @@ export function ActivityPatternsSection({
           },
         };
       }
-      const max = Math.max(
-        ...activityPatterns.monthlyTotals.map((d) => d.watchTimeSeconds),
-      );
+      const values = activityPatterns.monthlyTotals.map((d) => d.watchTimeSeconds);
+      const max = values.length > 0 ? Math.max(...values) : 0;
       const peakMonth = activityPatterns.monthlyTotals.find(
         (m) => m.month === activityPatterns.peakMonth,
       );
@@ -318,6 +315,7 @@ export function ActivityPatternsSection({
             year={year}
             serverId={serverId}
             userId={userId}
+            longestStreak={activityPatterns.longestStreak}
           />
         </motion.div>
       </div>
