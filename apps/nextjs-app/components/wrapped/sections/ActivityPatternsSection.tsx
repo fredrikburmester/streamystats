@@ -90,7 +90,9 @@ export function ActivityPatternsSection({
       }
 
       if (viewMode === "hours") {
-        const values = activityPatterns.hourlyPatterns.map((d) => d.watchTimeSeconds);
+        const values = activityPatterns.hourlyPatterns.map(
+          (d) => d.watchTimeSeconds,
+        );
         const max = values.length > 0 ? Math.max(...values) : 0;
         return {
           maxValue: max,
@@ -105,7 +107,9 @@ export function ActivityPatternsSection({
         };
       }
       if (viewMode === "days") {
-        const values = activityPatterns.weekdayPatterns.map((d) => d.watchTimeSeconds);
+        const values = activityPatterns.weekdayPatterns.map(
+          (d) => d.watchTimeSeconds,
+        );
         const max = values.length > 0 ? Math.max(...values) : 0;
         return {
           maxValue: max,
@@ -119,7 +123,9 @@ export function ActivityPatternsSection({
           },
         };
       }
-      const values = activityPatterns.monthlyTotals.map((d) => d.watchTimeSeconds);
+      const values = activityPatterns.monthlyTotals.map(
+        (d) => d.watchTimeSeconds,
+      );
       const max = values.length > 0 ? Math.max(...values) : 0;
       const peakMonth = activityPatterns.monthlyTotals.find(
         (m) => m.month === activityPatterns.peakMonth,
