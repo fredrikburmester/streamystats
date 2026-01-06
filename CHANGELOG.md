@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.17.0](https://github.com/fredrikburmester/streamystats/compare/v2.16.0...v2.17.0) (2026-01-06)
+
+
+### Features
+
+* add clickable links to library statistics cards ([1597522](https://github.com/fredrikburmester/streamystats/commit/159752267eb80d395faedaeaf2f616db09a22d41))
+* add external API support for watchlist CRUD operations ([7ee1a40](https://github.com/fredrikburmester/streamystats/commit/7ee1a40784f92b381d00a2d7b5c4572aeebb00ff))
+* add per-server timezone support ([63e0dc8](https://github.com/fredrikburmester/streamystats/commit/63e0dc8e0b8ac956e66a4d7f1800a6e1fb3c1084))
+* add wrapped design ([#345](https://github.com/fredrikburmester/streamystats/issues/345)) ([c1b053d](https://github.com/fredrikburmester/streamystats/commit/c1b053d635e78efee23ba77eb2d5f825e4342dba))
+* **api:** add cors headers to recommendations endpoint ([f4ed35c](https://github.com/fredrikburmester/streamystats/commit/f4ed35c6d4a669d70c0a1bd7ce22630ed280bd08))
+* mark items as played and infer the watchtime ([a226f65](https://github.com/fredrikburmester/streamystats/commit/a226f65f930fe35f4e447ef1eec57855a94593b1))
+* **tests:** implement some tests for watchlists api ([5ce7344](https://github.com/fredrikburmester/streamystats/commit/5ce7344e0867d4066efd938aa701eaa102e379bc))
+
+
+### Bug Fixes
+
+* **#347:** useQueryParams should strip basePath from pathname ([ee1e337](https://github.com/fredrikburmester/streamystats/commit/ee1e3377bf5ba08a1b867d1ea823e1f46c335ac2))
+* combine genres in spider graph fixes [#346](https://github.com/fredrikburmester/streamystats/issues/346) ([be0f0dc](https://github.com/fredrikburmester/streamystats/commit/be0f0dc6f4be66938f25d50c1146b9855663b0f4))
+* history table filters on user profile page ([169d0cb](https://github.com/fredrikburmester/streamystats/commit/169d0cb0eb1f9af0cca1b301a2acc9cd311fb579))
+* prevent iOS zoom on command input ([a463cbe](https://github.com/fredrikburmester/streamystats/commit/a463cbed7440ea1b429d823829f89c6cf09a0245))
+* use FormattedDate in ActivityLogTable to fix hydration ([732fe37](https://github.com/fredrikburmester/streamystats/commit/732fe376a78ca8328b571b53b22aec475da20a33))
+* use next/navigation internal state instead ([8c3e5da](https://github.com/fredrikburmester/streamystats/commit/8c3e5da126e0e7cbe8c478a47911bfb0ae400e9a))
+
 ## [2.16.0](https://github.com/fredrikburmester/streamystats/compare/v2.15.0...v2.16.0) (2025-12-31)
 
 
