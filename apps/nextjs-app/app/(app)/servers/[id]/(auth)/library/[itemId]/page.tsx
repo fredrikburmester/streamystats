@@ -14,11 +14,35 @@ import {
   type RecommendationItem,
 } from "@/lib/db/similar-statistics";
 import { getMe, isUserAdmin } from "@/lib/db/users";
+import { getToken } from "@/lib/token";
 import { CastSection } from "./CastSection";
 import { ItemHeader } from "./ItemHeader";
 import { ItemMetadata } from "./ItemMetadata";
 import { SeasonsAndEpisodes } from "./SeasonsAndEpisodes";
 import { SimilarItemsList } from "./SimilarItemsList";
+
+async function getItemPlayedStatus(
+  serverUrl: string,
+  token: string,
+  userId: string,
+  itemId: string,
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${serverUrl}/Users/${userId}/Items/${itemId}`,
+      {
+        headers: { "X-Emby-Token": token },
+        signal: AbortSignal.timeout(5000),
+        next: { revalidate: 60 },
+      },
+    );
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.UserData?.Played ?? false;
+  } catch {
+    return false;
+  }
+}
 
 export default async function ItemDetailsPage({
   params,
@@ -32,16 +56,30 @@ export default async function ItemDetailsPage({
     redirect("/not-found");
   }
 
-  const [me, isAdmin] = await Promise.all([getMe(), isUserAdmin()]);
+  const [me, isAdmin, token] = await Promise.all([
+    getMe(),
+    isUserAdmin(),
+    getToken(),
+  ]);
+
+  if (!me) {
+    redirect("/login");
+  }
 
   const itemDetails = await getItemDetails({
     itemId,
-    userId: isAdmin ? undefined : me?.id,
+    userId: isAdmin ? undefined : me.id,
   });
 
   if (!itemDetails) {
     redirect("/not-found");
   }
+
+  // Fetch played status from Jellyfin
+  const isPlayed =
+    token && server.url
+      ? await getItemPlayedStatus(server.url, token, me.id, itemId)
+      : false;
 
   // Get similar items based on the specific item (not user-based)
   let similarItems: Array<RecommendationItem | SeriesRecommendationItem> = [];
@@ -76,6 +114,8 @@ export default async function ItemDetailsPage({
           server={server}
           statistics={itemDetails}
           serverId={id}
+          userId={me.id}
+          isPlayed={isPlayed}
         />
         <ItemMetadata
           item={itemDetails.item}

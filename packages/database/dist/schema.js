@@ -183,6 +183,9 @@ exports.users = (0, pg_core_1.pgTable)("users", {
     syncPlayAccess: (0, pg_core_1.text)("sync_play_access")
         .notNull()
         .default("CreateAndJoinGroups"),
+    // User preference for automatic watchtime inference when marking items as watched
+    // null = not asked yet, true = yes infer, false = no don't infer
+    inferWatchtimeOnMarkWatched: (0, pg_core_1.boolean)("infer_watchtime_on_mark_watched"),
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
     // Full-text search vector - populated by database trigger

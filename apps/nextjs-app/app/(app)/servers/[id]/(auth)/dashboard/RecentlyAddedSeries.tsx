@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
+import { MarkAsWatchedMenuItem } from "@/components/MarkAsWatchedMenuItem";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,11 +53,13 @@ interface WatchlistInfo {
 interface RecentlyAddedSeriesProps {
   items: RecentlyAddedSeriesGroup[];
   server: ServerPublic;
+  userId: string;
 }
 
 export function RecentlyAddedSeries({
   items: initialItems,
   server,
+  userId,
 }: RecentlyAddedSeriesProps) {
   const [items, setItems] = useState(initialItems);
   const [isLoading, setIsLoading] = useState(false);
@@ -462,6 +465,12 @@ export function RecentlyAddedSeries({
                               }}
                             >
                               <DropdownMenuContent align="end" className="w-64">
+                                <MarkAsWatchedMenuItem
+                                  itemId={seriesId}
+                                  serverId={server.id}
+                                  userId={userId}
+                                />
+                                <DropdownMenuSeparator />
                                 {/* Add Series to Watchlist */}
                                 <DropdownMenuSub>
                                   <DropdownMenuSubTrigger>

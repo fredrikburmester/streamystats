@@ -268,6 +268,11 @@ export const users = pgTable(
     syncPlayAccess: text("sync_play_access")
       .notNull()
       .default("CreateAndJoinGroups"),
+
+    // User preference for automatic watchtime inference when marking items as watched
+    // null = not asked yet, true = yes infer, false = no don't infer
+    inferWatchtimeOnMarkWatched: boolean("infer_watchtime_on_mark_watched"),
+
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 

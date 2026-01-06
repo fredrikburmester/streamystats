@@ -89,15 +89,20 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
       {seasonalData && (
         <SeasonalRecommendations data={seasonalData} server={server} />
       )}
-      {recentlyAddedMovies.length > 0 && (
+      {recentlyAddedMovies.length > 0 && me && (
         <RecentlyAdded
           items={recentlyAddedMovies}
           server={server}
           itemType="Movie"
+          userId={me.id}
         />
       )}
-      {recentlyAddedSeries.length > 0 && (
-        <RecentlyAddedSeries items={recentlyAddedSeries} server={server} />
+      {recentlyAddedSeries.length > 0 && me && (
+        <RecentlyAddedSeries
+          items={recentlyAddedSeries}
+          server={server}
+          userId={me.id}
+        />
       )}
       {similarData.length > 0 && (
         <SimilarMovieStatistics data={similarData} server={server} />

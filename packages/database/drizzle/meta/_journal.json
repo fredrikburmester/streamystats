@@ -281,6 +281,13 @@
       "when": 1767258274924,
       "tag": "0039_wandering_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1767518686410,
+      "tag": "0040_regular_spyke",
+      "breakpoints": true
     }
   ]
 }

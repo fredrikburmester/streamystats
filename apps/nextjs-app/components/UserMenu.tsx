@@ -1,7 +1,8 @@
 "use client";
 
 import type { User } from "@streamystats/database";
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronsUpDown, LogOut, Settings } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -69,13 +70,13 @@ export const UserMenu: React.FC<Props> = ({ me, serverUrl }) => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {/* <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <Bell />
-            Notifications
-          </DropdownMenuItem>
-        </DropdownMenuGroup> */}
-        {/* <DropdownMenuSeparator /> */}
+        <DropdownMenuItem asChild>
+          <Link href={`/servers/${id}/user-settings`}>
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={async () => {
             setLoading(true);
