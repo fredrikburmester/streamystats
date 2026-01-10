@@ -118,7 +118,7 @@ export async function markItemWatched(
       {
         method,
         headers: {
-          "Authorization": `MediaBrowser Client="Streamystats", Token="${token}"`,
+          Authorization: `MediaBrowser Client="Streamystats", Token="${token}"`,
           "Content-Type": "application/json",
         },
         signal: AbortSignal.timeout(10000),

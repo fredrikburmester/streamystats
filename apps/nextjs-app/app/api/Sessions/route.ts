@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     const response = await fetch(`${server.url}/Sessions`, {
       method: "GET",
       headers: {
-        "Authorization": `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
+        Authorization: `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
         "Content-Type": "application/json",
       },
     });
@@ -209,19 +209,19 @@ async function mapJellyfinSessionToActiveSession(
     playMethod: session.PlayState.PlayMethod || null,
     transcodingInfo: session.TranscodingInfo
       ? {
-        videoCodec: session.TranscodingInfo.VideoCodec,
-        audioCodec: session.TranscodingInfo.AudioCodec,
-        container: session.TranscodingInfo.Container,
-        isVideoDirect: session.TranscodingInfo.IsVideoDirect,
-        isAudioDirect: session.TranscodingInfo.IsAudioDirect,
-        bitrate: session.TranscodingInfo.Bitrate,
-        width: session.TranscodingInfo.Width,
-        height: session.TranscodingInfo.Height,
-        audioChannels: session.TranscodingInfo.AudioChannels,
-        hardwareAccelerationType:
-          session.TranscodingInfo.HardwareAccelerationType,
-        transcodeReasons: session.TranscodingInfo.TranscodeReasons,
-      }
+          videoCodec: session.TranscodingInfo.VideoCodec,
+          audioCodec: session.TranscodingInfo.AudioCodec,
+          container: session.TranscodingInfo.Container,
+          isVideoDirect: session.TranscodingInfo.IsVideoDirect,
+          isAudioDirect: session.TranscodingInfo.IsAudioDirect,
+          bitrate: session.TranscodingInfo.Bitrate,
+          width: session.TranscodingInfo.Width,
+          height: session.TranscodingInfo.Height,
+          audioChannels: session.TranscodingInfo.AudioChannels,
+          hardwareAccelerationType:
+            session.TranscodingInfo.HardwareAccelerationType,
+          transcodeReasons: session.TranscodingInfo.TranscodeReasons,
+        }
       : undefined,
     ipAddress: session.RemoteEndPoint || undefined,
   };

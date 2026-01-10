@@ -31,7 +31,9 @@ async function getItemPlayedStatus(
     const response = await fetch(
       `${serverUrl}/Users/${userId}/Items/${itemId}`,
       {
-        headers: { "Authorization": `MediaBrowser Client="Streamystats", Token="${token}"` },
+        headers: {
+          Authorization: `MediaBrowser Client="Streamystats", Token="${token}"`,
+        },
         signal: AbortSignal.timeout(5000),
         next: { revalidate: 60 },
       },
@@ -100,10 +102,10 @@ export default async function ItemDetailsPage({
   const [cast, directors, writers] =
     itemDetails.item.type === "Movie" || itemDetails.item.type === "Series"
       ? await Promise.all([
-        getItemCast(itemId, server.id),
-        getItemDirectors(itemId, server.id),
-        getItemWriters(itemId, server.id),
-      ])
+          getItemCast(itemId, server.id),
+          getItemDirectors(itemId, server.id),
+          getItemWriters(itemId, server.id),
+        ])
       : [[], [], []];
 
   return (
@@ -126,14 +128,14 @@ export default async function ItemDetailsPage({
         />
         {(itemDetails.item.type === "Movie" ||
           itemDetails.item.type === "Series") && (
-            <CastSection
-              cast={cast}
-              directors={directors}
-              writers={writers}
-              server={server}
-              serverId={id}
-            />
-          )}
+          <CastSection
+            cast={cast}
+            directors={directors}
+            writers={writers}
+            server={server}
+            serverId={id}
+          />
+        )}
         {itemDetails.item.type === "Series" && seasons.length > 0 && (
           <SeasonsAndEpisodes seasons={seasons} serverId={id} server={server} />
         )}
