@@ -40,10 +40,9 @@ export async function GET() {
           {
             method: "GET",
             headers: {
-              "X-Emby-Token": server.apiKey,
+              Authorization: `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
               "Content-Type": "application/json",
             },
-            // Short timeout to avoid hanging requests
             signal: AbortSignal.timeout(3000),
           },
         );

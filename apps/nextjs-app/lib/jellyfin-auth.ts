@@ -42,13 +42,13 @@ export async function getUserFromEmbyToken(args: {
 > {
   const serverUrl = normalizeBaseUrl(args.serverUrl);
   const token = args.token.trim();
-  if (!token) return { ok: false, error: "Empty X-Emby-Token" };
+  if (!token) return { ok: false, error: "Empty Authorization header" };
 
   try {
     const res = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": token,
+        "Authorization": `MediaBrowser Client="Streamystats", Token="${token}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(10_000),
@@ -56,7 +56,7 @@ export async function getUserFromEmbyToken(args: {
 
     if (!res.ok) {
       if (res.status === 401) {
-        return { ok: false, error: "Invalid X-Emby-Token" };
+        return { ok: false, error: "Invalid Authorization header" };
       }
       return { ok: false, error: `Jellyfin returned ${res.status}` };
     }
@@ -84,7 +84,7 @@ export async function getUserFromEmbyToken(args: {
         {
           method: "GET",
           headers: {
-            "X-Emby-Token": args.token.trim(),
+            "Authorization": `MediaBrowser Client="Streamystats", Token="${args.token.trim()}"`,
             "Content-Type": "application/json",
           },
           signal: AbortSignal.timeout(5000),

@@ -41,7 +41,7 @@ export async function GET(
     const res = await fetch(jellyfinUrl, {
       method: "GET",
       headers: {
-        "X-Emby-Token": server.apiKey,
+        "Authorization": `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
       },
     });
 
