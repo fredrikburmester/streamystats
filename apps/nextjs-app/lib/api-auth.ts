@@ -52,7 +52,7 @@ export async function validateJellyfinToken(
     const response = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": token,
+        "Authorization": `MediaBrowser Client="Streamystats", Token="${token}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(5000),
@@ -149,7 +149,7 @@ export async function validateApiKey({
       const response = await fetch(`${server.url}/System/Info`, {
         method: "GET",
         headers: {
-          "X-Emby-Token": apiKey,
+          "Authorization": `MediaBrowser Client="Streamystats", Token="${apiKey}"`,
           "Content-Type": "application/json",
         },
         // Short timeout to avoid hanging requests
@@ -239,13 +239,13 @@ export async function requireApiKey({
  */
 export async function requireSession(): Promise<
   | {
-      error: Response;
-      session: null;
-    }
+    error: Response;
+    session: null;
+  }
   | {
-      error: null;
-      session: SessionUser;
-    }
+    error: null;
+    session: SessionUser;
+  }
 > {
   const session = await getSession();
 
@@ -279,13 +279,13 @@ export async function requireSession(): Promise<
  */
 export async function requireAuth(request: NextRequest): Promise<
   | {
-      error: Response;
-      session: null;
-    }
+    error: Response;
+    session: null;
+  }
   | {
-      error: null;
-      session: SessionUser;
-    }
+    error: null;
+    session: SessionUser;
+  }
 > {
   // Try session cookie first (web app)
   const session = await getSession();
@@ -324,13 +324,13 @@ export async function requireAuth(request: NextRequest): Promise<
  */
 export async function requireAdmin(): Promise<
   | {
-      error: Response;
-      session: null;
-    }
+    error: Response;
+    session: null;
+  }
   | {
-      error: null;
-      session: SessionUser;
-    }
+    error: null;
+    session: SessionUser;
+  }
 > {
   const result = await requireSession();
 

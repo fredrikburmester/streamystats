@@ -668,7 +668,7 @@ export const updateServerConnection = async ({
       const testResponse = await fetch(`${normalizedUrl}/System/Info`, {
         method: "GET",
         headers: {
-          "X-Emby-Token": apiKey,
+          "Authorization": `MediaBrowser Client="Streamystats", Token="${apiKey}"`,
           "Content-Type": "application/json",
         },
         signal: AbortSignal.timeout(5000),
@@ -719,7 +719,7 @@ export const updateServerConnection = async ({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Emby-Token": apiKey,
+            "Authorization": `MediaBrowser Client="Streamystats", Token="${apiKey}"`,
           },
           body: JSON.stringify({ Username: username, Pw: password }),
           signal: AbortSignal.timeout(5000),

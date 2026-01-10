@@ -428,7 +428,7 @@ export const validateAdminWithJellyfin = async (): Promise<boolean> => {
     const response = await fetch(`${server.url}/Users/Me`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": token?.value || "",
+        "Authorization": `MediaBrowser Client="Streamystats", Token="${token?.value || ""}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(5000),
@@ -639,7 +639,7 @@ export const getUserWatchStats = async ({
       if (lastDate) {
         const daysDiff = Math.floor(
           (new Date(currentDate).getTime() - new Date(lastDate).getTime()) /
-            (1000 * 60 * 60 * 24),
+          (1000 * 60 * 60 * 24),
         );
 
         if (daysDiff === 1) {

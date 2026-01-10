@@ -118,7 +118,7 @@ export async function markItemWatched(
       {
         method,
         headers: {
-          "X-Emby-Token": token,
+          "Authorization": `MediaBrowser Client="Streamystats", Token="${token}"`,
           "Content-Type": "application/json",
         },
         signal: AbortSignal.timeout(10000),

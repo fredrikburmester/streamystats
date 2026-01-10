@@ -20,7 +20,7 @@ export async function addServerJob(job: PgBossJob<AddServerJobData>) {
     // Test server connection
     const response = await axios.get(`${serverUrl}/System/Info`, {
       headers: {
-        "X-Emby-Token": apiKey,
+        "Authorization": `MediaBrowser Client="Streamystats", Token="${apiKey}"`,
         "Content-Type": "application/json",
       },
     });
@@ -101,7 +101,7 @@ export async function backfillJellyfinIdsJob(job: PgBossJob<Record<string, never
       try {
         const response = await axios.get(`${server.url}/System/Info`, {
           headers: {
-            "X-Emby-Token": server.apiKey,
+            "Authorization": `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
             "Content-Type": "application/json",
           },
           timeout: 10000,

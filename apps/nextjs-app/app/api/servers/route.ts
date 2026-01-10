@@ -37,7 +37,7 @@ async function validateJellyfinAdmin(
     const response = await fetch(`${url}/Users/Me`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": apiKey,
+        "Authorization": `MediaBrowser Client="Streamystats", Token="${apiKey}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(10000),

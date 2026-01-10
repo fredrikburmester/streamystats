@@ -28,7 +28,7 @@ export async function GET() {
         const healthCheck = await fetch(`${server.url}/System/Ping`, {
           method: "GET",
           headers: {
-            "X-Emby-Token": server.apiKey,
+            "Authorization": `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
             "Content-Type": "application/json",
           },
           // Short timeout to avoid hanging requests

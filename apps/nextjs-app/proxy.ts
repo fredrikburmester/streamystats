@@ -39,17 +39,17 @@ enum ResultType {
 
 type Result<T> =
   | {
-      type: ResultType.Success;
-      data: T;
-    }
+    type: ResultType.Success;
+    data: T;
+  }
   | {
-      type: ResultType.Error;
-      error: string;
-    }
+    type: ResultType.Error;
+    error: string;
+  }
   | {
-      type: ResultType.ServerConnectivityError;
-      error: string;
-    };
+    type: ResultType.ServerConnectivityError;
+    error: string;
+  };
 
 export const config = {
   matcher: [
@@ -85,9 +85,9 @@ const BASE_PATH_REGEX = basePath.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 const parsePathname = (pathname: string) => {
   const segments = basePath
     ? pathname
-        .replace(new RegExp(`^${BASE_PATH_REGEX}`), "")
-        .split("/")
-        .filter(Boolean)
+      .replace(new RegExp(`^${BASE_PATH_REGEX}`), "")
+      .split("/")
+      .filter(Boolean)
     : pathname.split("/").filter(Boolean);
 
   // Handle /setup
@@ -206,7 +206,7 @@ const validateJellyfinToken = async (
     const jellyfinResponse = await fetch(`${server.url}/Users/Me`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": tokenCookie.value,
+        "Authorization": `MediaBrowser Client="Streamystats", Token="${tokenCookie.value}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(5000),
