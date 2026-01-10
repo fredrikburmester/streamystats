@@ -201,7 +201,7 @@ app.post("/create-server", async (c) => {
     try {
       const testResponse = await fetch(`${url}/System/Info`, {
         headers: {
-          "X-Emby-Token": apiKey,
+          "Authorization": `MediaBrowser Client="Streamystats", Token="${apiKey}"`,
           "Content-Type": "application/json",
         },
       });
@@ -378,4 +378,3 @@ app.post("/backfill-jellyfin-ids", async (c) => {
 });
 
 export default app;
-

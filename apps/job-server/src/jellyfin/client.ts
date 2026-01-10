@@ -368,7 +368,7 @@ export class JellyfinClient {
       baseURL: this.config.baseURL,
       timeout: this.config.timeout,
       headers: {
-        "X-Emby-Token": this.config.apiKey,
+        "Authorization": `MediaBrowser Client="Streamystats", Token="${this.config.apiKey}"`,
         "Content-Type": "application/json",
       },
     });

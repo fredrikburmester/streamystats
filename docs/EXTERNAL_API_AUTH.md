@@ -52,7 +52,7 @@ Use the `AccessToken` value in the `Token` parameter.
 ```bash
 curl -X POST "https://your-jellyfin-server/Users/AuthenticateByName" \
   -H "Content-Type: application/json" \
-  -H "X-Emby-Authorization: MediaBrowser Client=\"curl\", Device=\"CLI\", DeviceId=\"test\", Version=\"1.0\"" \
+  -H "Authorization: MediaBrowser Client=\"curl\", Device=\"CLI\", DeviceId=\"test\", Version=\"1.0\"" \
   -d '{"Username": "your-username", "Pw": "your-password"}'
 ```
 
