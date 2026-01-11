@@ -32,7 +32,7 @@ async function getItemPlayedStatus(
       `${serverUrl}/Users/${userId}/Items/${itemId}`,
       {
         headers: {
-          Authorization: `MediaBrowser Client="Streamystats", Token="${token}"`,
+          Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${token}"`,
         },
         signal: AbortSignal.timeout(5000),
         next: { revalidate: 60 },

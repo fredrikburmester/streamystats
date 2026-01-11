@@ -4,7 +4,12 @@
     ".": {
       "release-type": "node",
       "package-name": "streamystats-v2",
-      "extra-files": ["CHANGELOG.md"],
+      "extra-files": ["CHANGELOG.md",
+        {
+          "type": "generic",
+          "path": "apps/job-server/src/jobs/server-jobs.ts"
+        }
+      ],
       "include-v-in-tag": true,
       "changelog-sections": [
         {"type": "feat", "section": "Features"},
@@ -26,7 +31,7 @@
       "package-name": "@streamystats/nextjs-app"
     },
     "apps/job-server": {
-      "release-type": "node", 
+      "release-type": "node",
       "package-name": "@streamystats/job-server"
     },
     "packages/database": {

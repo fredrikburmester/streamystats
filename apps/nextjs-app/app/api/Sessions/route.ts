@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     const response = await fetch(`${getInternalUrl(server)}/Sessions`, {
       method: "GET",
       headers: {
-        Authorization: `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
+        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${server.apiKey}"`,
         "Content-Type": "application/json",
       },
     });
