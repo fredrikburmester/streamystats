@@ -24,7 +24,7 @@ export const login = async ({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
+      Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${server.apiKey}"`,
     },
     body: JSON.stringify({ Username: username, Pw: password }),
   });

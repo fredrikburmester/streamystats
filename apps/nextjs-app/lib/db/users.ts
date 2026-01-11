@@ -428,7 +428,7 @@ export const validateAdminWithJellyfin = async (): Promise<boolean> => {
     const response = await fetch(`${server.url}/Users/Me`, {
       method: "GET",
       headers: {
-        Authorization: `MediaBrowser Client="Streamystats", Token="${token?.value || ""}"`,
+        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${token?.value || ""}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(5000),

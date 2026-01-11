@@ -8,6 +8,7 @@ import type { PgBossJob, AddServerJobData } from "../types/job-status";
 export const BACKFILL_JOB_NAMES = {
   BACKFILL_JELLYFIN_IDS: "backfill-jellyfin-ids",
 } as const;
+export const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
 
 // Job: Add a new media server
 export async function addServerJob(job: PgBossJob<AddServerJobData>) {
@@ -20,7 +21,7 @@ export async function addServerJob(job: PgBossJob<AddServerJobData>) {
     // Test server connection
     const response = await axios.get(`${serverUrl}/System/Info`, {
       headers: {
-        "Authorization": `MediaBrowser Client="Streamystats", Token="${apiKey}"`,
+        "Authorization": `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${apiKey}"`,
         "Content-Type": "application/json",
       },
     });
@@ -101,7 +102,7 @@ export async function backfillJellyfinIdsJob(job: PgBossJob<Record<string, never
       try {
         const response = await axios.get(`${server.url}/System/Info`, {
           headers: {
-            "Authorization": `MediaBrowser Client="Streamystats", Token="${server.apiKey}"`,
+            "Authorization": `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${server.apiKey}"`,
             "Content-Type": "application/json",
           },
           timeout: 10000,
