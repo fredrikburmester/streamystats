@@ -118,7 +118,7 @@ type PresetKey = keyof typeof PROVIDER_PRESETS;
 
 // Detect preset from server config
 function detectPreset(server: ServerPublic): PresetKey {
-  // Ollama uses a non-standard API, so check provider first regardless of URL
+  // Not openai-compatible providers should be detected first regarless of url
   if (server.embeddingProvider === "ollama") {
     return "ollama";
   }
