@@ -433,8 +433,8 @@ async function processOllamaItem(
   }
 
   const response = await axios.post(
-    `${config.baseUrl}/api/embeddings`,
-    { model: config.model, prompt: text },
+    `${config.baseUrl}/api/embed`,
+    { model: config.model, input: text, dimensions: config.dimensions, },
     { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
   );
 
