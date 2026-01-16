@@ -434,7 +434,11 @@ async function processOllamaItem(
 
   const response = await axios.post(
     `${config.baseUrl}/api/embed`,
-    { model: config.model, input: text, dimensions: config.dimensions, },
+    {
+      model: config.model,
+      input: text,
+      ...(config.dimensions ? { dimensions: config.dimensions } : {}),
+    },
     { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
   );
 
