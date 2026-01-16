@@ -118,6 +118,11 @@ type PresetKey = keyof typeof PROVIDER_PRESETS;
 
 // Detect preset from server config
 function detectPreset(server: ServerPublic): PresetKey {
+  // Ollama uses a non-standard API, so check provider first regardless of URL
+  if (server.embeddingProvider === "ollama") {
+    return "ollama";
+  }
+
   const baseUrl = server.embeddingBaseUrl || "";
   for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
     if (key !== "custom" && baseUrl === preset.baseUrl) {
