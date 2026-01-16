@@ -438,7 +438,7 @@ async function processOllamaItem(
     { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
   );
 
-  const rawEmbedding = response.data.embedding || response.data.embeddings;
+  const rawEmbedding = response.data.embeddings?.[0] || response.data.embedding;
   if (!rawEmbedding) {
     throw new Error("No embedding returned from Ollama");
   }
