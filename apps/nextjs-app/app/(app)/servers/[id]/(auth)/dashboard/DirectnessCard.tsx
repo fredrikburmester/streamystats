@@ -1,16 +1,8 @@
 "use client";
 
 import { InfoIcon } from "lucide-react";
-import { useCallback } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
+import * as React from "react";
+import { Label, Pie, PieChart } from "recharts";
 import {
   Card,
   CardContent,
@@ -32,130 +24,106 @@ interface DirectnessCardProps {
 }
 
 export const DirectnessCard = ({ data }: DirectnessCardProps) => {
+  const directnessData = React.useMemo(() => {
+    return data
+      .map((item, index) => ({
+        name: item.label,
+        count: item.count,
+        fill: `var(--color-${item.label.toLowerCase().includes("direct") ? "direct" : "transcode"})`,
+      }))
+      .filter((item) => item.count > 0);
+  }, [data]);
+
+  const total = React.useMemo(
+    () => directnessData.reduce((sum, item) => sum + item.count, 0),
+    [directnessData],
+  );
+
+  const directPlayItem = directnessData.find((d) =>
+    d.name.toLowerCase().includes("direct"),
+  );
+  const directPlayPercent = total > 0 ? ((directPlayItem?.count || 0) / total) * 100 : 0;
+
   const directnessConfig = {
     count: {
-      label: "Count",
+      label: "Sessions",
+    },
+    direct: {
+      label: "Direct Play",
       color: "hsl(var(--chart-2))",
     },
-    label: {
-      color: "hsl(var(--background))",
+    transcode: {
+      label: "Transcode",
+      color: "hsl(var(--chart-4))",
     },
   } satisfies ChartConfig;
 
-  const directnessData = data
-    .map((item) => ({
-      name: item.label,
-      count: item.count,
-    }))
-    .filter((item) => item.count > 0);
-
-  const total = directnessData.reduce((sum, item) => sum + item.count, 0);
-  const directnessDataWithPercent = directnessData.map((item) => ({
-    ...item,
-    percent: total > 0 ? (item.count / total) * 100 : 0,
-    labelWithPercent: `${item.name} - ${
-      total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"
-    }%`,
-  }));
-
-  // Calculate bar height based on number of items
-  const getBarHeight = (dataLength: number) => {
-    const minHeightPerBar = 30;
-    const maxHeightPerBar = 40;
-    return Math.min(
-      Math.max(minHeightPerBar, 200 / dataLength),
-      maxHeightPerBar,
-    );
-  };
-
-  const renderBarLabel = useCallback(
-    ({
-      x,
-      y,
-      width,
-      height,
-      value,
-    }: {
-      x?: number | string;
-      y?: number | string;
-      width?: number | string;
-      height?: number | string;
-      value?: unknown;
-    }) => (
-      <CustomBarLabel
-        x={Number(x)}
-        y={Number(y)}
-        width={Number(width)}
-        height={Number(height)}
-        value={
-          typeof value === "string" || typeof value === "number"
-            ? value
-            : undefined
-        }
-        fill="#d6e3ff"
-        fontSize={12}
-        containerWidth={400}
-        alwaysOutside
-      />
-    ),
-    [],
-  );
-
   return (
-    <Card>
-      <CardHeader>
+    <Card className="flex flex-col">
+      <CardHeader className="items-center pb-0">
         <CardTitle>Transcoding Directness</CardTitle>
         <CardDescription>
-          How often content plays directly vs transcoded
+          Direct Play vs Transcoding
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 pb-0">
         <ChartContainer
-          id="directness"
           config={directnessConfig}
-          className="h-[200px]"
+          className="mx-auto aspect-square max-h-[250px]"
         >
-          <BarChart
-            accessibilityLayer
-            data={directnessDataWithPercent}
-            layout="vertical"
-            margin={{
-              right: 16,
-              left: 0,
-              top: 5,
-              bottom: 5,
-            }}
-            barSize={getBarHeight(directnessData.length)}
-          >
-            <CartesianGrid horizontal={false} />
-            <YAxis
-              dataKey="name"
-              type="category"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              hide
-            />
-            <XAxis dataKey="count" type="number" hide />
+          <PieChart>
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
+              content={<ChartTooltipContent hideLabel />}
             />
-            <Bar dataKey="count" radius={4} className="fill-blue-600">
-              <LabelList dataKey="labelWithPercent" content={renderBarLabel} />
-            </Bar>
-          </BarChart>
+            <Pie
+              data={directnessData}
+              dataKey="count"
+              nameKey="name"
+              innerRadius={60}
+              strokeWidth={5}
+            >
+              <Label
+                content={({ viewBox }) => {
+                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                    return (
+                      <text
+                        x={viewBox.cx}
+                        y={viewBox.cy}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        <tspan
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          className="fill-foreground text-3xl font-bold"
+                        >
+                          {directPlayPercent.toFixed(0)}%
+                        </tspan>
+                        <tspan
+                          x={viewBox.cx}
+                          y={(viewBox.cy || 0) + 24}
+                          className="fill-muted-foreground"
+                        >
+                          Direct
+                        </tspan>
+                      </text>
+                    );
+                  }
+                }}
+              />
+            </Pie>
+          </PieChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="text-sm text-muted-foreground">
-        {data.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <InfoIcon className="h-4 w-4" />
-            {data[0]?.label}: {data[0]?.percentage?.toFixed(1)}%
-          </div>
-        ) : (
-          <div>No transcoding data available</div>
-        )}
+      <CardFooter className="flex-col gap-2 text-sm">
+        <div className="flex items-center gap-2 font-medium leading-none">
+          {directPlayPercent > 50 ? "Mostly Direct Play" : "Mostly Transcoding"}
+        </div>
+        <div className="flex items-center gap-2 leading-none text-muted-foreground">
+          <InfoIcon className="h-4 w-4" />
+          Total sessions: {total}
+        </div>
       </CardFooter>
     </Card>
   );

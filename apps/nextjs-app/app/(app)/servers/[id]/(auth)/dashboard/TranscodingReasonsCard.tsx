@@ -1,16 +1,8 @@
 "use client";
 
 import { InfoIcon } from "lucide-react";
-import { useCallback } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
+import * as React from "react";
+import { Pie, PieChart } from "recharts";
 import {
   Card,
   CardContent,
@@ -24,6 +16,8 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
 } from "@/components/ui/chart";
 import type { CategoryStat } from "@/lib/db/transcoding-statistics";
 
@@ -31,160 +25,90 @@ interface TranscodingReasonsCardProps {
   data: CategoryStat[];
 }
 
-// Helper function to clean up reason labels
 function cleanReasonLabel(label: string): string {
-  // Handle stringified JSON arrays like "[\"ContainerNotSupported\"]"
   if (label.startsWith("[") && label.endsWith("]")) {
     try {
       const parsed = JSON.parse(label);
-      if (Array.isArray(parsed)) {
-        return parsed.join(", ");
-      }
-    } catch (_error) {
-      // If parsing fails, return the original label
-    }
+      if (Array.isArray(parsed)) return parsed.join(", ");
+    } catch (_error) {}
   }
-
-  // Return the label as-is if it's not a JSON array
   return label;
 }
 
 export const TranscodingReasonsCard = ({
   data,
 }: TranscodingReasonsCardProps) => {
-  const reasonsData = data
-    .map((item) => ({
-      reason: cleanReasonLabel(item.label), // Use label instead of value, and clean it
-      count: item.count,
-    }))
-    .filter((item) => item.count > 0);
+  const chartData = React.useMemo(() => {
+    return data
+      .filter((item) => item.count > 0)
+      .map((item, index) => ({
+        reason: cleanReasonLabel(item.label),
+        count: item.count,
+        fill: `var(--color-reason-${index})`,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [data]);
 
-  const reasonsConfig = {
-    count: {
-      label: "Count",
-      color: "hsl(var(--chart-2))",
-    },
-    label: {
-      color: "hsl(var(--background))",
-    },
+  const chartConfig = {
+    count: { label: "Sessions" },
+    ...Object.fromEntries(
+      chartData.map((item, index) => [
+        `reason-${index}`,
+        {
+          label: item.reason,
+          color: [`hsl(var(--chart-1))`, `hsl(var(--chart-2))`, `hsl(var(--chart-3))`, `hsl(var(--chart-4))`, `hsl(var(--chart-5))`, "#ef4444", "#f59e0b"][index % 7],
+        },
+      ])
+    ),
   } satisfies ChartConfig;
 
-  // Calculate bar height based on number of items
-  const getBarHeight = (dataLength: number) => {
-    const minHeightPerBar = 38;
-    const maxHeightPerBar = 56;
-    return Math.min(
-      Math.max(minHeightPerBar, 200 / dataLength),
-      maxHeightPerBar,
+  if (chartData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Transcoding Reasons</CardTitle>
+          <CardDescription>No transcoding reasons recorded</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
+          No data to display
+        </CardContent>
+      </Card>
     );
-  };
-
-  const getChartHeight = (dataLength: number) => {
-    const minHeight = 240;
-    const maxHeight = 420;
-    const heightPerBar = 48;
-    return Math.min(Math.max(minHeight, dataLength * heightPerBar), maxHeight);
-  };
-
-  const total = reasonsData.reduce((sum, item) => sum + item.count, 0);
-  const reasonsDataWithPercent = reasonsData.map((item) => ({
-    ...item,
-    labelWithPercent: `${item.reason} - ${
-      total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"
-    }%`,
-  }));
-
-  const renderBarLabel = useCallback(
-    ({
-      x,
-      y,
-      width,
-      height,
-      value,
-    }: {
-      x?: number | string;
-      y?: number | string;
-      width?: number | string;
-      height?: number | string;
-      value?: unknown;
-    }) => (
-      <CustomBarLabel
-        x={Number(x)}
-        y={Number(y)}
-        width={Number(width)}
-        height={Number(height)}
-        value={
-          typeof value === "string" || typeof value === "number"
-            ? value
-            : undefined
-        }
-        fill="#d6e3ff"
-        fontSize={12}
-        containerWidth={400}
-        alwaysOutside
-      />
-    ),
-    [],
-  );
-
-  // Find the most common reason (highest count)
-  const mostCommonReason =
-    data.length > 0
-      ? data.reduce((prev, current) =>
-          prev.count > current.count ? prev : current,
-        )
-      : null;
+  }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="flex flex-col">
+      <CardHeader className="items-center pb-0">
         <CardTitle>Transcoding Reasons</CardTitle>
-        <CardDescription>Why media is being transcoded</CardDescription>
+        <CardDescription>Why content is being transcoded</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 pb-0">
         <ChartContainer
-          id="transcoding-reasons"
-          config={reasonsConfig}
-          className="w-full aspect-auto"
-          style={{ height: getChartHeight(reasonsDataWithPercent.length) }}
+          config={chartConfig}
+          className="mx-auto aspect-square max-h-[400px]"
         >
-          <BarChart
-            accessibilityLayer
-            data={reasonsDataWithPercent}
-            layout="vertical"
-            margin={{
-              right: 16,
-              left: 0,
-              top: 5,
-              bottom: 5,
-            }}
-            barSize={getBarHeight(reasonsDataWithPercent.length)}
-          >
-            <CartesianGrid horizontal={false} />
-            <YAxis
-              dataKey="reason"
-              type="category"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              hide
-            />
-            <XAxis dataKey="count" type="number" hide />
+          <PieChart>
             <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
+              content={<ChartTooltipContent hideLabel />}
             />
-            <Bar dataKey="count" radius={4} className="fill-blue-600">
-              <LabelList dataKey="labelWithPercent" content={renderBarLabel} />
-            </Bar>
-          </BarChart>
+            <Pie
+              data={chartData}
+              dataKey="count"
+              nameKey="reason"
+              innerRadius={60}
+              strokeWidth={2}
+            />
+            <ChartLegend
+              content={<ChartLegendContent nameKey="reason" />}
+              className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
+            />
+          </PieChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
+      <CardFooter className="flex-col gap-2 text-sm">
+        <div className="flex items-center gap-2 leading-none text-muted-foreground">
           <InfoIcon className="h-4 w-4" />
-          Most common reason:{" "}
-          {mostCommonReason ? cleanReasonLabel(mostCommonReason.label) : "N/A"}
+          Top reason: {chartData[0].reason}
         </div>
       </CardFooter>
     </Card>
