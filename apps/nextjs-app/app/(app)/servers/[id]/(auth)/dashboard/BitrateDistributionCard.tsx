@@ -9,7 +9,9 @@ import {
   XAxis,
   YAxis,
   Cell,
+  LabelList,
 } from "recharts";
+import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import {
   Card,
   CardContent,
@@ -30,14 +32,11 @@ interface BitrateDistributionCardProps {
   data: NumericStat;
 }
 
-interface BitrateRange {
-  range: string;
-  count: number;
-}
-
 export const BitrateDistributionCard = ({
   data,
 }: BitrateDistributionCardProps) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const formatBitrate = (value: number | null) => {
     if (value === null) return "0 Mbps";
     return `${(value / 1000000).toFixed(1)} Mbps`;
@@ -56,7 +55,7 @@ export const BitrateDistributionCard = ({
       { label: "8+", min: 8000001, max: Number.POSITIVE_INFINITY },
     ];
 
-    return ranges
+    const processed = ranges
       .map((range) => {
         const valuesInRange = data.distribution!.filter(
           (b) => b >= range.min && b <= range.max,
@@ -67,6 +66,12 @@ export const BitrateDistributionCard = ({
         };
       })
       .filter((item) => item.count > 0);
+
+    const total = processed.reduce((sum, item) => sum + item.count, 0);
+    return processed.map(item => ({
+      ...item,
+      labelWithPercent: `${item.range} Mbps - ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`
+    }));
   }, [data.distribution]);
 
   const bitrateConfig = {
@@ -75,7 +80,6 @@ export const BitrateDistributionCard = ({
     },
   } satisfies ChartConfig;
 
-  // Modern vibrant colors
   const colors = [
     "hsl(var(--chart-1))",
     "hsl(var(--chart-2))",
@@ -102,31 +106,53 @@ export const BitrateDistributionCard = ({
         {bitrateData.length > 0 ? (
           <ChartContainer
             config={bitrateConfig}
-            className="h-[200px] w-full"
+            className="h-[250px] w-full"
+            onWidthChange={setContainerWidth}
           >
             <BarChart
               accessibilityLayer
               data={bitrateData}
+              layout="vertical"
               margin={{
-                top: 20,
+                right: 32,
+                left: -20,
               }}
             >
-              <CartesianGrid vertical={false} />
-              <XAxis
+              <CartesianGrid horizontal={false} />
+              <YAxis
                 dataKey="range"
+                type="category"
                 tickLine={false}
                 tickMargin={10}
                 axisLine={false}
+                hide
               />
-              <YAxis hide />
+              <XAxis dataKey="count" type="number" hide />
               <ChartTooltip
                 cursor={false}
                 content={<ChartTooltipContent hideLabel />}
               />
-              <Bar dataKey="count" radius={8}>
+              <Bar dataKey="count" radius={4} barSize={24}>
                 {bitrateData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                 ))}
+                <LabelList
+                  dataKey="labelWithPercent"
+                  content={(props) => (
+                    <CustomBarLabel
+                      {...props}
+                      x={Number(props.x)}
+                      y={Number(props.y)}
+                      width={Number(props.width)}
+                      height={Number(props.height)}
+                      value={props.value}
+                      fill="hsl(var(--foreground))"
+                      fontSize={11}
+                      containerWidth={containerWidth}
+                      alwaysOutside
+                    />
+                  )}
+                />
               </Bar>
             </BarChart>
           </ChartContainer>

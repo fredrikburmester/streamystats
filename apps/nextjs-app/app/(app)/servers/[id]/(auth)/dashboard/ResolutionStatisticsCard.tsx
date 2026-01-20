@@ -9,8 +9,9 @@ import {
   XAxis,
   YAxis,
   Cell,
-  Legend,
+  LabelList,
 } from "recharts";
+import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import {
   Card,
   CardContent,
@@ -55,6 +56,8 @@ function categorizeResolution(width: number): string {
 }
 
 export const ResolutionStatisticsCard = ({ width, height }: Props) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const chartData = React.useMemo(() => {
     if (!width.distribution || !height.distribution) return [];
     
@@ -66,9 +69,15 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
       ranges[category] = (ranges[category] || 0) + 1;
     }
 
-    return Object.entries(ranges)
+    const processed = Object.entries(ranges)
       .map(([range, count]) => ({ range, count, fill: RESOLUTION_COLORS[range] || "hsl(var(--chart-1))" }))
       .sort((a, b) => b.count - a.count);
+
+    const total = processed.reduce((sum, item) => sum + item.count, 0);
+    return processed.map(item => ({
+      ...item,
+      labelWithPercent: `${item.range} - ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`
+    }));
   }, [width.distribution, height.distribution]);
 
   const chartConfig = {
@@ -101,23 +110,49 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
       <CardContent>
         <ChartContainer
           config={chartConfig}
-          className="h-[200px] w-full"
+          className="h-[250px] w-full"
+          onWidthChange={setContainerWidth}
         >
-          <BarChart data={chartData} margin={{ top: 20 }}>
-            <CartesianGrid vertical={false} />
-            <XAxis
+          <BarChart
+            data={chartData}
+            layout="vertical"
+            margin={{
+              right: 32,
+              left: -20,
+            }}
+          >
+            <CartesianGrid horizontal={false} />
+            <YAxis
               dataKey="range"
+              type="category"
               tickLine={false}
               tickMargin={10}
               axisLine={false}
-              tick={{ fontSize: 10 }}
+              hide
             />
-            <YAxis hide />
+            <XAxis dataKey="count" type="number" hide />
             <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-            <Bar dataKey="count" radius={4}>
+            <Bar dataKey="count" radius={4} barSize={24}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
+              <LabelList
+                dataKey="labelWithPercent"
+                content={(props) => (
+                  <CustomBarLabel
+                    {...props}
+                    x={Number(props.x)}
+                    y={Number(props.y)}
+                    width={Number(props.width)}
+                    height={Number(props.height)}
+                    value={props.value}
+                    fill="hsl(var(--foreground))"
+                    fontSize={11}
+                    containerWidth={containerWidth}
+                    alwaysOutside
+                  />
+                )}
+              />
             </Bar>
           </BarChart>
         </ChartContainer>
