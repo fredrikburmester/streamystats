@@ -42,7 +42,8 @@ export const DirectnessCard = ({ data }: DirectnessCardProps) => {
   const directPlayItem = directnessData.find((d) =>
     d.name.toLowerCase().includes("direct"),
   );
-  const directPlayPercent = total > 0 ? ((directPlayItem?.count || 0) / total) * 100 : 0;
+  const directPlayPercent =
+    total > 0 ? ((directPlayItem?.count || 0) / total) * 100 : 0;
 
   const directnessConfig = {
     count: {
@@ -62,9 +63,7 @@ export const DirectnessCard = ({ data }: DirectnessCardProps) => {
     <Card className="flex flex-col">
       <CardHeader className="items-center pb-0">
         <CardTitle>Transcoding Directness</CardTitle>
-        <CardDescription>
-          Direct Play vs Transcoding
-        </CardDescription>
+        <CardDescription>Direct Play vs Transcoding</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
         <ChartContainer

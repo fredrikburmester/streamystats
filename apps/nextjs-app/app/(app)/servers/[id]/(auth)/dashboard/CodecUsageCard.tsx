@@ -2,7 +2,7 @@
 
 import { FileDigit } from "lucide-react";
 import React from "react";
-import { Pie, PieChart, Cell } from "recharts";
+import { Pie, PieChart } from "recharts";
 import {
   Card,
   CardContent,
@@ -26,20 +26,48 @@ export const CodecUsageCard = ({
   videoCodecs: CategoryStat[];
   audioCodecs: CategoryStat[];
 }) => {
-  const videoData = React.useMemo(() => 
-    videoCodecs.filter(c => c.count > 0).map((c, i) => ({ ...c, fill: `var(--color-v-${i})` })),
-    [videoCodecs]
+  const videoData = React.useMemo(
+    () =>
+      videoCodecs
+        .filter((c) => c.count > 0)
+        .map((c, i) => ({ ...c, fill: `var(--color-v-${i})` })),
+    [videoCodecs],
   );
-  
-  const audioData = React.useMemo(() => 
-    audioCodecs.filter(c => c.count > 0).map((c, i) => ({ ...c, fill: `var(--color-a-${i})` })),
-    [audioCodecs]
+
+  const audioData = React.useMemo(
+    () =>
+      audioCodecs
+        .filter((c) => c.count > 0)
+        .map((c, i) => ({ ...c, fill: `var(--color-a-${i})` })),
+    [audioCodecs],
   );
 
   const chartConfig = {
     count: { label: "Sessions" },
-    ...Object.fromEntries(videoData.map((c, i) => [`v-${i}`, { label: c.label, color: ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-5))"][i % 3] }])),
-    ...Object.fromEntries(audioData.map((c, i) => [`a-${i}`, { label: c.label, color: ["hsl(var(--chart-3))", "hsl(var(--chart-4))", "#ec4899"][i % 3] }])),
+    ...Object.fromEntries(
+      videoData.map((c, i) => [
+        `v-${i}`,
+        {
+          label: c.label,
+          color: [
+            "hsl(var(--chart-1))",
+            "hsl(var(--chart-2))",
+            "hsl(var(--chart-5))",
+          ][i % 3],
+        },
+      ]),
+    ),
+    ...Object.fromEntries(
+      audioData.map((c, i) => [
+        `a-${i}`,
+        {
+          label: c.label,
+          color: ["hsl(var(--chart-3))", "hsl(var(--chart-4))", "#ec4899"][
+            i % 3
+          ],
+        },
+      ]),
+    ),
   } satisfies ChartConfig;
 
   const totalVideo = videoData.reduce((sum, c) => sum + c.count, 0);
@@ -53,7 +81,10 @@ export const CodecUsageCard = ({
       </CardHeader>
       <CardContent className="flex flex-row justify-around py-4">
         <div className="flex flex-col items-center">
-          <ChartContainer config={chartConfig} className="aspect-square h-[140px]">
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-square h-[140px]"
+          >
             <PieChart>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
               <Pie
@@ -68,9 +99,12 @@ export const CodecUsageCard = ({
           </ChartContainer>
           <span className="text-xs font-medium mt-2">Video Codecs</span>
         </div>
-        
+
         <div className="flex flex-col items-center">
-          <ChartContainer config={chartConfig} className="aspect-square h-[140px]">
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-square h-[140px]"
+          >
             <PieChart>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
               <Pie

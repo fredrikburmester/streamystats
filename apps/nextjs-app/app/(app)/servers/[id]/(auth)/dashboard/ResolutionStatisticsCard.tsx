@@ -1,15 +1,15 @@
 "use client";
 
-import { InfoIcon, MonitorIcon } from "lucide-react";
+import { MonitorIcon } from "lucide-react";
 import React from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  XAxis,
-  YAxis,
   Cell,
   LabelList,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import {
@@ -25,8 +25,6 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
 } from "@/components/ui/chart";
 import type { NumericStat } from "@/lib/db/transcoding-statistics";
 
@@ -62,7 +60,10 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
     if (!width.distribution || !height.distribution) return [];
 
     const ranges: Record<string, number> = {};
-    const minLength = Math.min(width.distribution.length, height.distribution.length);
+    const minLength = Math.min(
+      width.distribution.length,
+      height.distribution.length,
+    );
 
     for (let i = 0; i < minLength; i++) {
       const category = categorizeResolution(width.distribution[i]);
@@ -70,19 +71,28 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
     }
 
     const processed = Object.entries(ranges)
-      .map(([range, count]) => ({ range, count, fill: RESOLUTION_COLORS[range] || "hsl(var(--chart-1))" }))
+      .map(([range, count]) => ({
+        range,
+        count,
+        fill: RESOLUTION_COLORS[range] || "hsl(var(--chart-1))",
+      }))
       .sort((a, b) => b.count - a.count);
 
     const total = processed.reduce((sum, item) => sum + item.count, 0);
-    return processed.map(item => ({
+    return processed.map((item) => ({
       ...item,
-      labelWithPercent: `${item.range} - ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`
+      labelWithPercent: `${item.range} - ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`,
     }));
   }, [width.distribution, height.distribution]);
 
   const chartConfig = {
     count: { label: "Sessions" },
-    ...Object.fromEntries(Object.keys(RESOLUTION_COLORS).map(key => [key, { label: key, color: RESOLUTION_COLORS[key] }]))
+    ...Object.fromEntries(
+      Object.keys(RESOLUTION_COLORS).map((key) => [
+        key,
+        { label: key, color: RESOLUTION_COLORS[key] },
+      ]),
+    ),
   } satisfies ChartConfig;
 
   if (chartData.length === 0) {

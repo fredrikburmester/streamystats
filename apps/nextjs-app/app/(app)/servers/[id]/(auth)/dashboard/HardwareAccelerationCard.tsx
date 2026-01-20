@@ -12,12 +12,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  type ChartConfig,
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
-  type ChartConfig,
+  ChartTooltip,
+  ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { CategoryStat } from "@/lib/db/transcoding-statistics";
 
@@ -37,13 +37,15 @@ const ENGINE_LABELS: Record<string, string> = {
 };
 
 export const HardwareAccelerationCard = ({ data }: Props) => {
-  const activeEngines = React.useMemo(() =>
-    data.filter((item) => item.count > 0).sort((a, b) => b.count - a.count),
-    [data]);
+  const activeEngines = React.useMemo(
+    () =>
+      data.filter((item) => item.count > 0).sort((a, b) => b.count - a.count),
+    [data],
+  );
 
   const totalSessions = React.useMemo(
     () => activeEngines.reduce((sum, item) => sum + item.count, 0),
-    [activeEngines]
+    [activeEngines],
   );
 
   const chartData = React.useMemo(() => {
@@ -60,7 +62,7 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
     const config: ChartConfig = {
       count: {
         label: "Sessions",
-      }
+      },
     };
     activeEngines.forEach((item, index) => {
       config[`engine-${index}`] = {
@@ -116,11 +118,7 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
               cursor={false}
               content={<ChartTooltipContent hideLabel nameKey="configKey" />}
             />
-            <RadialBar
-              dataKey="count"
-              background
-              cornerRadius={10}
-            />
+            <RadialBar dataKey="count" background cornerRadius={10} />
             <ChartLegend
               content={<ChartLegendContent nameKey="configKey" />}
               className="flex-wrap gap-2 justify-center"

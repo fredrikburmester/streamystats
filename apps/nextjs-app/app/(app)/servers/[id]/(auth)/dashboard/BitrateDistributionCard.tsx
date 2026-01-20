@@ -6,10 +6,10 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  XAxis,
-  YAxis,
   Cell,
   LabelList,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import {
@@ -67,9 +67,9 @@ export const BitrateDistributionCard = ({
       .filter((item) => item.count > 0);
 
     const total = processed.reduce((sum, item) => sum + item.count, 0);
-    return processed.map(item => ({
+    return processed.map((item) => ({
       ...item,
-      labelWithPercent: `${item.range} Mbps - ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`
+      labelWithPercent: `${item.range} Mbps - ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`,
     }));
   }, [data.distribution]);
 
@@ -89,16 +89,18 @@ export const BitrateDistributionCard = ({
     "#8b5cf6",
   ];
 
-  const mostCommonCategory = bitrateData.length > 0 
-    ? [...bitrateData].sort((a, b) => b.count - a.count)[0].range 
-    : "N/A";
+  const mostCommonCategory =
+    bitrateData.length > 0
+      ? [...bitrateData].sort((a, b) => b.count - a.count)[0].range
+      : "N/A";
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Bitrate Distribution</CardTitle>
         <CardDescription>
-          Avg: {formatBitrate(data.avg ?? 0)} | Max: {formatBitrate(data.max ?? 0)}
+          Avg: {formatBitrate(data.avg ?? 0)} | Max:{" "}
+          {formatBitrate(data.max ?? 0)}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -132,7 +134,10 @@ export const BitrateDistributionCard = ({
               />
               <Bar dataKey="count" radius={4} barSize={24}>
                 {bitrateData.map((_entry, index) => (
-                  <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={colors[index % colors.length]}
+                  />
                 ))}
                 <LabelList
                   dataKey="labelWithPercent"

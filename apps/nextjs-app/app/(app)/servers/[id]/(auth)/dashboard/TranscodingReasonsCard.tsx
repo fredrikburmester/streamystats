@@ -6,10 +6,10 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  XAxis,
-  YAxis,
   Cell,
   LabelList,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import {
