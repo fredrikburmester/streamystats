@@ -49,6 +49,7 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
   const chartData = React.useMemo(() => {
     return activeEngines.map((item, index) => ({
       engine: item.label,
+      configKey: `engine-${index}`,
       name: ENGINE_LABELS[item.label.toLowerCase()] || item.label,
       count: item.count,
       fill: `var(--color-engine-${index})`,
@@ -107,11 +108,13 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
             data={chartData}
             innerRadius={30}
             outerRadius={110}
+            startAngle={-45}
+            endAngle={225}
             barSize={12}
           >
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel nameKey="name" />}
+              content={<ChartTooltipContent hideLabel nameKey="configKey" />}
             />
             <RadialBar
               dataKey="count"
@@ -119,7 +122,7 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
               cornerRadius={10}
             />
             <ChartLegend
-              content={<ChartLegendContent nameKey="name" />}
+              content={<ChartLegendContent nameKey="configKey" />}
               className="flex-wrap gap-2 justify-center"
             />
           </RadialBarChart>
