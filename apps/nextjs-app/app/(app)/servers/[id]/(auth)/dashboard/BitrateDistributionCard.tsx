@@ -46,13 +46,12 @@ export const BitrateDistributionCard = ({
     if (!data.distribution || data.distribution.length === 0) return [];
 
     const ranges = [
-      { label: "0-0.5", min: 0, max: 500000 },
-      { label: "0.5-1", min: 500001, max: 1000000 },
-      { label: "1-2", min: 1000001, max: 2000000 },
+      { label: "0-2", min: 0, max: 2000000 },
       { label: "2-4", min: 2000001, max: 4000000 },
-      { label: "4-6", min: 4000001, max: 6000000 },
-      { label: "6-8", min: 6000001, max: 8000000 },
-      { label: "8+", min: 8000001, max: Number.POSITIVE_INFINITY },
+      { label: "4-8", min: 4000001, max: 8000000 },
+      { label: "8-12", min: 8000001, max: 12000000 },
+      { label: "12-24", min: 12000001, max: 24000000 },
+      { label: "24+", min: 24000001, max: Number.POSITIVE_INFINITY },
     ];
 
     const processed = ranges
