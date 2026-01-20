@@ -2,7 +2,16 @@
 
 import { InfoIcon } from "lucide-react";
 import * as React from "react";
-import { Pie, PieChart } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Cell,
+  LabelList,
+} from "recharts";
+import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import {
   Card,
   CardContent,
@@ -16,8 +25,6 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
 } from "@/components/ui/chart";
 import type { CategoryStat } from "@/lib/db/transcoding-statistics";
 
@@ -38,28 +45,35 @@ function cleanReasonLabel(label: string): string {
 export const TranscodingReasonsCard = ({
   data,
 }: TranscodingReasonsCardProps) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const chartData = React.useMemo(() => {
-    return data
+    const processed = data
       .filter((item) => item.count > 0)
-      .map((item, index) => ({
+      .map((item) => ({
         reason: cleanReasonLabel(item.label),
         count: item.count,
-        fill: `var(--color-reason-${index})`,
       }))
       .sort((a, b) => b.count - a.count);
+
+    const total = processed.reduce((sum, item) => sum + item.count, 0);
+    return processed.map((item, index) => ({
+      ...item,
+      labelWithPercent: `${item.reason} — ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`,
+      fill: [
+        "hsl(var(--chart-1))",
+        "hsl(var(--chart-2))",
+        "hsl(var(--chart-3))",
+        "hsl(var(--chart-4))",
+        "hsl(var(--chart-5))",
+        "#ec4899",
+        "#8b5cf6",
+      ][index % 7],
+    }));
   }, [data]);
 
   const chartConfig = {
     count: { label: "Sessions" },
-    ...Object.fromEntries(
-      chartData.map((item, index) => [
-        `reason-${index}`,
-        {
-          label: item.reason,
-          color: [`hsl(var(--chart-1))`, `hsl(var(--chart-2))`, `hsl(var(--chart-3))`, `hsl(var(--chart-4))`, `hsl(var(--chart-5))`, "#ef4444", "#f59e0b"][index % 7],
-        },
-      ])
-    ),
   } satisfies ChartConfig;
 
   if (chartData.length === 0) {
@@ -69,7 +83,7 @@ export const TranscodingReasonsCard = ({
           <CardTitle>Transcoding Reasons</CardTitle>
           <CardDescription>No transcoding reasons recorded</CardDescription>
         </CardHeader>
-        <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[200px] flex items-center justify-center text-muted-foreground">
           No data to display
         </CardContent>
       </Card>
@@ -78,37 +92,68 @@ export const TranscodingReasonsCard = ({
 
   return (
     <Card className="flex flex-col">
-      <CardHeader className="items-center pb-0">
+      <CardHeader>
         <CardTitle>Transcoding Reasons</CardTitle>
         <CardDescription>Why content is being transcoded</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
+      <CardContent>
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[400px]"
+          className="h-[350px] w-full"
+          onWidthChange={setContainerWidth}
         >
-          <PieChart>
+          <BarChart
+            accessibilityLayer
+            data={chartData}
+            layout="vertical"
+            margin={{
+              left: 0,
+              right: 32,
+            }}
+          >
+            <CartesianGrid horizontal={false} />
+            <YAxis
+              dataKey="reason"
+              type="category"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+              hide
+            />
+            <XAxis dataKey="count" type="number" hide />
             <ChartTooltip
+              cursor={false}
               content={<ChartTooltipContent hideLabel />}
             />
-            <Pie
-              data={chartData}
-              dataKey="count"
-              nameKey="reason"
-              innerRadius={60}
-              strokeWidth={2}
-            />
-            <ChartLegend
-              content={<ChartLegendContent nameKey="reason" />}
-              className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
-            />
-          </PieChart>
+            <Bar dataKey="count" radius={4} barSize={24}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.fill} />
+              ))}
+              <LabelList
+                dataKey="labelWithPercent"
+                content={(props) => (
+                  <CustomBarLabel
+                    {...props}
+                    x={Number(props.x)}
+                    y={Number(props.y)}
+                    width={Number(props.width)}
+                    height={Number(props.height)}
+                    value={props.value}
+                    fill="hsl(var(--foreground))"
+                    fontSize={11}
+                    containerWidth={containerWidth}
+                    alwaysOutside
+                  />
+                )}
+              />
+            </Bar>
+          </BarChart>
         </ChartContainer>
       </CardContent>
       <CardFooter className="flex-col gap-2 text-sm">
         <div className="flex items-center gap-2 leading-none text-muted-foreground">
           <InfoIcon className="h-4 w-4" />
-          Top reason: {chartData[0].reason}
+          Dominant reason: {chartData[0].reason}
         </div>
       </CardFooter>
     </Card>
