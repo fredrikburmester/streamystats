@@ -113,8 +113,7 @@ export const BitrateDistributionCard = ({
               data={bitrateData}
               layout="vertical"
               margin={{
-                right: 32,
-                left: -20,
+                left: 0,
               }}
             >
               <CartesianGrid horizontal={false} />

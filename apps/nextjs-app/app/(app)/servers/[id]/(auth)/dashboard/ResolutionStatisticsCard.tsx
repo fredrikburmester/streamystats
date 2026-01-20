@@ -60,7 +60,7 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
 
   const chartData = React.useMemo(() => {
     if (!width.distribution || !height.distribution) return [];
-    
+
     const ranges: Record<string, number> = {};
     const minLength = Math.min(width.distribution.length, height.distribution.length);
 
@@ -117,8 +117,7 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
             data={chartData}
             layout="vertical"
             margin={{
-              right: 32,
-              left: -20,
+              left: 0,
             }}
           >
             <CartesianGrid horizontal={false} />
