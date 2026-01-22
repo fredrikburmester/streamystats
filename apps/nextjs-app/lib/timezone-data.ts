@@ -40,6 +40,7 @@ export const TIMEZONE_OPTIONS = [
   { value: "Asia/Seoul", label: "Korea Standard Time (Seoul)" },
   { value: "Asia/Dubai", label: "Gulf Standard Time (Dubai)" },
   { value: "Asia/Kolkata", label: "India Standard Time (Kolkata)" },
+  { value: "Asia/Dhaka", label: "Bangladesh Standard Time (Dhaka)" },
   { value: "Asia/Bangkok", label: "Indochina Time (Bangkok)" },
   { value: "Asia/Jakarta", label: "Western Indonesia Time (Jakarta)" },
   { value: "Asia/Manila", label: "Philippine Time (Manila)" },
