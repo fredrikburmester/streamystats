@@ -19,8 +19,8 @@ import type { WatchTimePerWeekDay as IWatchTimePerWeekDay } from "@/lib/db/users
 import { formatDuration } from "@/lib/utils";
 
 const chartConfig = {
-  minutes: {
-    label: "Minutes",
+  watchTime: {
+    label: "Watch Time",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
@@ -51,7 +51,7 @@ export const WatchTimePerWeekDay: React.FC<Props> = ({
 
     return data.map((item) => ({
       day: dayAbbreviations[item.day] || item.day,
-      minutes: Math.floor(item.watchTime / 60), // Convert seconds to minutes
+      watchTime: item.watchTime,
     }));
   }, [data]);
 
@@ -81,16 +81,16 @@ export const WatchTimePerWeekDay: React.FC<Props> = ({
               cursor={false}
               content={
                 <ChartTooltipContent
-                  formatter={(m) => (
+                  formatter={(val) => (
                     <div className="flex flex-row items-center justify-between w-full">
-                      <p>{formatDuration(Number(m), "minutes")}</p>
+                      <p>{formatDuration(Number(val), "seconds")}</p>
                     </div>
                   )}
                   hideLabel
                 />
               }
             />
-            <Bar dataKey="minutes" fill="#2761D9" radius={8} name="Minutes" />
+            <Bar dataKey="watchTime" fill="#2761D9" radius={8} name="Watch Time" />
           </BarChart>
         </ChartContainer>
       </CardContent>

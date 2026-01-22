@@ -22,8 +22,8 @@ import { formatDuration } from "@/lib/utils";
 import { useServerTimezone } from "@/providers/ServerTimezoneProvider";
 
 const chartConfig = {
-  minutes: {
-    label: "Minutes",
+  watchTime: {
+    label: "Watch Time",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
@@ -49,7 +49,7 @@ export const WatchTimePerHour: React.FC<Props> = ({
       const localHour = utcHourToLocalHour(item.hour, timezone);
       return {
         hour: formatHour(localHour),
-        minutes: Math.floor(item.watchTime / 60),
+        watchTime: item.watchTime,
         rawHour: localHour,
       };
     });
@@ -86,7 +86,7 @@ export const WatchTimePerHour: React.FC<Props> = ({
               cursor={false}
               content={
                 <ChartTooltipContent
-                  formatter={(m, _, entry) => {
+                  formatter={(val, _, entry) => {
                     const rawHour = entry?.payload?.rawHour;
                     const formattedHour =
                       rawHour !== undefined ? formatHour(rawHour, true) : "";
@@ -97,7 +97,7 @@ export const WatchTimePerHour: React.FC<Props> = ({
                           {formattedHour}
                         </div>
                         <div className="flex flex-row items-center justify-between w-full">
-                          <p>{formatDuration(Number(m), "minutes")}</p>
+                          <p>{formatDuration(Number(val), "seconds")}</p>
                         </div>
                       </div>
                     );
@@ -107,10 +107,10 @@ export const WatchTimePerHour: React.FC<Props> = ({
               }
             />
             <Bar
-              dataKey="minutes"
+              dataKey="watchTime"
               fill="#2761D9"
               radius={[4, 4, 0, 0]}
-              name="Minutes"
+              name="Watch Time"
               maxBarSize={16}
             />
           </BarChart>
