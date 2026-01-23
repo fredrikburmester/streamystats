@@ -63,13 +63,28 @@ function getErrorMessage(error: unknown): string {
 
 function isUnsupportedDimensionsParamError(error: unknown): boolean {
   const msg = getErrorMessage(error).toLowerCase();
+  const status = getHttpStatus(error);
+  
+  // Voyage AI returns 400 with "dimensions is not supported" message
+  // Also catch 400 errors that might be related to unsupported parameters
+  if (status === 400) {
+    if (msg.includes("dimension") || msg.includes("dimensions")) {
+      return true;
+    }
+    // Voyage AI sometimes returns 400 with no body for unsupported params
+    if (msg.includes("status code (no body)") || msg.length < 50) {
+      return true;
+    }
+  }
+  
   return (
     (msg.includes("dimension") || msg.includes("dimensions")) &&
     (msg.includes("unknown") ||
       msg.includes("unsupported") ||
       msg.includes("unrecognized") ||
       msg.includes("invalid") ||
-      msg.includes("unexpected"))
+      msg.includes("unexpected") ||
+      msg.includes("not supported"))
   );
 }
 
@@ -344,12 +359,48 @@ async function processOpenAIBatch(
 
   const texts = batchData.map((d) => d.text);
   let response: Awaited<ReturnType<typeof client.embeddings.create>>;
+  
+  // Detect Voyage AI by base URL - Voyage AI uses 'output_dimension' instead of 'dimensions'
+  const isVoyageAI = config.baseUrl.includes('voyageai.com');
+  
   try {
-    response = await client.embeddings.create({
-      model: config.model,
-      input: texts,
-      ...(config.dimensions ? { dimensions: config.dimensions } : {}),
-    });
+    if (isVoyageAI && config.dimensions) {
+      // Voyage AI requires 'output_dimension' instead of 'dimensions'
+      // Make direct HTTP request since OpenAI client doesn't support this parameter name
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (config.apiKey) {
+        headers["Authorization"] = `Bearer ${config.apiKey}`;
+      }
+      
+      const voyageResponse = await axios.post(
+        `${config.baseUrl}/embeddings`,
+        {
+          model: config.model,
+          input: texts,
+          output_dimension: config.dimensions,
+        },
+        { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
+      );
+      
+      // Transform Voyage AI response to OpenAI-compatible format
+      response = {
+        data: voyageResponse.data.data.map((item: any) => ({
+          embedding: item.embedding,
+          index: item.index,
+        })),
+        model: voyageResponse.data.model,
+        usage: voyageResponse.data.usage,
+      } as Awaited<ReturnType<typeof client.embeddings.create>>;
+    } else {
+      // Use standard OpenAI-compatible API
+      response = await client.embeddings.create({
+        model: config.model,
+        input: texts,
+        ...(config.dimensions ? { dimensions: config.dimensions } : {}),
+      });
+    }
   } catch (error) {
     // Some OpenAI-compatible providers (and some models) reject the optional `dimensions` param.
     // Retry once without it so the job can still proceed when embeddings are supported.

@@ -21,7 +21,7 @@ export const CHAT_PROVIDER_PRESETS = {
   },
   anthropic: {
     name: "Anthropic",
-    baseUrl: "https://api.anthropic.com",
+    baseUrl: "https://api.anthropic.com/v1",
     defaultModel: "claude-3-5-sonnet-latest",
     requiresApiKey: true,
     provider: "anthropic" as ChatProvider,

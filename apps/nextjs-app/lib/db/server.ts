@@ -919,23 +919,27 @@ export const testChatConnection = async ({
 }): Promise<{ success: boolean; message: string }> => {
   try {
     if (config.provider === "anthropic") {
-      const response = await fetch(
-        `${config.baseUrl || "https://api.anthropic.com"}/v1/messages`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": config.apiKey || "",
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: config.model,
-            max_tokens: 10,
-            messages: [{ role: "user", content: "Hi" }],
-          }),
-          signal: AbortSignal.timeout(10000),
+      // Anthropic API endpoint is /v1/messages
+      // If baseUrl already includes /v1, use it as-is, otherwise append /v1
+      const baseUrl = config.baseUrl || "https://api.anthropic.com";
+      const apiUrl = baseUrl.endsWith("/v1")
+        ? `${baseUrl}/messages`
+        : `${baseUrl}/v1/messages`;
+      
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": config.apiKey || "",
+          "anthropic-version": "2023-06-01",
         },
-      );
+        body: JSON.stringify({
+          model: config.model,
+          max_tokens: 10,
+          messages: [{ role: "user", content: "Hi" }],
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
 
       if (!response.ok) {
         const error = await response.text();
