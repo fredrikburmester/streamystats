@@ -912,6 +912,35 @@ export const clearChatConfig = async ({ serverId }: { serverId: number }) => {
   }
 };
 
+/**
+ * Normalizes Anthropic base URL and constructs the messages API endpoint.
+ * Handles edge cases like trailing slashes and existing /v1 paths.
+ * 
+ * @param baseUrl - The base URL (may include /v1, trailing slashes, etc.)
+ * @returns The full URL to the /v1/messages endpoint
+ */
+function getAnthropicMessagesUrl(baseUrl?: string): string {
+  const defaultBaseUrl = "https://api.anthropic.com";
+  const url = baseUrl || defaultBaseUrl;
+  
+  // Normalize: remove trailing slashes
+  const normalized = url.replace(/\/+$/, "");
+  
+  // Check if /v1 is already present (with or without trailing slash)
+  // Handle cases like: "https://api.anthropic.com/v1" or "https://api.anthropic.com/v1/"
+  if (normalized.endsWith("/v1")) {
+    return `${normalized}/messages`;
+  }
+  
+  // Check if /v1/messages is already present (avoid double-appending)
+  if (normalized.endsWith("/v1/messages")) {
+    return normalized;
+  }
+  
+  // Otherwise, append /v1/messages
+  return `${normalized}/v1/messages`;
+}
+
 export const testChatConnection = async ({
   config,
 }: {
@@ -919,12 +948,7 @@ export const testChatConnection = async ({
 }): Promise<{ success: boolean; message: string }> => {
   try {
     if (config.provider === "anthropic") {
-      // Anthropic API endpoint is /v1/messages
-      // If baseUrl already includes /v1, use it as-is, otherwise append /v1
-      const baseUrl = config.baseUrl || "https://api.anthropic.com";
-      const apiUrl = baseUrl.endsWith("/v1")
-        ? `${baseUrl}/messages`
-        : `${baseUrl}/v1/messages`;
+      const apiUrl = getAnthropicMessagesUrl(config.baseUrl);
       
       const response = await fetch(apiUrl, {
         method: "POST",

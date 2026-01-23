@@ -61,31 +61,65 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
-function isUnsupportedDimensionsParamError(error: unknown): boolean {
+/**
+ * Detects if an error is due to unsupported dimensions parameter.
+ * Uses provider-aware heuristics to avoid false positives.
+ */
+function isUnsupportedDimensionsParamError(
+  error: unknown,
+  provider?: string,
+  baseUrl?: string
+): boolean {
   const msg = getErrorMessage(error).toLowerCase();
   const status = getHttpStatus(error);
   
-  // Voyage AI returns 400 with "dimensions is not supported" message
-  // Also catch 400 errors that might be related to unsupported parameters
-  if (status === 400) {
-    if (msg.includes("dimension") || msg.includes("dimensions")) {
-      return true;
-    }
-    // Voyage AI sometimes returns 400 with no body for unsupported params
-    if (msg.includes("status code (no body)") || msg.length < 50) {
-      return true;
-    }
-  }
+  // Check if this is a Voyage AI provider (explicit check preferred)
+  const isVoyageAI = provider === "voyage" || 
+    (baseUrl && baseUrl.toLowerCase().includes("voyageai.com"));
   
-  return (
-    (msg.includes("dimension") || msg.includes("dimensions")) &&
-    (msg.includes("unknown") ||
+  // First, check for explicit dimension-related error messages
+  const hasDimensionKeyword = msg.includes("dimension") || msg.includes("dimensions");
+  
+  if (hasDimensionKeyword) {
+    // If we have dimension keywords, check for error indicators
+    if (
+      msg.includes("unknown") ||
       msg.includes("unsupported") ||
       msg.includes("unrecognized") ||
       msg.includes("invalid") ||
       msg.includes("unexpected") ||
-      msg.includes("not supported"))
-  );
+      msg.includes("not supported")
+    ) {
+      return true;
+    }
+  }
+  
+  // For 400 errors, be more conservative - only treat as dimension error if:
+  // 1. We have dimension keywords AND parameter-related indicators, OR
+  // 2. It's Voyage AI (known to return 400 for unsupported params) AND has dimension keywords
+  if (status === 400) {
+    if (hasDimensionKeyword) {
+      // Check for parameter-related keywords to avoid false positives
+      const hasParamKeywords = 
+        msg.includes("param") ||
+        msg.includes("parameter") ||
+        msg.includes("input") ||
+        msg.includes("body") ||
+        msg.includes("field");
+      
+      if (hasParamKeywords || isVoyageAI) {
+        return true;
+      }
+    }
+    
+    // Voyage AI-specific: sometimes returns 400 with minimal body for unsupported params
+    // Only apply this heuristic for Voyage AI to avoid masking other 400 errors
+    if (isVoyageAI && (msg.includes("status code (no body)") || (msg.length < 50 && hasDimensionKeyword))) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 function getHttpStatus(error: unknown): number | null {
@@ -318,6 +352,22 @@ async function prepareTextForEmbedding(item: Item, serverId: number): Promise<st
 }
 
 /**
+ * Detects if the embedding provider is Voyage AI.
+ * Prefers explicit provider flag, falls back to baseUrl check.
+ */
+function isVoyageAIProvider(
+  provider: string | undefined,
+  baseUrl: string
+): boolean {
+  // Check explicit provider first (if we add "voyage" as a provider type in the future)
+  if (provider === "voyage") {
+    return true;
+  }
+  // Fallback to baseUrl check for backward compatibility
+  return baseUrl.toLowerCase().includes("voyageai.com");
+}
+
+/**
  * Process a batch of items using OpenAI-compatible API.
  */
 async function processOpenAIBatch(
@@ -325,7 +375,8 @@ async function processOpenAIBatch(
   batchItems: Item[],
   config: EmbeddingConfig,
   validateEmbedding: (raw: number[], itemId: string) => number[] | null,
-  serverId: number
+  serverId: number,
+  provider?: string
 ): Promise<{ processed: number; skipped: number; errors: number }> {
   let processed = 0;
   let skipped = 0;
@@ -360,8 +411,9 @@ async function processOpenAIBatch(
   const texts = batchData.map((d) => d.text);
   let response: Awaited<ReturnType<typeof client.embeddings.create>>;
   
-  // Detect Voyage AI by base URL - Voyage AI uses 'output_dimension' instead of 'dimensions'
-  const isVoyageAI = config.baseUrl.includes('voyageai.com');
+  // Detect Voyage AI using provider-aware detection
+  // Voyage AI uses 'output_dimension' instead of 'dimensions'
+  const isVoyageAI = isVoyageAIProvider(provider, config.baseUrl);
   
   try {
     if (isVoyageAI && config.dimensions) {
@@ -404,7 +456,7 @@ async function processOpenAIBatch(
   } catch (error) {
     // Some OpenAI-compatible providers (and some models) reject the optional `dimensions` param.
     // Retry once without it so the job can still proceed when embeddings are supported.
-    if (config.dimensions && isUnsupportedDimensionsParamError(error)) {
+    if (config.dimensions && isUnsupportedDimensionsParamError(error, provider, config.baseUrl)) {
       response = await client.embeddings.create({
         model: config.model,
         input: texts,
@@ -692,7 +744,8 @@ export async function generateItemEmbeddingsJob(
               apiBatch,
               config,
               validateEmbedding,
-              serverId
+              serverId,
+              provider
             );
             totalProcessed += result.processed;
             totalSkipped += result.skipped;
