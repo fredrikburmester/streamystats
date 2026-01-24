@@ -521,15 +521,9 @@ async function processGeminiBatch(
   );
 
   // Gemini returns response.embeddings as an array, each with .values
-  const embeddings = response.data?.embeddings;
-  if (!embeddings || !Array.isArray(embeddings)) {
-    throw new Error("No embeddings array returned from Gemini");
-  }
-
-  if (embeddings.length !== batchData.length) {
-    throw new Error(
-      `Gemini returned ${embeddings.length} embeddings, expected ${batchData.length}`
-    );
+  const embeddings = response.data?.embedding ?? response.data?.embeddings;
+  if (!embeddings) {
+    throw new Error("No embeddings returned from Gemini");
   }
 
   // Process each embedding result
@@ -832,6 +826,7 @@ export async function generateItemEmbeddingsJob(
           await sleep(100);
         }
       } else if (provider === "gemini") {
+        const API_BATCH_SIZE = 1;
         // Process in smaller API batches for Gemini
         for (let i = 0; i < batch.length; i += API_BATCH_SIZE) {
           // Check stop flag between API calls
