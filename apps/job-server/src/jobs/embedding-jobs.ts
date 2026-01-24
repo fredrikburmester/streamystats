@@ -503,13 +503,16 @@ async function processGeminiBatch(
     headers["x-goog-api-key"] = config.apiKey;
   }
 
+  const model = `models/${config.model}`;
+
   // Gemini supports batch embedding via `contents` array
   // Each content can be a string, and response will have matching `embeddings` array
   const parts = batchData.map((d) => ({ text: d.text }));
 
   const response = await axios.post(
-    `${config.baseUrl}/models/${config.model}:embedContent`,
+    `${config.baseUrl}/${model}:embedContent`,
     {
+      model,
       content: { parts },
       taskType: "SEMANTIC_SIMILARITY",
       ...(config.dimensions ? { output_dimensionality: config.dimensions } : {}),
