@@ -1,6 +1,12 @@
-"use client";
 
-import { addDays, format, isValid, parseISO } from "date-fns";
+"use client";
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isValid,
+  parseISO,
+} from "date-fns";
 import { CalendarIcon, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -64,6 +70,18 @@ export function TranscodingFilters({
 
   const [range, setRange] = React.useState<DateRange | undefined>(rangeFromUrl);
 
+  const activePreset = React.useMemo(() => {
+    if (searchParams.get("startDate") === "all") return "all";
+    if (!rangeFromUrl?.from || !rangeFromUrl?.to) return null;
+
+    const days = differenceInCalendarDays(rangeFromUrl.to, rangeFromUrl.from);
+    if (days === 7) return "7d";
+    if (days === 30) return "30d";
+    if (days === 90) return "90d";
+    if (days === 365) return "365d";
+    return null;
+  }, [rangeFromUrl, searchParams]);
+
   React.useEffect(() => {
     if (!datePickerOpen) {
       setRange(rangeFromUrl);
@@ -115,11 +133,21 @@ export function TranscodingFilters({
   const apply90d = React.useCallback(() => applyPreset(90), [applyPreset]);
   const apply365d = React.useCallback(() => applyPreset(365), [applyPreset]);
 
+  const applyAll = React.useCallback(() => {
+    updateQueryParams({
+      startDate: "all",
+      endDate: null,
+    });
+    setRange(undefined);
+    setDatePickerOpen(false);
+  }, [updateQueryParams]);
+
   const dateRangeLabel = React.useMemo(() => {
+    if (searchParams.get("startDate") === "all") return "All time";
     if (!rangeFromUrl?.from) return "Date range";
     if (!rangeFromUrl.to) return format(rangeFromUrl.from, "MMM dd, yyyy");
     return `${format(rangeFromUrl.from, "MMM dd, yyyy")} – ${format(rangeFromUrl.to, "MMM dd, yyyy")}`;
-  }, [rangeFromUrl]);
+  }, [rangeFromUrl, searchParams]);
 
   const selectedUserId = searchParams.get("userId") || "all";
 
@@ -208,7 +236,7 @@ export function TranscodingFilters({
         <div className="flex gap-2 sm:justify-end">
           <Button
             type="button"
-            variant="secondary"
+            variant={activePreset === "7d" ? "default" : "secondary"}
             size="sm"
             disabled={isLoading}
             onClick={apply7d}
@@ -217,7 +245,7 @@ export function TranscodingFilters({
           </Button>
           <Button
             type="button"
-            variant="secondary"
+            variant={activePreset === "30d" ? "default" : "secondary"}
             size="sm"
             disabled={isLoading}
             onClick={apply30d}
@@ -226,7 +254,7 @@ export function TranscodingFilters({
           </Button>
           <Button
             type="button"
-            variant="secondary"
+            variant={activePreset === "90d" ? "default" : "secondary"}
             size="sm"
             disabled={isLoading}
             onClick={apply90d}
@@ -235,12 +263,21 @@ export function TranscodingFilters({
           </Button>
           <Button
             type="button"
-            variant="secondary"
+            variant={activePreset === "365d" ? "default" : "secondary"}
             size="sm"
             disabled={isLoading}
             onClick={apply365d}
           >
             365d
+          </Button>
+          <Button
+            type="button"
+            variant={activePreset === "all" ? "default" : "secondary"}
+            size="sm"
+            disabled={isLoading}
+            onClick={applyAll}
+          >
+            All
           </Button>
 
           {(searchParams.get("startDate") ||

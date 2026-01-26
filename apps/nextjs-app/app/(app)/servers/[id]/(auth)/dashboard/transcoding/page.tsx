@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { format, subDays } from "date-fns";
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,7 +35,23 @@ export default async function TranscodingPage({
     redirect("/not-found");
   }
 
-  const effectiveEndDate = endDate ? setEndDateToEndOfDay(endDate) : undefined;
+  // Default to 90d if no dates are provided
+  if (!startDate && !endDate) {
+    const today = new Date();
+    const start = subDays(today, 90);
+    const query = new URLSearchParams();
+    query.set("startDate", format(start, "yyyy-MM-dd"));
+    query.set("endDate", format(today, "yyyy-MM-dd"));
+    if (userId) query.set("userId", userId);
+
+    redirect(`/servers/${id}/dashboard/transcoding?${query.toString()}`);
+  }
+
+  const isAllTime = startDate === "all";
+  const effectiveStartDate = isAllTime ? undefined : startDate;
+  const effectiveEndDate =
+    isAllTime || !endDate ? undefined : setEndDateToEndOfDay(endDate);
+
   const isAdmin = await isUserAdmin();
   const users = await getUsers({ serverId: server.id });
 
@@ -48,7 +65,7 @@ export default async function TranscodingPage({
       <Suspense fallback={<Skeleton className="h-48 w-full" />}>
         <TranscodingStats
           server={server}
-          startDate={startDate}
+          startDate={effectiveStartDate}
           endDate={effectiveEndDate}
           userId={userId}
         />
