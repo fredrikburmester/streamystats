@@ -437,6 +437,7 @@ async function processOllamaItem(
     {
       model: config.model,
       input: text,
+      keep_alive: '5m', // Unloads the model after 5 minutes of inactivity
       ...(config.dimensions ? { dimensions: config.dimensions } : {}),
     },
     { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
