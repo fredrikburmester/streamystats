@@ -55,7 +55,7 @@ export const DirectnessCard = ({ data }: DirectnessCardProps) => {
     },
     transcode: {
       label: "Transcode",
-      color: "hsl(var(--chart-4))",
+      color: "hsl(var(--chart-1))",
     },
   } satisfies ChartConfig;
 
