@@ -11,8 +11,8 @@ import { DirectnessCard } from "./DirectnessCard";
 import { HardwareAccelerationCard } from "./HardwareAccelerationCard";
 import { ResolutionStatisticsCard } from "./ResolutionStatisticsCard";
 import { TranscodingDirectnessHistoryCard } from "./TranscodingDirectnessHistoryCard";
-import { TranscodingReasonsHistoryCard } from "./TranscodingReasonsHistoryCard";
 import { TranscodingReasonsCard } from "./TranscodingReasonsCard";
+import { TranscodingReasonsHistoryCard } from "./TranscodingReasonsHistoryCard";
 
 export const TranscodingStatistics = ({
   data,

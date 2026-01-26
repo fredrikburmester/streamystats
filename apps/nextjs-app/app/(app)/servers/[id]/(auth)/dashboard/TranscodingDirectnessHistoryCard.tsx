@@ -18,10 +18,10 @@ import {
 import {
   type ChartConfig,
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { TranscodingHistoryStat } from "@/lib/db/transcoding-statistics";
 

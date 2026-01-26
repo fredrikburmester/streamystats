@@ -1,6 +1,6 @@
+import { format, subDays } from "date-fns";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { format, subDays } from "date-fns";
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
