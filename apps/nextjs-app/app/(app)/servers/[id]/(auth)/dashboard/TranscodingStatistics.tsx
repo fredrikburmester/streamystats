@@ -1,21 +1,34 @@
 "use client";
 
-import type { TranscodingStatisticsResponse } from "@/lib/db/transcoding-statistics";
+import type {
+  TranscodingHistoryStat,
+  TranscodingStatisticsResponse,
+} from "@/lib/db/transcoding-statistics";
 import { BitrateDistributionCard } from "./BitrateDistributionCard";
 import { CodecUsageCard } from "./CodecUsageCard";
 import { ContainerFormatCard } from "./ContainerFormatCard";
 import { DirectnessCard } from "./DirectnessCard";
 import { HardwareAccelerationCard } from "./HardwareAccelerationCard";
 import { ResolutionStatisticsCard } from "./ResolutionStatisticsCard";
+import { TranscodingDirectnessHistoryCard } from "./TranscodingDirectnessHistoryCard";
+import { TranscodingReasonsHistoryCard } from "./TranscodingReasonsHistoryCard";
 import { TranscodingReasonsCard } from "./TranscodingReasonsCard";
 
 export const TranscodingStatistics = ({
   data,
+  history,
 }: {
   data: TranscodingStatisticsResponse;
+  history: TranscodingHistoryStat[];
 }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="md:col-span-2">
+        <TranscodingDirectnessHistoryCard data={history} />
+      </div>
+      <div className="md:col-span-2">
+        <TranscodingReasonsHistoryCard data={history} />
+      </div>
       <DirectnessCard data={data.directness} />
       <BitrateDistributionCard data={data.transcodingBitrate} />
       <CodecUsageCard

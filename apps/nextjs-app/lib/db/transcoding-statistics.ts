@@ -605,3 +605,111 @@ export async function getResolutionDistribution(
 
   return resolutionDistribution;
 }
+
+export interface TranscodingHistoryStat {
+  date: string;
+  directPlay: number;
+  transcode: number;
+  total: number;
+  reasons: Record<string, number>;
+}
+
+export async function getTranscodingStatisticsOverTime(
+  serverId: number,
+  startDate?: string,
+  endDate?: string,
+  userId?: string,
+): Promise<TranscodingHistoryStat[]> {
+  // Get exclusion settings
+  const { excludedUserIds } = await getExclusionSettings(serverId);
+
+  // Get all sessions with transcoding data for the specified date range
+  const whereConditions: SQL[] = [eq(sessions.serverId, serverId)];
+
+  if (startDate) {
+    whereConditions.push(gte(sessions.startTime, new Date(startDate)));
+  }
+  if (endDate) {
+    whereConditions.push(lte(sessions.startTime, new Date(endDate)));
+  }
+  if (userId) {
+    whereConditions.push(eq(sessions.userId, userId));
+  }
+
+  // Add exclusion filters
+  if (excludedUserIds.length > 0) {
+    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  }
+
+  const sessionData = await db
+    .select({
+      startTime: sessions.startTime,
+      isTranscoded: sessions.isTranscoded,
+      playMethod: sessions.playMethod,
+      transcodingVideoCodec: sessions.transcodingVideoCodec,
+      transcodingAudioCodec: sessions.transcodingAudioCodec,
+      transcodingContainer: sessions.transcodingContainer,
+      transcodingReasons: sessions.transcodeReasons,
+    })
+    .from(sessions)
+    .where(and(...whereConditions));
+
+  const statsByDate = new Map<
+    string,
+    {
+      directPlay: number;
+      transcode: number;
+      reasons: Record<string, number>;
+    }
+  >();
+
+  for (const session of sessionData) {
+    if (!session.startTime) continue;
+
+    const date = session.startTime.toISOString().split("T")[0];
+    const stats = statsByDate.get(date) || {
+      directPlay: 0,
+      transcode: 0,
+      reasons: {},
+    };
+
+    // Determine if session is direct play or transcode
+    let isDirectPlay = false;
+    if (session.isTranscoded !== null) {
+      isDirectPlay = !session.isTranscoded;
+    } else if (session.playMethod) {
+      isDirectPlay = session.playMethod === "DirectPlay";
+    } else {
+      isDirectPlay = !(
+        session.transcodingVideoCodec ||
+        session.transcodingAudioCodec ||
+        session.transcodingContainer
+      );
+    }
+
+    if (isDirectPlay) {
+      stats.directPlay++;
+    } else {
+      stats.transcode++;
+      if (session.transcodingReasons) {
+        for (const reason of session.transcodingReasons) {
+          stats.reasons[reason] = (stats.reasons[reason] || 0) + 1;
+        }
+      }
+    }
+
+    statsByDate.set(date, stats);
+  }
+
+  // Fill in missing dates if needed, or just return the existing data sorted
+  // For now, let's just return sorted existing data
+  return Array.from(statsByDate.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, stats]) => ({
+      date,
+      directPlay: stats.directPlay,
+      transcode: stats.transcode,
+      total: stats.directPlay + stats.transcode,
+      reasons: stats.reasons,
+    }));
+}
