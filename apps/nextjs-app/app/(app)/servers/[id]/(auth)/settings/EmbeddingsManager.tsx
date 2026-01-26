@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Loader, Play, Square } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -116,6 +116,32 @@ const PROVIDER_PRESETS = {
 
 type PresetKey = keyof typeof PROVIDER_PRESETS;
 
+// Embeddings sync runs every 15 minutes (cron */15 * * * *) at :00, :15, :30, :45
+const EMBEDDINGS_CRON_INTERVAL_MINUTES = 15;
+
+function getNextEmbeddingsRunTime(): Date {
+  const now = new Date();
+  const minute = now.getMinutes();
+  const nextMinute = Math.ceil((minute + 1) / EMBEDDINGS_CRON_INTERVAL_MINUTES) * EMBEDDINGS_CRON_INTERVAL_MINUTES;
+  const next = new Date(now);
+  if (nextMinute >= 60) {
+    next.setHours(next.getHours() + 1);
+    next.setMinutes(0, 0, 0);
+  } else {
+    next.setMinutes(nextMinute, 0, 0);
+  }
+  return next;
+}
+
+function formatTimeUntil(until: Date): string {
+  const ms = until.getTime() - Date.now();
+  if (ms <= 0) return "any moment";
+  const sec = Math.floor(ms / 1000) % 60;
+  const min = Math.floor(ms / 60000);
+  if (min > 0) return `${min}m ${sec}s`;
+  return `${sec}s`;
+}
+
 // Detect preset from server config
 function detectPreset(server: ServerPublic): PresetKey {
   const baseUrl = server.embeddingBaseUrl || "";
@@ -160,6 +186,24 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
     server.autoGenerateEmbeddings || false,
   );
   const [isUpdatingAutoEmbed, setIsUpdatingAutoEmbed] = useState(false);
+  const [nextRunTime, setNextRunTime] = useState<Date>(() => getNextEmbeddingsRunTime());
+  const [timeUntilNext, setTimeUntilNext] = useState<string>("");
+
+  // Update next-run countdown every second when auto embeddings is on
+  useEffect(() => {
+    if (!autoEmbeddings) {
+      setTimeUntilNext("");
+      return;
+    }
+    const tick = () => {
+      const next = getNextEmbeddingsRunTime();
+      setNextRunTime(next);
+      setTimeUntilNext(formatTimeUntil(next));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [autoEmbeddings]);
 
   const {
     data: progress,
@@ -531,10 +575,26 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
                   : ""}
               </span>
             </div>
+            {typeof progress?.total === "number" && typeof progress?.processed === "number" && (
+              <p className="text-sm text-muted-foreground -mt-1 mb-1">
+                <span className="font-medium">
+                  {(progress.total - progress.processed).toLocaleString()} items remaining
+                </span> to process for AI recommendations.
+              </p>
+            )}
 
             <Progress value={progress?.percentage ?? 0} className="h-2" />
 
-            <div className="flex gap-2 mt-4">
+            {autoEmbeddings && !isProcessRunning && (progress?.total ?? 0) > (progress?.processed ?? 0) && (
+              <p className="text-sm text-muted-foreground">
+                Next scheduled batch: <span className="font-medium tabular-nums">{timeUntilNext}</span>
+                <span className="text-xs text-muted-foreground block mt-0.5">
+                  Runs every 15 minutes when auto-generate is on
+                </span>
+              </p>
+            )}
+
+            <div className="flex flex-wrap gap-2 mt-4">
               <Button
                 type="button"
                 onClick={handleStartEmbedding}
@@ -552,7 +612,9 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
                   </>
                 ) : (
                   <>
-                    <Play className="h-4 w-4" /> Start Embedding
+                    <Play className="h-4 w-4" /> {(progress?.total ?? 0) > (progress?.processed ?? 0)
+                      ? "Start next batch"
+                      : "Start embedding"}
                   </>
                 )}
               </Button>

@@ -29,7 +29,10 @@ const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RATE_LIMIT_DELAY = 500;
 const ITEMS_PER_BATCH = 100; // Items to fetch from DB at a time
 const API_BATCH_SIZE = 20; // Items to send to embedding API at once
-const MAX_CONSECUTIVE_BATCH_FAILURES = 5;
+const MAX_CONSECUTIVE_BATCH_FAILURES = 10; // Allow more transient failures before aborting
+const RATE_LIMIT_BACKOFF_MS = 60_000; // 1 minute when 429 is received
+const RATE_LIMIT_MAX_RETRIES = 2; // Retry same batch up to 2 times after backoff
+const BATCH_FAILURE_BACKOFF_MS = 3000; // 3s extra delay after a batch failure
 
 // Track if index has been ensured this session (per dimension)
 const indexEnsuredForDimension = new Set<number>();
@@ -566,7 +569,39 @@ export async function generateItemEmbeddingsJob(
   job: PgBossJob<GenerateItemEmbeddingsJobData>
 ) {
   const startTime = Date.now();
-  const { serverId, provider: rawProvider, config, manualStart = false } = job.data;
+  let { serverId, provider: rawProvider, config, manualStart = false } = job.data;
+
+  // When triggered by cron/scheduler, job.data only has serverId (and optionally batchSize).
+  // Load embedding config from the server so background runs work the same as manual start.
+  if (!config?.baseUrl || !config?.model || !rawProvider) {
+    const serverRows = await db
+      .select({
+        name: servers.name,
+        embeddingProvider: servers.embeddingProvider,
+        embeddingBaseUrl: servers.embeddingBaseUrl,
+        embeddingApiKey: servers.embeddingApiKey,
+        embeddingModel: servers.embeddingModel,
+        embeddingDimensions: servers.embeddingDimensions,
+      })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1);
+    const row = serverRows[0];
+    if (!row?.embeddingProvider || !row.embeddingBaseUrl || !row.embeddingModel) {
+      throw new Error(
+        "Embedding provider not configured for this server. Configure embeddings in server settings."
+      );
+    }
+    rawProvider = row.embeddingProvider;
+    config = {
+      baseUrl: row.embeddingBaseUrl,
+      apiKey: row.embeddingApiKey ?? undefined,
+      model: row.embeddingModel,
+      dimensions: row.embeddingDimensions ?? 1536,
+    };
+    manualStart = false;
+  }
+
   const provider = rawProvider === "openai" ? "openai-compatible" : rawProvider;
 
   let totalProcessed = 0;
@@ -738,62 +773,79 @@ export async function generateItemEmbeddingsJob(
           }
 
           const apiBatch = batch.slice(i, i + API_BATCH_SIZE);
-          try {
-            const result = await processOpenAIBatch(
-              openaiClient,
-              apiBatch,
-              config,
-              validateEmbedding,
-              serverId,
-              provider
-            );
-            totalProcessed += result.processed;
-            totalSkipped += result.skipped;
-            totalErrors += result.errors;
-            consecutiveBatchFailures = 0;
-            lastBatchError = null;
-          } catch (batchError) {
-            if (batchError instanceof Error) {
-              if (batchError.message.includes("rate_limit")) {
-                throw new Error("Rate limit exceeded. Please try again later.");
+          let batchDone = false;
+          let rateLimitRetries = 0;
+
+          while (!batchDone) {
+            try {
+              const result = await processOpenAIBatch(
+                openaiClient,
+                apiBatch,
+                config,
+                validateEmbedding,
+                serverId,
+                provider
+              );
+              totalProcessed += result.processed;
+              totalSkipped += result.skipped;
+              totalErrors += result.errors;
+              consecutiveBatchFailures = 0;
+              lastBatchError = null;
+              batchDone = true;
+            } catch (batchError) {
+              if (batchError instanceof Error) {
+                if (batchError.message.includes("rate_limit") || getHttpStatus(batchError) === 429) {
+                  if (rateLimitRetries < RATE_LIMIT_MAX_RETRIES) {
+                    rateLimitRetries++;
+                    console.warn(
+                      `[embeddings] server=${serverName} serverId=${serverId} action=rateLimitBackoff attempt=${rateLimitRetries} sleepingMs=${RATE_LIMIT_BACKOFF_MS}`
+                    );
+                    await sleep(RATE_LIMIT_BACKOFF_MS);
+                    continue;
+                  }
+                  throw new Error("Rate limit exceeded. Please try again later.");
+                }
+                if (batchError.message.includes("insufficient_quota")) {
+                  throw new Error("Quota exceeded. Please check billing.");
+                }
+                if (
+                  batchError.message.includes("invalid_api_key") ||
+                  getHttpStatus(batchError) === 401
+                ) {
+                  const info = getOpenAIErrorInfo(batchError);
+                  throw new Error(
+                    `Embeddings provider returned 401 (unauthorized). ` +
+                      `baseUrl=${config.baseUrl} ` +
+                      `type=${info.type ?? "unknown"} code=${info.code ?? "unknown"} ` +
+                      `requestId=${info.requestId ?? "unknown"} ` +
+                      `message=${info.message}`
+                  );
+                }
+                // Dimension mismatch should propagate
+                if (batchError.message.includes("Dimension mismatch")) {
+                  throw batchError;
+                }
+                // Deterministic failures (DB schema/extension issues) should fail fast.
+                if (batchError.message.includes("Failed to persist embeddings to DB")) {
+                  throw batchError;
+                }
               }
-              if (batchError.message.includes("insufficient_quota")) {
-                throw new Error("Quota exceeded. Please check billing.");
-              }
-              if (
-                batchError.message.includes("invalid_api_key") ||
-                getHttpStatus(batchError) === 401
-              ) {
-                const info = getOpenAIErrorInfo(batchError);
+              consecutiveBatchFailures++;
+              lastBatchError = getErrorMessage(batchError);
+              console.error(
+                `[embeddings] server=${serverName} serverId=${serverId} action=batchError provider=${provider} model=${config.model} baseUrl=${config.baseUrl} consecutiveFailures=${consecutiveBatchFailures} error=${lastBatchError}`
+              );
+              totalErrors += apiBatch.length;
+              batchDone = true;
+
+              // Avoid infinite loops when provider/config is invalid (e.g. wrong model/baseUrl).
+              if (consecutiveBatchFailures >= MAX_CONSECUTIVE_BATCH_FAILURES) {
                 throw new Error(
-                  `Embeddings provider returned 401 (unauthorized). ` +
-                    `baseUrl=${config.baseUrl} ` +
-                    `type=${info.type ?? "unknown"} code=${info.code ?? "unknown"} ` +
-                    `requestId=${info.requestId ?? "unknown"} ` +
-                    `message=${info.message}`
+                  `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`
                 );
               }
-              // Dimension mismatch should propagate
-              if (batchError.message.includes("Dimension mismatch")) {
-                throw batchError;
-              }
-              // Deterministic failures (DB schema/extension issues) should fail fast.
-              if (batchError.message.includes("Failed to persist embeddings to DB")) {
-                throw batchError;
-              }
-            }
-            consecutiveBatchFailures++;
-            lastBatchError = getErrorMessage(batchError);
-            console.error(
-              `[embeddings] server=${serverName} serverId=${serverId} action=batchError provider=${provider} model=${config.model} baseUrl=${config.baseUrl} consecutiveFailures=${consecutiveBatchFailures} error=${lastBatchError}`
-            );
-            totalErrors += apiBatch.length;
-
-            // Avoid infinite loops when provider/config is invalid (e.g. wrong model/baseUrl).
-            if (consecutiveBatchFailures >= MAX_CONSECUTIVE_BATCH_FAILURES) {
-              throw new Error(
-                `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`
-              );
+              // Brief backoff after a failure to avoid hammering the API on transient errors.
+              await sleep(BATCH_FAILURE_BACKOFF_MS);
             }
           }
 
