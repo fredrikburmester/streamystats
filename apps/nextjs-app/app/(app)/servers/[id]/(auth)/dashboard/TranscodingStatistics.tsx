@@ -23,13 +23,8 @@ export const TranscodingStatistics = ({
 }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="md:col-span-2">
-        <TranscodingDirectnessHistoryCard data={history} />
-      </div>
-      <div className="md:col-span-2">
-        <TranscodingReasonsHistoryCard data={history} />
-      </div>
       <DirectnessCard data={data.directness} />
+      <TranscodingDirectnessHistoryCard data={history} />
       <BitrateDistributionCard data={data.transcodingBitrate} />
       <CodecUsageCard
         audioCodecs={data.transcodingAudioCodec}
@@ -43,8 +38,9 @@ export const TranscodingStatistics = ({
       <HardwareAccelerationCard
         data={data.transcodingHardwareAccelerationType}
       />
+      <TranscodingReasonsCard data={data.transcodingReasons} />
       <div className="md:col-span-2">
-        <TranscodingReasonsCard data={data.transcodingReasons} />
+        <TranscodingReasonsHistoryCard data={history} />
       </div>
 
       {/* Audio Channels */}
