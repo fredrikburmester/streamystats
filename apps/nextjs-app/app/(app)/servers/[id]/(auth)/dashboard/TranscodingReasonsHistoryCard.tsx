@@ -48,7 +48,9 @@ export const TranscodingReasonsHistoryCard: React.FC<Props> = ({ data }) => {
     // Collect all unique reasons
     const uniqueReasons = new Set<string>();
     data.forEach((day) => {
-      Object.keys(day.reasons).forEach((reason) => uniqueReasons.add(reason));
+      Object.keys(day.reasons).forEach((reason) => {
+        uniqueReasons.add(reason);
+      });
     });
     const reasonsList = Array.from(uniqueReasons).sort();
 
