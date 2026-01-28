@@ -392,7 +392,7 @@ export async function getTopPeopleByPlayCount(
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
       .orderBy(
         sortBy === "titleCount"
-          ? desc(countDistinct(items.id))
+          ? (desc(countDistinct(items.id)), desc(count(sessions.id)))
           : desc(count(sessions.id)),
       )
       .limit(limit);
@@ -450,7 +450,7 @@ export async function getTopPeopleByPlayCount(
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
       .orderBy(
         sortBy === "titleCount"
-          ? desc(countDistinct(items.seriesId))
+          ? (desc(countDistinct(items.seriesId)), desc(count(sessions.id)))
           : desc(count(sessions.id)),
       )
       .limit(limit);
