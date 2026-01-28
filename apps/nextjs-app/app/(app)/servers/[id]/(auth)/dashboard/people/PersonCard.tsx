@@ -4,7 +4,11 @@ import { User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import type { PersonLibraryStats, PersonStats, PlayCountSortBy } from "@/lib/db/people-stats";
+import type {
+  PersonLibraryStats,
+  PersonStats,
+  PlayCountSortBy,
+} from "@/lib/db/people-stats";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 

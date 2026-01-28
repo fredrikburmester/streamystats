@@ -29,7 +29,13 @@ export async function PeopleStats({ server, mediaType, playCountSort }: Props) {
     getTopPeopleByPlayCount(server.id, "Actor", mediaType, 20, playCountSort),
     getTopPeopleByLibraryPresence(server.id, "Actor", mediaType, 20),
     getTopPeopleByWatchTime(server.id, "Director", mediaType, 20),
-    getTopPeopleByPlayCount(server.id, "Director", mediaType, 20, playCountSort),
+    getTopPeopleByPlayCount(
+      server.id,
+      "Director",
+      mediaType,
+      20,
+      playCountSort,
+    ),
     getTopPeopleByLibraryPresence(server.id, "Director", mediaType, 20),
     getTopDirectorActorCombinations(server.id, mediaType, 15),
   ]);

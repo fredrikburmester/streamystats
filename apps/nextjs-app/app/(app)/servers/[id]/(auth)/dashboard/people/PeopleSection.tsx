@@ -5,7 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { PersonLibraryStats, PersonStats, PlayCountSortBy } from "@/lib/db/people-stats";
+import type {
+  PersonLibraryStats,
+  PersonStats,
+  PlayCountSortBy,
+} from "@/lib/db/people-stats";
 import type { ServerPublic } from "@/lib/types";
 import { PersonCard } from "./PersonCard";
 
