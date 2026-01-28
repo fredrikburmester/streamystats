@@ -1,4 +1,4 @@
-import type { MediaTypeFilter } from "@/lib/db/people-stats";
+import type { MediaTypeFilter, PlayCountSortBy } from "@/lib/db/people-stats";
 import {
   getTopDirectorActorCombinations,
   getTopPeopleByLibraryPresence,
@@ -12,9 +12,10 @@ import { PeopleSection } from "./PeopleSection";
 interface Props {
   server: ServerPublic;
   mediaType: MediaTypeFilter;
+  playCountSort: PlayCountSortBy;
 }
 
-export async function PeopleStats({ server, mediaType }: Props) {
+export async function PeopleStats({ server, mediaType, playCountSort }: Props) {
   const [
     topActorsByWatchTime,
     topActorsByPlayCount,
@@ -25,10 +26,10 @@ export async function PeopleStats({ server, mediaType }: Props) {
     directorActorCombos,
   ] = await Promise.all([
     getTopPeopleByWatchTime(server.id, "Actor", mediaType, 20),
-    getTopPeopleByPlayCount(server.id, "Actor", mediaType, 20),
+    getTopPeopleByPlayCount(server.id, "Actor", mediaType, 20, playCountSort),
     getTopPeopleByLibraryPresence(server.id, "Actor", mediaType, 20),
     getTopPeopleByWatchTime(server.id, "Director", mediaType, 20),
-    getTopPeopleByPlayCount(server.id, "Director", mediaType, 20),
+    getTopPeopleByPlayCount(server.id, "Director", mediaType, 20, playCountSort),
     getTopPeopleByLibraryPresence(server.id, "Director", mediaType, 20),
     getTopDirectorActorCombinations(server.id, mediaType, 15),
   ]);
@@ -62,6 +63,7 @@ export async function PeopleStats({ server, mediaType }: Props) {
         people={topActorsByPlayCount}
         server={server}
         variant="playcount"
+        playCountSort={playCountSort}
         emptyMessage="No actor watch statistics yet."
       />
 
@@ -92,6 +94,7 @@ export async function PeopleStats({ server, mediaType }: Props) {
         people={topDirectorsByPlayCount}
         server={server}
         variant="playcount"
+        playCountSort={playCountSort}
         emptyMessage="No director watch statistics yet."
       />
 

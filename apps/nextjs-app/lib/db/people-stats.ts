@@ -332,13 +332,16 @@ export async function getTopPeopleByWatchTime(
 }
 
 /**
- * Get top people (actors or directors) by play count.
+ * Get top people (actors or directors) by play count or title count.
  */
+export type PlayCountSortBy = "playCount" | "titleCount";
+
 export async function getTopPeopleByPlayCount(
   serverId: string | number,
   personType: "Actor" | "Director",
   mediaType: MediaTypeFilter,
   limit = 20,
+  sortBy: PlayCountSortBy = "titleCount",
 ): Promise<PersonStats[]> {
   "use cache";
   cacheLife("hours");
@@ -387,7 +390,11 @@ export async function getTopPeopleByPlayCount(
       )
       .where(and(...movieConditions))
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
-      .orderBy(desc(count(sessions.id)))
+      .orderBy(
+        sortBy === "titleCount"
+          ? desc(countDistinct(items.id))
+          : desc(count(sessions.id)),
+      )
       .limit(limit);
 
     for (const stat of movieStats) {
@@ -441,7 +448,11 @@ export async function getTopPeopleByPlayCount(
       )
       .where(and(...seriesConditions))
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
-      .orderBy(desc(count(sessions.id)))
+      .orderBy(
+        sortBy === "titleCount"
+          ? desc(countDistinct(items.seriesId))
+          : desc(count(sessions.id)),
+      )
       .limit(limit);
 
     for (const stat of seriesStats) {
@@ -476,8 +487,12 @@ export async function getTopPeopleByPlayCount(
     }
   }
 
-  // Sort by play count and limit
-  results.sort((a, b) => b.totalPlayCount - a.totalPlayCount);
+  // Sort by the selected field and limit
+  if (sortBy === "titleCount") {
+    results.sort((a, b) => b.itemCount - a.itemCount);
+  } else {
+    results.sort((a, b) => b.totalPlayCount - a.totalPlayCount);
+  }
   return results.slice(0, limit);
 }
 
