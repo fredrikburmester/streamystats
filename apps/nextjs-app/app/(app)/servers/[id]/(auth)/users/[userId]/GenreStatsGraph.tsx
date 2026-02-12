@@ -7,6 +7,7 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from "recharts";
+import { useMemo } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -34,6 +35,36 @@ export const GenreStatsGraph: React.FC<Props> = ({
   className,
   ...props
 }) => {
+  const chartData = useMemo(() => {
+    const sorted = [...data].sort((a, b) => b.watchTime - a.watchTime);
+    const topGenres = sorted.slice(0, 16);
+
+    // "Balance" the sort for a better shape (Center the largest, then alternate)
+    // Result: [4, 2, 0, 1, 3, 5] (indices from sorted array)
+    const balanced: typeof topGenres = [];
+
+    // Place the largest item at the top/center (depending on radar start angle, usually top)
+    if (topGenres.length > 0) {
+       balanced.push(topGenres[0]); 
+    }
+
+    // Alternate adding to the array to distribute magnitude
+    for (let i = 1; i < topGenres.length; i++) {
+      if (i % 2 === 1) {
+        // Add to the right (or end of array)
+        balanced.push(topGenres[i]);
+      } else {
+        // Add to the left (or beginning of array)
+        balanced.unshift(topGenres[i]);
+      }
+    }
+
+    return balanced.map((item) => ({
+        ...item,
+        normalizedWatchTime: Math.sqrt(item.watchTime),
+      }));
+  }, [data]);
+
   return (
     <Card {...props} className={cn("", className)}>
       <CardHeader className="items-center pb-4">
@@ -47,7 +78,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
           className="h-[300px] w-full"
         >
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={data} outerRadius={90}>
+            <RadarChart data={chartData} outerRadius={90}>
               <PolarGrid />
               <PolarAngleAxis
                 dataKey="genre"
@@ -56,7 +87,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
               />
               <Radar
                 name="Watch Time"
-                dataKey="watchTime"
+                dataKey="normalizedWatchTime"
                 stroke="hsl(var(--chart-1))"
                 fill="hsl(var(--chart-1))"
                 fillOpacity={0.6}
