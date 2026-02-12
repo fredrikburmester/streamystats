@@ -97,9 +97,9 @@ export const GenreStatsGraph: React.FC<Props> = ({
                 }}
               />
               <ChartTooltip
-                formatter={(val) => (
+                formatter={(val, name, item) => (
                   <div>
-                    <p>{formatDuration(Number(val))}</p>
+                    <p>{formatDuration(item.payload.watchTime)}</p>
                   </div>
                 )}
                 cursor={false}
