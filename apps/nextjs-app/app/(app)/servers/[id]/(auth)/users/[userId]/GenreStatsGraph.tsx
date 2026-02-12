@@ -37,7 +37,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
 }) => {
   const chartData = useMemo(() => {
     const sorted = [...data].sort((a, b) => b.watchTime - a.watchTime);
-    const topGenres = sorted.slice(0, 16);
+    const topGenres = sorted.slice(0, 12);
 
     // "Balance" the sort for a better shape (Center the largest, then alternate)
     // Result: [4, 2, 0, 1, 3, 5] (indices from sorted array)
@@ -61,7 +61,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
 
     return balanced.map((item) => ({
         ...item,
-        normalizedWatchTime: Math.sqrt(item.watchTime),
+        normalizedWatchTime: Math.pow(item.watchTime, 0.6),
       }));
   }, [data]);
 
@@ -78,7 +78,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
           className="h-[300px] w-full"
         >
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={chartData} outerRadius={90}>
+            <RadarChart data={chartData} outerRadius={90} startAngle={180} endAngle={-180}>
               <PolarGrid />
               <PolarAngleAxis
                 dataKey="genre"
