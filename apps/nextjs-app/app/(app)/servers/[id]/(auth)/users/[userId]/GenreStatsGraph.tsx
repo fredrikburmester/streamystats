@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -7,7 +8,6 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from "recharts";
-import { useMemo } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -45,7 +45,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
 
     // Place the largest item at the top/center (depending on radar start angle, usually top)
     if (topGenres.length > 0) {
-       balanced.push(topGenres[0]); 
+      balanced.push(topGenres[0]);
     }
 
     // Alternate adding to the array to distribute magnitude
@@ -60,9 +60,9 @@ export const GenreStatsGraph: React.FC<Props> = ({
     }
 
     return balanced.map((item) => ({
-        ...item,
-        normalizedWatchTime: Math.pow(item.watchTime, 0.6),
-      }));
+      ...item,
+      normalizedWatchTime: item.watchTime ** 0.6, // Math.pow
+    }));
   }, [data]);
 
   return (
@@ -78,7 +78,12 @@ export const GenreStatsGraph: React.FC<Props> = ({
           className="h-[300px] w-full"
         >
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={chartData} outerRadius={90} startAngle={180} endAngle={-180}>
+            <RadarChart
+              data={chartData}
+              outerRadius={90}
+              startAngle={180}
+              endAngle={-180}
+            >
               <PolarGrid />
               <PolarAngleAxis
                 dataKey="genre"
