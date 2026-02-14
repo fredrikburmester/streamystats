@@ -45,10 +45,12 @@ export const GenreStatsGraph: React.FC<Props> = ({
 }) => {
   const [limit, setLimit] = useState(12);
   const [power, setPower] = useState(0.6);
+  const effectiveLimit = Math.min(limit, data.length);
+  const maxLimit = Math.max(data.length, 3);
 
   const chartData = useMemo(() => {
     const sorted = [...data].sort((a, b) => b.watchTime - a.watchTime);
-    const topGenres = sorted.slice(0, limit);
+    const topGenres = sorted.slice(0, effectiveLimit);
 
     // "Balance" the sort for a better shape (Center the largest, then alternate)
     // Result: [4, 2, 0, 1, 3, 5] (indices from sorted array)
@@ -74,7 +76,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
       ...item,
       normalizedWatchTime: item.watchTime ** power,
     }));
-  }, [data, limit, power]);
+  }, [data, effectiveLimit, power]);
 
   return (
     <Card {...props} className={cn("", className)}>
@@ -102,15 +104,15 @@ export const GenreStatsGraph: React.FC<Props> = ({
                   <div className="flex items-center justify-between">
                     <Label htmlFor="limit">Top Genres Limit</Label>
                     <span className="text-xs font-mono text-muted-foreground w-12 text-right">
-                      {limit}
+                      {effectiveLimit}
                     </span>
                   </div>
                   <Slider
                     id="limit"
                     min={3}
-                    max={20}
+                    max={maxLimit}
                     step={1}
-                    value={[limit]}
+                    value={[effectiveLimit]}
                     onValueChange={(vals) => setLimit(vals[0])}
                     className="w-full"
                   />
@@ -119,7 +121,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
                   <div className="flex items-center justify-between">
                     <Label htmlFor="power">Normalization Power</Label>
                     <span className="text-xs font-mono text-muted-foreground w-12 text-right">
-                      {power}
+                      {power.toFixed(1)}
                     </span>
                   </div>
                   <Slider
