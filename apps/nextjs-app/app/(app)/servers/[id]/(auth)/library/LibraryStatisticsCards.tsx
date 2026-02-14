@@ -20,6 +20,7 @@ import { formatBytes, formatDuration, ticksToSeconds } from "@/lib/utils";
 interface Props {
   data: PerLibraryStatistics[];
   serverId: number;
+  isAdmin: boolean;
 }
 
 const getLibraryConfig = (type: string) => {
@@ -58,7 +59,8 @@ const getLibraryConfig = (type: string) => {
 const LibraryStatCard: React.FC<{
   stats: PerLibraryStatistics;
   serverId: number;
-}> = ({ stats, serverId }) => {
+  isAdmin: boolean;
+}> = ({ stats, serverId, isAdmin }) => {
   const config = getLibraryConfig(stats.libraryType);
   const Icon = config.icon;
   const isTvLibrary = stats.libraryType === "tvshows";
@@ -150,7 +152,7 @@ const LibraryStatCard: React.FC<{
           ) : (
             <p className="text-sm font-medium truncate">Nothing yet</p>
           )}
-          {stats.lastPlayedByUserName && (
+          {isAdmin && stats.lastPlayedByUserName && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <User className="h-3 w-3" />
               {stats.lastPlayedByUserId ? (
@@ -226,7 +228,7 @@ const StatItem: React.FC<{
   </div>
 );
 
-export const LibraryStatisticsCards: React.FC<Props> = ({ data, serverId }) => {
+export const LibraryStatisticsCards: React.FC<Props> = ({ data, serverId, isAdmin }) => {
   if (data.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -242,6 +244,7 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data, serverId }) => {
           key={stats.libraryId}
           stats={stats}
           serverId={serverId}
+          isAdmin={isAdmin}
         />
       ))}
     </div>

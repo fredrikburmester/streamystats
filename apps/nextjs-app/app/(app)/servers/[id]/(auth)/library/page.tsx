@@ -9,6 +9,7 @@ import {
   getPerLibraryStatistics,
 } from "@/lib/db/library-statistics";
 import { getServer } from "@/lib/db/server";
+import { isUserAdmin } from "@/lib/db/users";
 import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
 import { LibraryStatisticsCards } from "./LibraryStatisticsCards";
 
@@ -42,6 +43,7 @@ export default async function DashboardPage({
     redirect("/not-found");
   }
 
+  const isAdmin = await isUserAdmin();
   const libraries = await getLibraries({ serverId: server.id });
   const perLibraryStats = await getPerLibraryStatistics({
     serverId: server.id,
@@ -62,7 +64,7 @@ export default async function DashboardPage({
         title="Library"
         subtitle="Search for any movie or episode on your server."
       />
-      <LibraryStatisticsCards data={perLibraryStats} serverId={server.id} />
+      <LibraryStatisticsCards data={perLibraryStats} serverId={server.id} isAdmin={isAdmin} />
       <Suspense
         fallback={
           <div className="">
