@@ -27,6 +27,8 @@ import { Slider } from "@/components/ui/slider";
 import type { GenreStat } from "@/lib/db/users";
 import { cn, formatDuration } from "@/lib/utils";
 
+const MIN_LIMIT = 3;
+
 const chartConfig = {
   total_duration: {
     label: "Total_duration",
@@ -46,7 +48,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
   const [limit, setLimit] = useState(12);
   const [power, setPower] = useState(0.6);
   const effectiveLimit = Math.min(limit, data.length);
-  const maxLimit = Math.max(data.length, 3);
+  const maxLimit = Math.max(data.length, MIN_LIMIT);
 
   const chartData = useMemo(() => {
     const sorted = [...data].sort((a, b) => b.watchTime - a.watchTime);
@@ -109,7 +111,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
                   </div>
                   <Slider
                     id="limit"
-                    min={3}
+                    min={MIN_LIMIT}
                     max={maxLimit}
                     step={1}
                     value={[effectiveLimit]}
