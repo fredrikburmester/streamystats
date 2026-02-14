@@ -1,5 +1,6 @@
 "use client";
 
+import { Settings2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   PolarAngleAxis,
@@ -8,8 +9,7 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from "recharts";
-import { Settings2 } from "lucide-react";
-
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   type ChartConfig,
@@ -17,14 +17,13 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import type { GenreStat } from "@/lib/db/users";
 import { cn, formatDuration } from "@/lib/utils";
 
@@ -133,7 +132,8 @@ export const GenreStatsGraph: React.FC<Props> = ({
                     className="w-full"
                   />
                   <p className="text-[0.8rem] text-muted-foreground">
-                    Lower values flatten the curve, making small genres more visible.
+                    Lower values flatten the curve, making small genres more
+                    visible.
                   </p>
                 </div>
               </div>
