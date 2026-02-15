@@ -49,6 +49,7 @@ export const TIMEZONE_OPTIONS = [
   { value: "Asia/Ho_Chi_Minh", label: "Indochina Time (Ho Chi Minh)" },
   { value: "Asia/Jerusalem", label: "Israel Time (Jerusalem)" },
   { value: "Asia/Riyadh", label: "Arabia Standard Time (Riyadh)" },
+  { value: "Asia/Karachi", label: "Pakistan Standard Time (Karachi)" },
   // Australia & Oceania
   { value: "Australia/Sydney", label: "Australian Eastern Time (Sydney)" },
   {
