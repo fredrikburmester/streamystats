@@ -346,7 +346,9 @@ export const HOLIDAYS: Holiday[] = [
     id: "lunar-new-year",
     name: "Lunar New Year",
     icon: "Moon",
-    description: `Celebrate the Year of the ${getChineseZodiacAnimal(new Date().getFullYear())}`,
+    get description() {
+      return `Celebrate the Year of the ${getChineseZodiacAnimal(new Date().getFullYear())}`;
+    },
     dateRanges: [{ startMonth: 1, startDay: 20, endMonth: 2, endDay: 15 }],
     keywords: [
       "chinese new year",
