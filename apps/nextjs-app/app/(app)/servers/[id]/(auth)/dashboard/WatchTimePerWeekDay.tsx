@@ -90,7 +90,12 @@ export const WatchTimePerWeekDay: React.FC<Props> = ({
                 />
               }
             />
-            <Bar dataKey="watchTime" fill="#2761D9" radius={8} name="Watch Time" />
+            <Bar
+              dataKey="watchTime"
+              fill="#2761D9"
+              radius={8}
+              name="Watch Time"
+            />
           </BarChart>
         </ChartContainer>
       </CardContent>
