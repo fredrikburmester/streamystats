@@ -228,7 +228,11 @@ const StatItem: React.FC<{
   </div>
 );
 
-export const LibraryStatisticsCards: React.FC<Props> = ({ data, serverId, isAdmin }) => {
+export const LibraryStatisticsCards: React.FC<Props> = ({
+  data,
+  serverId,
+  isAdmin,
+}) => {
   if (data.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">

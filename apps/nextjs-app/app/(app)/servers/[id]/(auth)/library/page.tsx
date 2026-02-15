@@ -64,7 +64,11 @@ export default async function DashboardPage({
         title="Library"
         subtitle="Search for any movie or episode on your server."
       />
-      <LibraryStatisticsCards data={perLibraryStats} serverId={server.id} isAdmin={isAdmin} />
+      <LibraryStatisticsCards
+        data={perLibraryStats}
+        serverId={server.id}
+        isAdmin={isAdmin}
+      />
       <Suspense
         fallback={
           <div className="">
