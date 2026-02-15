@@ -21,6 +21,11 @@ export type Holiday = {
   priority: number; // Higher = more specific, takes precedence
 };
 
+function getChineseZodiacAnimal(year: number): string {
+  const animals = ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig"];
+  return animals[(year - 4) % 12];
+}
+
 export const HOLIDAYS: Holiday[] = [
   // =============================================================================
   // Pop Culture Days (High Priority - Very Specific)
@@ -341,12 +346,13 @@ export const HOLIDAYS: Holiday[] = [
     id: "lunar-new-year",
     name: "Lunar New Year",
     icon: "Moon",
-    description: "Celebrate the Year of the Dragon",
+    get description() {
+      return `Celebrate the Year of the ${getChineseZodiacAnimal(new Date().getFullYear())}`;
+    },
     dateRanges: [{ startMonth: 1, startDay: 20, endMonth: 2, endDay: 15 }],
     keywords: [
       "chinese new year",
       "lunar",
-      "dragon",
       "asia",
       "chinese",
       "korean",
