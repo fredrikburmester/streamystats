@@ -433,12 +433,17 @@ async function processOllamaItem(
   }
 
   const response = await axios.post(
-    `${config.baseUrl}/api/embeddings`,
-    { model: config.model, prompt: text },
+    `${config.baseUrl}/api/embed`,
+    {
+      model: config.model,
+      input: text,
+      keep_alive: '5m', // Unloads the model after 5 minutes of inactivity
+      ...(config.dimensions ? { dimensions: config.dimensions } : {}),
+    },
     { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
   );
 
-  const rawEmbedding = response.data.embedding || response.data.embeddings;
+  const rawEmbedding = response.data.embeddings?.[0] || response.data.embedding;
   if (!rawEmbedding) {
     throw new Error("No embedding returned from Ollama");
   }
