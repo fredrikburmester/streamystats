@@ -1,7 +1,7 @@
 // Transcoding statistics types and functions
 
 import type { Session } from "@streamystats/database";
-import { db, sessions } from "@streamystats/database";
+import { db, items, sessions } from "@streamystats/database";
 import {
   and,
   eq,
@@ -11,7 +11,7 @@ import {
   notInArray,
   type SQL,
 } from "drizzle-orm";
-import { getExclusionSettings } from "./exclusions";
+import { getExclusionSettings, getStatisticsExclusions } from "./exclusions";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -621,7 +621,8 @@ export async function getTranscodingStatisticsOverTime(
   userId?: string,
 ): Promise<TranscodingHistoryStat[]> {
   // Get exclusion settings
-  const { excludedUserIds } = await getExclusionSettings(serverId);
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   // Get all sessions with transcoding data for the specified date range
   const whereConditions: SQL[] = [eq(sessions.serverId, serverId)];
@@ -637,8 +638,11 @@ export async function getTranscodingStatisticsOverTime(
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
+  }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   const sessionData = await db
@@ -652,6 +656,7 @@ export async function getTranscodingStatisticsOverTime(
       transcodingReasons: sessions.transcodeReasons,
     })
     .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions));
 
   const statsByDate = new Map<
