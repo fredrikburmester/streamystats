@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const { version } = require("./../../package.json");
+
 const nextConfig = {
   output: "standalone",
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
@@ -20,6 +22,9 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "500mb",
     },
+  },
+  env: {
+    version,
   },
 };
 

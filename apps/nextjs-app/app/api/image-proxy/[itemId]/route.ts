@@ -44,7 +44,7 @@ export async function GET(
       // BUT generally API access requires token.
       // We should use the Server API Key to fetch the image.
       headers: {
-        "X-Emby-Token": server.apiKey,
+        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${server.apiKey}"`,
       },
     });
 

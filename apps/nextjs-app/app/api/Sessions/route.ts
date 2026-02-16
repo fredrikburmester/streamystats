@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     const response = await fetch(`${server.url}/Sessions`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": server.apiKey,
+        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${server.apiKey}"`,
         "Content-Type": "application/json",
       },
     });

@@ -23,7 +23,7 @@ async function tryFetchJellyfinSystemInfo({
     const res = await fetch(`${normalizeUrl(url)}/System/Info`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": apiKey,
+        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${apiKey}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(5000),

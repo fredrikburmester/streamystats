@@ -31,7 +31,9 @@ async function getItemPlayedStatus(
     const response = await fetch(
       `${serverUrl}/Users/${userId}/Items/${itemId}`,
       {
-        headers: { "X-Emby-Token": token },
+        headers: {
+          Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${token}"`,
+        },
         signal: AbortSignal.timeout(5000),
         next: { revalidate: 60 },
       },

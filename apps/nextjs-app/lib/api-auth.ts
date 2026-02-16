@@ -52,7 +52,7 @@ export async function validateJellyfinToken(
     const response = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": token,
+        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${token}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(5000),
@@ -149,7 +149,7 @@ export async function validateApiKey({
       const response = await fetch(`${server.url}/System/Info`, {
         method: "GET",
         headers: {
-          "X-Emby-Token": apiKey,
+          Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${apiKey}"`,
           "Content-Type": "application/json",
         },
         // Short timeout to avoid hanging requests

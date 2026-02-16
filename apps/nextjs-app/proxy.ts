@@ -206,7 +206,7 @@ const validateJellyfinToken = async (
     const jellyfinResponse = await fetch(`${server.url}/Users/Me`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": tokenCookie.value,
+        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${tokenCookie.value}"`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(5000),
