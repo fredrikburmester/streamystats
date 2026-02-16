@@ -97,7 +97,8 @@ export async function getTranscodingStatistics(
   userId?: string,
 ): Promise<TranscodingStatisticsResponse> {
   // Get exclusion settings
-  const { excludedUserIds } = await getExclusionSettings(serverId);
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   // Get all sessions with transcoding data for the specified date range
   const whereConditions: SQL[] = [eq(sessions.serverId, serverId)];
@@ -113,8 +114,11 @@ export async function getTranscodingStatistics(
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
+  }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   const sessionData = await db
@@ -135,6 +139,7 @@ export async function getTranscodingStatistics(
       rawData: sessions.rawData,
     })
     .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions));
 
   const totalSessions = sessionData.length;
