@@ -29,7 +29,10 @@ const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RATE_LIMIT_DELAY = 500;
 const ITEMS_PER_BATCH = 100; // Items to fetch from DB at a time
 const API_BATCH_SIZE = 20; // Items to send to embedding API at once
-const MAX_CONSECUTIVE_BATCH_FAILURES = 5;
+const MAX_CONSECUTIVE_BATCH_FAILURES = 10; // Allow more transient failures before aborting
+const RATE_LIMIT_BACKOFF_MS = 60_000; // 1 minute when 429 is received
+const RATE_LIMIT_MAX_RETRIES = 2; // Retry same batch up to 2 times after backoff
+const BATCH_FAILURE_BACKOFF_MS = 3000; // 3s extra delay after a batch failure
 
 // Track if index has been ensured this session (per dimension)
 const indexEnsuredForDimension = new Set<number>();
@@ -61,16 +64,65 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
-function isUnsupportedDimensionsParamError(error: unknown): boolean {
+/**
+ * Detects if an error is due to unsupported dimensions parameter.
+ * Uses provider-aware heuristics to avoid false positives.
+ */
+function isUnsupportedDimensionsParamError(
+  error: unknown,
+  provider?: string,
+  baseUrl?: string
+): boolean {
   const msg = getErrorMessage(error).toLowerCase();
-  return (
-    (msg.includes("dimension") || msg.includes("dimensions")) &&
-    (msg.includes("unknown") ||
+  const status = getHttpStatus(error);
+  
+  // Check if this is a Voyage AI provider (explicit check preferred)
+  const isVoyageAI = provider === "voyage" || 
+    (baseUrl && baseUrl.toLowerCase().includes("voyageai.com"));
+  
+  // First, check for explicit dimension-related error messages
+  const hasDimensionKeyword = msg.includes("dimension") || msg.includes("dimensions");
+  
+  if (hasDimensionKeyword) {
+    // If we have dimension keywords, check for error indicators
+    if (
+      msg.includes("unknown") ||
       msg.includes("unsupported") ||
       msg.includes("unrecognized") ||
       msg.includes("invalid") ||
-      msg.includes("unexpected"))
-  );
+      msg.includes("unexpected") ||
+      msg.includes("not supported")
+    ) {
+      return true;
+    }
+  }
+  
+  // For 400 errors, be more conservative - only treat as dimension error if:
+  // 1. We have dimension keywords AND parameter-related indicators, OR
+  // 2. It's Voyage AI (known to return 400 for unsupported params) AND has dimension keywords
+  if (status === 400) {
+    if (hasDimensionKeyword) {
+      // Check for parameter-related keywords to avoid false positives
+      const hasParamKeywords = 
+        msg.includes("param") ||
+        msg.includes("parameter") ||
+        msg.includes("input") ||
+        msg.includes("body") ||
+        msg.includes("field");
+      
+      if (hasParamKeywords || isVoyageAI) {
+        return true;
+      }
+    }
+    
+    // Voyage AI-specific: sometimes returns 400 with minimal body for unsupported params
+    // Only apply this heuristic for Voyage AI to avoid masking other 400 errors
+    if (isVoyageAI && (msg.includes("status code (no body)") || (msg.length < 50 && hasDimensionKeyword))) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 function getHttpStatus(error: unknown): number | null {
@@ -303,6 +355,22 @@ async function prepareTextForEmbedding(item: Item, serverId: number): Promise<st
 }
 
 /**
+ * Detects if the embedding provider is Voyage AI.
+ * Prefers explicit provider flag, falls back to baseUrl check.
+ */
+function isVoyageAIProvider(
+  provider: string | undefined,
+  baseUrl: string
+): boolean {
+  // Check explicit provider first (if we add "voyage" as a provider type in the future)
+  if (provider === "voyage") {
+    return true;
+  }
+  // Fallback to baseUrl check for backward compatibility
+  return baseUrl.toLowerCase().includes("voyageai.com");
+}
+
+/**
  * Process a batch of items using OpenAI-compatible API.
  */
 async function processOpenAIBatch(
@@ -310,7 +378,8 @@ async function processOpenAIBatch(
   batchItems: Item[],
   config: EmbeddingConfig,
   validateEmbedding: (raw: number[], itemId: string) => number[] | null,
-  serverId: number
+  serverId: number,
+  provider?: string
 ): Promise<{ processed: number; skipped: number; errors: number }> {
   let processed = 0;
   let skipped = 0;
@@ -344,16 +413,53 @@ async function processOpenAIBatch(
 
   const texts = batchData.map((d) => d.text);
   let response: Awaited<ReturnType<typeof client.embeddings.create>>;
+  
+  // Detect Voyage AI using provider-aware detection
+  // Voyage AI uses 'output_dimension' instead of 'dimensions'
+  const isVoyageAI = isVoyageAIProvider(provider, config.baseUrl);
+  
   try {
-    response = await client.embeddings.create({
-      model: config.model,
-      input: texts,
-      ...(config.dimensions ? { dimensions: config.dimensions } : {}),
-    });
+    if (isVoyageAI && config.dimensions) {
+      // Voyage AI requires 'output_dimension' instead of 'dimensions'
+      // Make direct HTTP request since OpenAI client doesn't support this parameter name
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (config.apiKey) {
+        headers["Authorization"] = `Bearer ${config.apiKey}`;
+      }
+      
+      const voyageResponse = await axios.post(
+        `${config.baseUrl}/embeddings`,
+        {
+          model: config.model,
+          input: texts,
+          output_dimension: config.dimensions,
+        },
+        { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
+      );
+      
+      // Transform Voyage AI response to OpenAI-compatible format
+      response = {
+        data: voyageResponse.data.data.map((item: any) => ({
+          embedding: item.embedding,
+          index: item.index,
+        })),
+        model: voyageResponse.data.model,
+        usage: voyageResponse.data.usage,
+      } as Awaited<ReturnType<typeof client.embeddings.create>>;
+    } else {
+      // Use standard OpenAI-compatible API
+      response = await client.embeddings.create({
+        model: config.model,
+        input: texts,
+        ...(config.dimensions ? { dimensions: config.dimensions } : {}),
+      });
+    }
   } catch (error) {
     // Some OpenAI-compatible providers (and some models) reject the optional `dimensions` param.
     // Retry once without it so the job can still proceed when embeddings are supported.
-    if (config.dimensions && isUnsupportedDimensionsParamError(error)) {
+    if (config.dimensions && isUnsupportedDimensionsParamError(error, provider, config.baseUrl)) {
       response = await client.embeddings.create({
         model: config.model,
         input: texts,
@@ -463,7 +569,39 @@ export async function generateItemEmbeddingsJob(
   job: PgBossJob<GenerateItemEmbeddingsJobData>
 ) {
   const startTime = Date.now();
-  const { serverId, provider: rawProvider, config, manualStart = false } = job.data;
+  let { serverId, provider: rawProvider, config, manualStart = false } = job.data;
+
+  // When triggered by cron/scheduler, job.data only has serverId (and optionally batchSize).
+  // Load embedding config from the server so background runs work the same as manual start.
+  if (!config?.baseUrl || !config?.model || !rawProvider) {
+    const serverRows = await db
+      .select({
+        name: servers.name,
+        embeddingProvider: servers.embeddingProvider,
+        embeddingBaseUrl: servers.embeddingBaseUrl,
+        embeddingApiKey: servers.embeddingApiKey,
+        embeddingModel: servers.embeddingModel,
+        embeddingDimensions: servers.embeddingDimensions,
+      })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1);
+    const row = serverRows[0];
+    if (!row?.embeddingProvider || !row.embeddingBaseUrl || !row.embeddingModel) {
+      throw new Error(
+        "Embedding provider not configured for this server. Configure embeddings in server settings."
+      );
+    }
+    rawProvider = row.embeddingProvider;
+    config = {
+      baseUrl: row.embeddingBaseUrl,
+      apiKey: row.embeddingApiKey ?? undefined,
+      model: row.embeddingModel,
+      dimensions: row.embeddingDimensions ?? 1536,
+    };
+    manualStart = false;
+  }
+
   const provider = rawProvider === "openai" ? "openai-compatible" : rawProvider;
 
   let totalProcessed = 0;
@@ -635,61 +773,79 @@ export async function generateItemEmbeddingsJob(
           }
 
           const apiBatch = batch.slice(i, i + API_BATCH_SIZE);
-          try {
-            const result = await processOpenAIBatch(
-              openaiClient,
-              apiBatch,
-              config,
-              validateEmbedding,
-              serverId
-            );
-            totalProcessed += result.processed;
-            totalSkipped += result.skipped;
-            totalErrors += result.errors;
-            consecutiveBatchFailures = 0;
-            lastBatchError = null;
-          } catch (batchError) {
-            if (batchError instanceof Error) {
-              if (batchError.message.includes("rate_limit")) {
-                throw new Error("Rate limit exceeded. Please try again later.");
+          let batchDone = false;
+          let rateLimitRetries = 0;
+
+          while (!batchDone) {
+            try {
+              const result = await processOpenAIBatch(
+                openaiClient,
+                apiBatch,
+                config,
+                validateEmbedding,
+                serverId,
+                provider
+              );
+              totalProcessed += result.processed;
+              totalSkipped += result.skipped;
+              totalErrors += result.errors;
+              consecutiveBatchFailures = 0;
+              lastBatchError = null;
+              batchDone = true;
+            } catch (batchError) {
+              if (batchError instanceof Error) {
+                if (batchError.message.includes("rate_limit") || getHttpStatus(batchError) === 429) {
+                  if (rateLimitRetries < RATE_LIMIT_MAX_RETRIES) {
+                    rateLimitRetries++;
+                    console.warn(
+                      `[embeddings] server=${serverName} serverId=${serverId} action=rateLimitBackoff attempt=${rateLimitRetries} sleepingMs=${RATE_LIMIT_BACKOFF_MS}`
+                    );
+                    await sleep(RATE_LIMIT_BACKOFF_MS);
+                    continue;
+                  }
+                  throw new Error("Rate limit exceeded. Please try again later.");
+                }
+                if (batchError.message.includes("insufficient_quota")) {
+                  throw new Error("Quota exceeded. Please check billing.");
+                }
+                if (
+                  batchError.message.includes("invalid_api_key") ||
+                  getHttpStatus(batchError) === 401
+                ) {
+                  const info = getOpenAIErrorInfo(batchError);
+                  throw new Error(
+                    `Embeddings provider returned 401 (unauthorized). ` +
+                      `baseUrl=${config.baseUrl} ` +
+                      `type=${info.type ?? "unknown"} code=${info.code ?? "unknown"} ` +
+                      `requestId=${info.requestId ?? "unknown"} ` +
+                      `message=${info.message}`
+                  );
+                }
+                // Dimension mismatch should propagate
+                if (batchError.message.includes("Dimension mismatch")) {
+                  throw batchError;
+                }
+                // Deterministic failures (DB schema/extension issues) should fail fast.
+                if (batchError.message.includes("Failed to persist embeddings to DB")) {
+                  throw batchError;
+                }
               }
-              if (batchError.message.includes("insufficient_quota")) {
-                throw new Error("Quota exceeded. Please check billing.");
-              }
-              if (
-                batchError.message.includes("invalid_api_key") ||
-                getHttpStatus(batchError) === 401
-              ) {
-                const info = getOpenAIErrorInfo(batchError);
+              consecutiveBatchFailures++;
+              lastBatchError = getErrorMessage(batchError);
+              console.error(
+                `[embeddings] server=${serverName} serverId=${serverId} action=batchError provider=${provider} model=${config.model} baseUrl=${config.baseUrl} consecutiveFailures=${consecutiveBatchFailures} error=${lastBatchError}`
+              );
+              totalErrors += apiBatch.length;
+              batchDone = true;
+
+              // Avoid infinite loops when provider/config is invalid (e.g. wrong model/baseUrl).
+              if (consecutiveBatchFailures >= MAX_CONSECUTIVE_BATCH_FAILURES) {
                 throw new Error(
-                  `Embeddings provider returned 401 (unauthorized). ` +
-                    `baseUrl=${config.baseUrl} ` +
-                    `type=${info.type ?? "unknown"} code=${info.code ?? "unknown"} ` +
-                    `requestId=${info.requestId ?? "unknown"} ` +
-                    `message=${info.message}`
+                  `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`
                 );
               }
-              // Dimension mismatch should propagate
-              if (batchError.message.includes("Dimension mismatch")) {
-                throw batchError;
-              }
-              // Deterministic failures (DB schema/extension issues) should fail fast.
-              if (batchError.message.includes("Failed to persist embeddings to DB")) {
-                throw batchError;
-              }
-            }
-            consecutiveBatchFailures++;
-            lastBatchError = getErrorMessage(batchError);
-            console.error(
-              `[embeddings] server=${serverName} serverId=${serverId} action=batchError provider=${provider} model=${config.model} baseUrl=${config.baseUrl} consecutiveFailures=${consecutiveBatchFailures} error=${lastBatchError}`
-            );
-            totalErrors += apiBatch.length;
-
-            // Avoid infinite loops when provider/config is invalid (e.g. wrong model/baseUrl).
-            if (consecutiveBatchFailures >= MAX_CONSECUTIVE_BATCH_FAILURES) {
-              throw new Error(
-                `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`
-              );
+              // Brief backoff after a failure to avoid hammering the API on transient errors.
+              await sleep(BATCH_FAILURE_BACKOFF_MS);
             }
           }
 
