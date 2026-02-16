@@ -118,6 +118,11 @@ type PresetKey = keyof typeof PROVIDER_PRESETS;
 
 // Detect preset from server config
 function detectPreset(server: ServerPublic): PresetKey {
+  // Not openai-compatible providers should be detected first regarless of url
+  if (server.embeddingProvider === "ollama") {
+    return "ollama";
+  }
+
   const baseUrl = server.embeddingBaseUrl || "";
   for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
     if (key !== "custom" && baseUrl === preset.baseUrl) {

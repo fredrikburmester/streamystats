@@ -101,14 +101,19 @@ const PROVIDER_PRESETS = {
 type PresetKey = keyof typeof PROVIDER_PRESETS;
 
 function detectPreset(server: ServerPublic): PresetKey {
+  // Not openai-compatible providers should be detected first regarless of url
+  if (server.chatProvider === "anthropic") {
+    return "anthropic";
+  }
+  if (server.chatProvider === "ollama") {
+    return "ollama";
+  }
+
   const baseUrl = server.chatBaseUrl || "";
   for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
     if (key !== "custom" && baseUrl === preset.baseUrl) {
       return key as PresetKey;
     }
-  }
-  if (server.chatProvider === "anthropic") {
-    return "anthropic";
   }
   return baseUrl ? "custom" : "openai";
 }
