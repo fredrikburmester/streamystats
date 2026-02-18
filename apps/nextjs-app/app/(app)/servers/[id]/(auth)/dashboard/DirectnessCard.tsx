@@ -26,7 +26,7 @@ interface DirectnessCardProps {
 export const DirectnessCard = ({ data }: DirectnessCardProps) => {
   const directnessData = React.useMemo(() => {
     return data
-      .map((item, index) => ({
+      .map((item) => ({
         name: item.label,
         count: item.count,
         fill: `var(--color-${item.label.toLowerCase().includes("direct") ? "direct" : "transcode"})`,

@@ -20,6 +20,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { CategoryStat } from "@/lib/db/transcoding-statistics";
+import { CHART_COLORS } from "./chart-utils";
 
 type Props = {
   data: CategoryStat[];
@@ -67,15 +68,7 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
     activeEngines.forEach((item, index) => {
       config[`engine-${index}`] = {
         label: ENGINE_LABELS[item.label.toLowerCase()] || item.label,
-        color: [
-          "hsl(var(--chart-1))",
-          "hsl(var(--chart-2))",
-          "hsl(var(--chart-3))",
-          "hsl(var(--chart-4))",
-          "hsl(var(--chart-5))",
-          "#ec4899",
-          "#8b5cf6",
-        ][index % 7],
+        color: CHART_COLORS[index % CHART_COLORS.length],
       };
     });
     return config;

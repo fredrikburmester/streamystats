@@ -68,6 +68,7 @@ export default async function TranscodingPage({
           startDate={effectiveStartDate}
           endDate={effectiveEndDate}
           userId={userId}
+          isAdmin={isAdmin}
         />
       </Suspense>
     </Container>
@@ -79,13 +80,15 @@ async function TranscodingStats({
   startDate,
   endDate,
   userId,
+  isAdmin,
 }: {
   server: ServerPublic;
   startDate?: string;
   endDate?: string;
   userId?: string;
+  isAdmin: boolean;
 }) {
-  const [isAdmin, me] = await Promise.all([isUserAdmin(), getMe()]);
+  const me = await getMe();
   const effectiveUserId = userId ? userId : isAdmin ? undefined : me?.id;
 
   const [ts, history] = await Promise.all([

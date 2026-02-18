@@ -4,7 +4,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -54,7 +53,6 @@ export const TranscodingDirectnessHistoryCard: React.FC<Props> = ({ data }) => {
           config={chartConfig}
           className="aspect-auto h-[350px] w-full"
         >
-          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
               <CartesianGrid vertical={false} />
               <XAxis
@@ -93,7 +91,6 @@ export const TranscodingDirectnessHistoryCard: React.FC<Props> = ({ data }) => {
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
-          </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
     </Card>

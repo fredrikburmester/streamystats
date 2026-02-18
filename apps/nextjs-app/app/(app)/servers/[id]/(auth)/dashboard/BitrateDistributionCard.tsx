@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CHART_COLORS } from "./chart-utils";
 import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import {
   Card,
@@ -45,6 +46,8 @@ export const BitrateDistributionCard = ({
   const bitrateData = React.useMemo(() => {
     if (!data.distribution || data.distribution.length === 0) return [];
 
+    const distribution = data.distribution;
+
     const ranges = [
       { label: "0-2", min: 0, max: 2000000 },
       { label: "2-4", min: 2000001, max: 4000000 },
@@ -56,7 +59,7 @@ export const BitrateDistributionCard = ({
 
     const processed = ranges
       .map((range) => {
-        const valuesInRange = data.distribution!.filter(
+        const valuesInRange = distribution.filter(
           (b) => b >= range.min && b <= range.max,
         );
         return {
@@ -79,15 +82,7 @@ export const BitrateDistributionCard = ({
     },
   } satisfies ChartConfig;
 
-  const colors = [
-    "hsl(var(--chart-1))",
-    "hsl(var(--chart-2))",
-    "hsl(var(--chart-3))",
-    "hsl(var(--chart-4))",
-    "hsl(var(--chart-5))",
-    "#3b82f6",
-    "#8b5cf6",
-  ];
+
 
   const mostCommonCategory =
     bitrateData.length > 0
@@ -136,7 +131,7 @@ export const BitrateDistributionCard = ({
                 {bitrateData.map((_entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={colors[index % colors.length]}
+                    fill={CHART_COLORS[index % CHART_COLORS.length]}
                   />
                 ))}
                 <LabelList

@@ -27,20 +27,13 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { CategoryStat } from "@/lib/db/transcoding-statistics";
+import { CHART_COLORS, cleanReasonLabel } from "./chart-utils";
 
 interface TranscodingReasonsCardProps {
   data: CategoryStat[];
 }
 
-function cleanReasonLabel(label: string): string {
-  if (label.startsWith("[") && label.endsWith("]")) {
-    try {
-      const parsed = JSON.parse(label);
-      if (Array.isArray(parsed)) return parsed.join(", ");
-    } catch (_error) {}
-  }
-  return label;
-}
+
 
 export const TranscodingReasonsCard = ({
   data,
@@ -60,15 +53,7 @@ export const TranscodingReasonsCard = ({
     return processed.map((item, index) => ({
       ...item,
       labelWithPercent: `${item.reason} — ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`,
-      fill: [
-        "hsl(var(--chart-1))",
-        "hsl(var(--chart-2))",
-        "hsl(var(--chart-3))",
-        "hsl(var(--chart-4))",
-        "hsl(var(--chart-5))",
-        "#ec4899",
-        "#8b5cf6",
-      ][index % 7],
+      fill: CHART_COLORS[index % CHART_COLORS.length],
     }));
   }, [data]);
 

@@ -5,7 +5,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -25,23 +24,11 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { TranscodingHistoryStat } from "@/lib/db/transcoding-statistics";
+import { CHART_COLORS, cleanReasonLabel } from "./chart-utils";
 
 interface Props {
   data: TranscodingHistoryStat[];
 }
-
-const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "#ec4899",
-  "#8b5cf6",
-  "#14b8a6",
-  "#f97316",
-  "#e11d48",
-];
 
 export const TranscodingReasonsHistoryCard: React.FC<Props> = ({ data }) => {
   const { chartData, reasons, chartConfig } = useMemo(() => {
@@ -59,7 +46,7 @@ export const TranscodingReasonsHistoryCard: React.FC<Props> = ({ data }) => {
     reasonsList.forEach((reason, index) => {
       config[reason] = {
         label: cleanReasonLabel(reason),
-        color: COLORS[index % COLORS.length],
+        color: CHART_COLORS[index % CHART_COLORS.length],
       };
     });
 
@@ -96,7 +83,6 @@ export const TranscodingReasonsHistoryCard: React.FC<Props> = ({ data }) => {
           config={chartConfig}
           className="aspect-auto h-[350px] w-full"
         >
-          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
               <CartesianGrid vertical={false} />
               <XAxis
@@ -132,19 +118,10 @@ export const TranscodingReasonsHistoryCard: React.FC<Props> = ({ data }) => {
                 />
               ))}
             </BarChart>
-          </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
     </Card>
   );
 };
 
-function cleanReasonLabel(label: string): string {
-  if (label.startsWith("[") && label.endsWith("]")) {
-    try {
-      const parsed = JSON.parse(label);
-      if (Array.isArray(parsed)) return parsed.join(", ");
-    } catch (_error) {}
-  }
-  return label;
-}
+
