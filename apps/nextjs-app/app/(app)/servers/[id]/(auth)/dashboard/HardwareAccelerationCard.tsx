@@ -2,15 +2,7 @@
 
 import { ZapIcon } from "lucide-react";
 import React from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
+import { RadialBar, RadialBarChart } from "recharts";
 import {
   Card,
   CardContent,
@@ -22,150 +14,118 @@ import {
 import {
   type ChartConfig,
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { CategoryStat } from "@/lib/db/transcoding-statistics";
+import { CHART_COLORS } from "./chart-utils";
 
 type Props = {
   data: CategoryStat[];
 };
 
+const ENGINE_LABELS: Record<string, string> = {
+  none: "Software",
+  amf: "AMD (AMF)",
+  nvenc: "NVIDIA (NVENC)",
+  qsv: "Intel (QSV)",
+  vaapi: "VAAPI",
+  rkmpp: "Rockchip (RKMP)",
+  videotoolbox: "Apple (VT)",
+  v4l2m2m: "Video4Linux2 (V4L2)",
+};
+
 export const HardwareAccelerationCard = ({ data }: Props) => {
-  const [containerWidth, setContainerWidth] = React.useState(400);
+  const activeEngines = React.useMemo(
+    () =>
+      data.filter((item) => item.count > 0).sort((a, b) => b.count - a.count),
+    [data],
+  );
 
-  const getBarHeight = (dataLength: number) => {
-    const minHeightPerBar = 30;
-    const maxHeightPerBar = 40;
-    return Math.min(
-      Math.max(minHeightPerBar, 200 / dataLength),
-      maxHeightPerBar,
-    );
-  };
+  const totalSessions = React.useMemo(
+    () => activeEngines.reduce((sum, item) => sum + item.count, 0),
+    [activeEngines],
+  );
 
-  const hwAccelData = data
-    .map((item) => ({
-      name: item.label,
+  const chartData = React.useMemo(() => {
+    return activeEngines.map((item, index) => ({
+      engine: item.label,
+      configKey: `engine-${index}`,
+      name: ENGINE_LABELS[item.label.toLowerCase()] || item.label,
       count: item.count,
-    }))
-    .filter((item) => item.count > 0);
+      fill: `var(--color-engine-${index})`,
+    }));
+  }, [activeEngines]);
 
-  const hwAccelConfig = {
-    count: {
-      label: "Count",
-      color: "hsl(var(--chart-1))",
-    },
-    label: {
-      color: "hsl(var(--background))",
-    },
-  } satisfies ChartConfig;
+  const chartConfig = React.useMemo(() => {
+    const config: ChartConfig = {
+      count: {
+        label: "Sessions",
+      },
+    };
+    activeEngines.forEach((item, index) => {
+      config[`engine-${index}`] = {
+        label: ENGINE_LABELS[item.label.toLowerCase()] || item.label,
+        color: CHART_COLORS[index % CHART_COLORS.length],
+      };
+    });
+    return config;
+  }, [activeEngines]);
 
-  if (hwAccelData.length === 0) {
+  if (activeEngines.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Hardware Acceleration</CardTitle>
-          <CardDescription>
-            Acceleration types used for transcoding
-          </CardDescription>
+          <CardDescription>No acceleration data available</CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center h-[200px]">
-          <p className="text-sm text-muted-foreground">
-            No hardware acceleration data to display
-          </p>
+        <CardContent className="h-[250px] flex items-center justify-center text-muted-foreground">
+          No data to display
         </CardContent>
-        <CardFooter className="text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <ZapIcon className="h-4 w-4" />
-            Primary acceleration: None
-          </div>
-        </CardFooter>
       </Card>
     );
   }
 
-  const total = hwAccelData.reduce((sum, item) => sum + item.count, 0);
-  const hwAccelDataWithPercent = hwAccelData.map((item) => ({
-    ...item,
-    labelWithPercent: `${item.name} - ${
-      total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"
-    }%`,
-  }));
-
-  const mostCommonAcceleration =
-    data.length > 0
-      ? data.reduce((prev, current) =>
-          prev.count > current.count ? prev : current,
-        )
-      : null;
-
   return (
-    <Card>
-      <CardHeader>
+    <Card className="flex flex-col">
+      <CardHeader className="items-center pb-0">
         <CardTitle>Hardware Acceleration</CardTitle>
-        <CardDescription>
-          Acceleration types used for transcoding
-        </CardDescription>
+        <CardDescription>Engine power distribution</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 pb-0">
         <ChartContainer
-          id="hardware-acceleration"
-          config={hwAccelConfig}
-          className="h-[200px]"
-          onWidthChange={setContainerWidth}
+          config={chartConfig}
+          className="mx-auto aspect-square max-h-[250px]"
         >
-          <BarChart
-            accessibilityLayer
-            data={hwAccelDataWithPercent}
-            layout="vertical"
-            margin={{
-              right: 16,
-              left: 0,
-              top: 5,
-              bottom: 5,
-            }}
-            barSize={getBarHeight(hwAccelData.length)}
+          <RadialBarChart
+            data={chartData}
+            innerRadius={30}
+            outerRadius={110}
+            startAngle={-45}
+            endAngle={225}
+            barSize={12}
           >
-            <CartesianGrid horizontal={false} />
-            <YAxis
-              dataKey="name"
-              type="category"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              hide
-            />
-            <XAxis dataKey="count" type="number" hide />
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
+              content={<ChartTooltipContent hideLabel nameKey="configKey" />}
             />
-            <Bar dataKey="count" radius={4} className="fill-blue-600">
-              <LabelList
-                dataKey="labelWithPercent"
-                content={({ x, y, width: barWidth, height, value }) => (
-                  <CustomBarLabel
-                    x={Number(x)}
-                    y={Number(y)}
-                    width={Number(barWidth)}
-                    height={Number(height)}
-                    value={value}
-                    fill="#d6e3ff"
-                    fontSize={12}
-                    containerWidth={containerWidth}
-                    alwaysOutside
-                  />
-                )}
-              />
-            </Bar>
-          </BarChart>
+            <RadialBar dataKey="count" background cornerRadius={10} />
+            <ChartLegend
+              content={<ChartLegendContent nameKey="configKey" />}
+              className="flex-wrap gap-2 justify-center"
+            />
+          </RadialBarChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <ZapIcon className="h-4 w-4" />
-          Primary acceleration:{" "}
-          {mostCommonAcceleration ? mostCommonAcceleration.label : "None"}
+      <CardFooter className="flex-col gap-2 text-sm pt-4">
+        <div className="flex items-center gap-2 font-medium leading-none">
+          <ZapIcon className="h-4 w-4 text-amber-500" />
+          Active across {totalSessions} sessions
+        </div>
+        <div className="leading-none text-muted-foreground">
+          Concentric rings show engine dominance
         </div>
       </CardFooter>
     </Card>

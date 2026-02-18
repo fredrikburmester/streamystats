@@ -1,17 +1,19 @@
 // Transcoding statistics types and functions
 
 import type { Session } from "@streamystats/database";
-import { db, sessions } from "@streamystats/database";
+import { db, items, sessions } from "@streamystats/database";
 import {
   and,
+  count,
   eq,
   gte,
   isNotNull,
   lte,
   notInArray,
   type SQL,
+  sql,
 } from "drizzle-orm";
-import { getExclusionSettings } from "./exclusions";
+import { getExclusionSettings, getStatisticsExclusions } from "./exclusions";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -97,7 +99,8 @@ export async function getTranscodingStatistics(
   userId?: string,
 ): Promise<TranscodingStatisticsResponse> {
   // Get exclusion settings
-  const { excludedUserIds } = await getExclusionSettings(serverId);
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   // Get all sessions with transcoding data for the specified date range
   const whereConditions: SQL[] = [eq(sessions.serverId, serverId)];
@@ -113,8 +116,11 @@ export async function getTranscodingStatistics(
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
+  }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   const sessionData = await db
@@ -135,6 +141,7 @@ export async function getTranscodingStatistics(
       rawData: sessions.rawData,
     })
     .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions));
 
   const totalSessions = sessionData.length;
@@ -604,4 +611,119 @@ export async function getResolutionDistribution(
   }
 
   return resolutionDistribution;
+}
+
+export interface TranscodingHistoryStat {
+  date: string;
+  directPlay: number;
+  transcode: number;
+  total: number;
+  reasons: Record<string, number>;
+}
+
+export async function getTranscodingStatisticsOverTime(
+  serverId: number,
+  startDate?: string,
+  endDate?: string,
+  userId?: string,
+): Promise<TranscodingHistoryStat[]> {
+  // Get exclusion settings
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
+
+  const whereConditions: SQL[] = [eq(sessions.serverId, serverId)];
+
+  if (startDate) {
+    whereConditions.push(gte(sessions.startTime, new Date(startDate)));
+  }
+  if (endDate) {
+    whereConditions.push(lte(sessions.startTime, new Date(endDate)));
+  }
+  if (userId) {
+    whereConditions.push(eq(sessions.userId, userId));
+  }
+
+  // Add exclusion filters
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
+  }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
+
+  // SQL CASE expression replicating the is-direct-play priority logic
+  const isDirectPlayCase = sql`
+    CASE
+      WHEN ${sessions.isTranscoded} IS NOT NULL THEN
+        CASE WHEN ${sessions.isTranscoded} = false THEN 1 ELSE 0 END
+      WHEN ${sessions.playMethod} IS NOT NULL THEN
+        CASE WHEN ${sessions.playMethod} = 'DirectPlay' THEN 1 ELSE 0 END
+      ELSE
+        CASE WHEN ${sessions.transcodingVideoCodec} IS NULL
+              AND ${sessions.transcodingAudioCodec} IS NULL
+              AND ${sessions.transcodingContainer} IS NULL
+             THEN 1 ELSE 0 END
+    END`;
+
+  const filter = and(...whereConditions);
+
+  // Query 1: Aggregate direct play vs transcode counts per day
+  const dailyStats = await db
+    .select({
+      date: sql<string>`DATE(${sessions.startTime})`.as("date"),
+      directPlay: sql<number>`COALESCE(SUM(${isDirectPlayCase}), 0)`.as(
+        "direct_play",
+      ),
+      transcode: sql<number>`COALESCE(SUM(1 - (${isDirectPlayCase})), 0)`.as(
+        "transcode",
+      ),
+      total: count().as("total"),
+    })
+    .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
+    .where(filter)
+    .groupBy(sql`DATE(${sessions.startTime})`)
+    .orderBy(sql`DATE(${sessions.startTime})`);
+
+  // Query 2: Aggregate transcode reason counts per day
+  // Only for sessions that are transcoded
+  const reasonRows = await db
+    .select({
+      date: sql<string>`DATE(${sessions.startTime})`.as("date"),
+      reason: sql<string>`unnest(${sessions.transcodeReasons})`.as("reason"),
+      count: count().as("count"),
+    })
+    .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
+    .where(
+      and(
+        ...whereConditions,
+        isNotNull(sessions.transcodeReasons),
+        eq(sessions.isTranscoded, true),
+      ),
+    )
+    .groupBy(
+      sql`DATE(${sessions.startTime})`,
+      sql`unnest(${sessions.transcodeReasons})`,
+    );
+
+  // Build a lookup of reasons per date
+  const reasonsByDate = new Map<string, Record<string, number>>();
+  for (const row of reasonRows) {
+    if (!row.date || !row.reason) continue;
+    const dateKey = row.date;
+    if (!reasonsByDate.has(dateKey)) {
+      reasonsByDate.set(dateKey, {});
+    }
+    const reasons = reasonsByDate.get(dateKey)!;
+    reasons[row.reason] = Number(row.count);
+  }
+
+  return dailyStats.map((row) => ({
+    date: row.date,
+    directPlay: Number(row.directPlay),
+    transcode: Number(row.transcode),
+    total: Number(row.total),
+    reasons: reasonsByDate.get(row.date) ?? {},
+  }));
 }
