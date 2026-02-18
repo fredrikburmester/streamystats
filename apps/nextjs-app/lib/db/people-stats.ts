@@ -391,9 +391,9 @@ export async function getTopPeopleByPlayCount(
       .where(and(...movieConditions))
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
       .orderBy(
-        sortBy === "titleCount"
-          ? (desc(countDistinct(items.id)), desc(count(sessions.id)))
-          : desc(count(sessions.id)),
+        ...(sortBy === "titleCount"
+          ? [desc(countDistinct(items.id)), desc(count(sessions.id))]
+          : [desc(count(sessions.id))]),
       )
       .limit(limit);
 
@@ -449,9 +449,9 @@ export async function getTopPeopleByPlayCount(
       .where(and(...seriesConditions))
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
       .orderBy(
-        sortBy === "titleCount"
-          ? (desc(countDistinct(items.seriesId)), desc(count(sessions.id)))
-          : desc(count(sessions.id)),
+        ...(sortBy === "titleCount"
+          ? [desc(countDistinct(items.seriesId)), desc(count(sessions.id))]
+          : [desc(count(sessions.id))]),
       )
       .limit(limit);
 
