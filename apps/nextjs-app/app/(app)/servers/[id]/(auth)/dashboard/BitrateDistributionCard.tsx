@@ -11,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CHART_COLORS } from "./chart-utils";
 import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
 import {
   Card,
@@ -28,6 +27,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { NumericStat } from "@/lib/db/transcoding-statistics";
+import { CHART_COLORS } from "./chart-utils";
 
 interface BitrateDistributionCardProps {
   data: NumericStat;
@@ -81,8 +81,6 @@ export const BitrateDistributionCard = ({
       label: "Count",
     },
   } satisfies ChartConfig;
-
-
 
   const mostCommonCategory =
     bitrateData.length > 0

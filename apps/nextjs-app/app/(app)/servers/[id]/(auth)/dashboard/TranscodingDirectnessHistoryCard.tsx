@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -53,44 +47,44 @@ export const TranscodingDirectnessHistoryCard: React.FC<Props> = ({ data }) => {
           config={chartConfig}
           className="aspect-auto h-[350px] w-full"
         >
-            <BarChart data={data}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => {
-                  return new Date(value).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  });
-                }}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={10}
-                allowDecimals={false}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dashed" />}
-              />
-              <ChartLegend content={<ChartLegendContent />} />
-              <Bar
-                dataKey="directPlay"
-                stackId="a"
-                fill="var(--color-directPlay)"
-                radius={[0, 0, 4, 4]}
-              />
-              <Bar
-                dataKey="transcode"
-                stackId="a"
-                fill="var(--color-transcode)"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
+          <BarChart data={data}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+              tickFormatter={(value) => {
+                return new Date(value).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                });
+              }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={10}
+              allowDecimals={false}
+            />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent indicator="dashed" />}
+            />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Bar
+              dataKey="directPlay"
+              stackId="a"
+              fill="var(--color-directPlay)"
+              radius={[0, 0, 4, 4]}
+            />
+            <Bar
+              dataKey="transcode"
+              stackId="a"
+              fill="var(--color-transcode)"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>

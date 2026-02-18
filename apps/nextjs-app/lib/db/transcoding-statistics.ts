@@ -10,8 +10,8 @@ import {
   isNotNull,
   lte,
   notInArray,
-  sql,
   type SQL,
+  sql,
 } from "drizzle-orm";
 import { getExclusionSettings, getStatisticsExclusions } from "./exclusions";
 

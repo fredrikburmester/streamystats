@@ -1,13 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Card,
   CardContent,
@@ -83,45 +77,43 @@ export const TranscodingReasonsHistoryCard: React.FC<Props> = ({ data }) => {
           config={chartConfig}
           className="aspect-auto h-[350px] w-full"
         >
-            <BarChart data={chartData}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tickFormatter={(value) => {
-                  return new Date(value).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  });
-                }}
+          <BarChart data={chartData}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+              tickFormatter={(value) => {
+                return new Date(value).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                });
+              }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={10}
+              allowDecimals={false}
+            />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent indicator="dashed" />}
+            />
+            <ChartLegend content={<ChartLegendContent />} />
+            {reasons.map((reason) => (
+              <Bar
+                key={reason}
+                dataKey={reason}
+                stackId="a"
+                fill={`var(--color-${reason})`}
+                radius={[0, 0, 0, 0]}
               />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={10}
-                allowDecimals={false}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dashed" />}
-              />
-              <ChartLegend content={<ChartLegendContent />} />
-              {reasons.map((reason) => (
-                <Bar
-                  key={reason}
-                  dataKey={reason}
-                  stackId="a"
-                  fill={`var(--color-${reason})`}
-                  radius={[0, 0, 0, 0]}
-                />
-              ))}
-            </BarChart>
+            ))}
+          </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
   );
 };
-
-

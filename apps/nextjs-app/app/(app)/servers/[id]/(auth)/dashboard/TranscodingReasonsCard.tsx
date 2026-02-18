@@ -33,8 +33,6 @@ interface TranscodingReasonsCardProps {
   data: CategoryStat[];
 }
 
-
-
 export const TranscodingReasonsCard = ({
   data,
 }: TranscodingReasonsCardProps) => {
