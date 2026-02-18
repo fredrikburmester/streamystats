@@ -4,7 +4,11 @@ import { User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import type { PersonLibraryStats, PersonStats } from "@/lib/db/people-stats";
+import type {
+  PersonLibraryStats,
+  PersonStats,
+  PlayCountSortBy,
+} from "@/lib/db/people-stats";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 
@@ -12,6 +16,7 @@ interface Props {
   person: PersonStats | PersonLibraryStats;
   server: ServerPublic;
   variant: "watchtime" | "playcount" | "library";
+  displayMode?: PlayCountSortBy;
 }
 
 function isPersonStats(
@@ -20,7 +25,7 @@ function isPersonStats(
   return "totalWatchTime" in person;
 }
 
-export function PersonCard({ person, server, variant }: Props) {
+export function PersonCard({ person, server, variant, displayMode }: Props) {
   const [hasError, setHasError] = useState(false);
 
   const imageUrl = person.primaryImageTag
@@ -48,17 +53,38 @@ export function PersonCard({ person, server, variant }: Props) {
       return null;
     }
 
-    return (
-      <>
-        {variant === "watchtime" ? (
-          <p className="text-xs font-medium text-primary">
-            {formatDuration(person.totalWatchTime)}
-          </p>
-        ) : (
+    // For playcount variant, show stats based on displayMode
+    if (variant === "playcount") {
+      if (displayMode === "titleCount") {
+        return (
+          <>
+            <p className="text-xs font-medium text-primary">
+              {person.itemCount} {person.itemCount === 1 ? "title" : "titles"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {person.totalPlayCount.toLocaleString()} plays
+            </p>
+          </>
+        );
+      }
+      return (
+        <>
           <p className="text-xs font-medium text-primary">
             {person.totalPlayCount.toLocaleString()} plays
           </p>
-        )}
+          <p className="text-xs text-muted-foreground">
+            {person.itemCount} {person.itemCount === 1 ? "title" : "titles"}
+          </p>
+        </>
+      );
+    }
+
+    // watchtime variant
+    return (
+      <>
+        <p className="text-xs font-medium text-primary">
+          {formatDuration(person.totalWatchTime)}
+        </p>
         <p className="text-xs text-muted-foreground">
           {person.itemCount} {person.itemCount === 1 ? "title" : "titles"}
         </p>
