@@ -65,7 +65,7 @@ export const TranscodingReasonsHistoryCard: React.FC<Props> = ({ data }) => {
 
     // Flatten data for Recharts
     const flattenedData = data.map((day) => {
-      const flattened: any = { date: day.date };
+      const flattened: Record<string, string | number> = { date: day.date };
       reasonsList.forEach((reason) => {
         flattened[reason] = day.reasons[reason] || 0;
       });
