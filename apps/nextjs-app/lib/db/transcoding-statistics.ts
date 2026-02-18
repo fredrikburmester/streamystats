@@ -4,11 +4,13 @@ import type { Session } from "@streamystats/database";
 import { db, items, sessions } from "@streamystats/database";
 import {
   and,
+  count,
   eq,
   gte,
   isNotNull,
   lte,
   notInArray,
+  sql,
   type SQL,
 } from "drizzle-orm";
 import { getExclusionSettings, getStatisticsExclusions } from "./exclusions";
@@ -629,7 +631,6 @@ export async function getTranscodingStatisticsOverTime(
   const { userExclusion, itemLibraryExclusion } =
     await getStatisticsExclusions(serverId);
 
-  // Get all sessions with transcoding data for the specified date range
   const whereConditions: SQL[] = [eq(sessions.serverId, serverId)];
 
   if (startDate) {
@@ -650,76 +651,79 @@ export async function getTranscodingStatisticsOverTime(
     whereConditions.push(itemLibraryExclusion);
   }
 
-  const sessionData = await db
+  // SQL CASE expression replicating the is-direct-play priority logic
+  const isDirectPlayCase = sql`
+    CASE
+      WHEN ${sessions.isTranscoded} IS NOT NULL THEN
+        CASE WHEN ${sessions.isTranscoded} = false THEN 1 ELSE 0 END
+      WHEN ${sessions.playMethod} IS NOT NULL THEN
+        CASE WHEN ${sessions.playMethod} = 'DirectPlay' THEN 1 ELSE 0 END
+      ELSE
+        CASE WHEN ${sessions.transcodingVideoCodec} IS NULL
+              AND ${sessions.transcodingAudioCodec} IS NULL
+              AND ${sessions.transcodingContainer} IS NULL
+             THEN 1 ELSE 0 END
+    END`;
+
+  const filter = and(...whereConditions);
+
+  // Query 1: Aggregate direct play vs transcode counts per day
+  const dailyStats = await db
     .select({
-      startTime: sessions.startTime,
-      isTranscoded: sessions.isTranscoded,
-      playMethod: sessions.playMethod,
-      transcodingVideoCodec: sessions.transcodingVideoCodec,
-      transcodingAudioCodec: sessions.transcodingAudioCodec,
-      transcodingContainer: sessions.transcodingContainer,
-      transcodingReasons: sessions.transcodeReasons,
+      date: sql<string>`DATE(${sessions.startTime})`.as("date"),
+      directPlay: sql<number>`COALESCE(SUM(${isDirectPlayCase}), 0)`.as(
+        "direct_play",
+      ),
+      transcode: sql<number>`COALESCE(SUM(1 - (${isDirectPlayCase})), 0)`.as(
+        "transcode",
+      ),
+      total: count().as("total"),
     })
     .from(sessions)
     .innerJoin(items, eq(sessions.itemId, items.id))
-    .where(and(...whereConditions));
+    .where(filter)
+    .groupBy(sql`DATE(${sessions.startTime})`)
+    .orderBy(sql`DATE(${sessions.startTime})`);
 
-  const statsByDate = new Map<
-    string,
-    {
-      directPlay: number;
-      transcode: number;
-      reasons: Record<string, number>;
+  // Query 2: Aggregate transcode reason counts per day
+  // Only for sessions that are transcoded
+  const reasonRows = await db
+    .select({
+      date: sql<string>`DATE(${sessions.startTime})`.as("date"),
+      reason: sql<string>`unnest(${sessions.transcodeReasons})`.as("reason"),
+      count: count().as("count"),
+    })
+    .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
+    .where(
+      and(
+        ...whereConditions,
+        isNotNull(sessions.transcodeReasons),
+        eq(sessions.isTranscoded, true),
+      ),
+    )
+    .groupBy(
+      sql`DATE(${sessions.startTime})`,
+      sql`unnest(${sessions.transcodeReasons})`,
+    );
+
+  // Build a lookup of reasons per date
+  const reasonsByDate = new Map<string, Record<string, number>>();
+  for (const row of reasonRows) {
+    if (!row.date || !row.reason) continue;
+    const dateKey = row.date;
+    if (!reasonsByDate.has(dateKey)) {
+      reasonsByDate.set(dateKey, {});
     }
-  >();
-
-  for (const session of sessionData) {
-    if (!session.startTime) continue;
-
-    const date = session.startTime.toISOString().split("T")[0];
-    const stats = statsByDate.get(date) || {
-      directPlay: 0,
-      transcode: 0,
-      reasons: {},
-    };
-
-    // Determine if session is direct play or transcode
-    let isDirectPlay = false;
-    if (session.isTranscoded !== null) {
-      isDirectPlay = !session.isTranscoded;
-    } else if (session.playMethod) {
-      isDirectPlay = session.playMethod === "DirectPlay";
-    } else {
-      isDirectPlay = !(
-        session.transcodingVideoCodec ||
-        session.transcodingAudioCodec ||
-        session.transcodingContainer
-      );
-    }
-
-    if (isDirectPlay) {
-      stats.directPlay++;
-    } else {
-      stats.transcode++;
-      if (session.transcodingReasons) {
-        for (const reason of session.transcodingReasons) {
-          stats.reasons[reason] = (stats.reasons[reason] || 0) + 1;
-        }
-      }
-    }
-
-    statsByDate.set(date, stats);
+    const reasons = reasonsByDate.get(dateKey)!;
+    reasons[row.reason] = Number(row.count);
   }
 
-  // Fill in missing dates if needed, or just return the existing data sorted
-  // For now, let's just return sorted existing data
-  return Array.from(statsByDate.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([date, stats]) => ({
-      date,
-      directPlay: stats.directPlay,
-      transcode: stats.transcode,
-      total: stats.directPlay + stats.transcode,
-      reasons: stats.reasons,
-    }));
+  return dailyStats.map((row) => ({
+    date: row.date,
+    directPlay: Number(row.directPlay),
+    transcode: Number(row.transcode),
+    total: Number(row.total),
+    reasons: reasonsByDate.get(row.date) ?? {},
+  }));
 }
