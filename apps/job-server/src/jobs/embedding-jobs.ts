@@ -520,8 +520,8 @@ async function processGeminiBatch(
     { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
   );
 
-  // Gemini returns response.embeddings as an array, each with .values
-  const embeddings = response.data?.embedding ?? response.data?.embeddings;
+  // Gemini returns response.embedding as an object, .values as an array
+  const embeddings = response.data?.embedding ? [response.data.embedding] : response.data?.embeddings;
   if (!embeddings) {
     throw new Error("No embeddings returned from Gemini");
   }
@@ -826,6 +826,8 @@ export async function generateItemEmbeddingsJob(
           await sleep(100);
         }
       } else if (provider === "gemini") {
+        // Gemini allows us to send a batch of items, but the rest returns "embedding" instead of "embeddings" with only one item
+        // So batching to 1 for now
         const API_BATCH_SIZE = 1;
         // Process in smaller API batches for Gemini
         for (let i = 0; i < batch.length; i += API_BATCH_SIZE) {
