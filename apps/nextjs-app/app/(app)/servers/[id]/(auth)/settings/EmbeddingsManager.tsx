@@ -104,6 +104,14 @@ const PROVIDER_PRESETS = {
     requiresApiKey: false,
     provider: "openai-compatible" as EmbeddingProvider,
   },
+  gemini: {
+    name: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    defaultModel: "gemini-embedding-001",
+    defaultDimensions: 1536, // Native is 3072, but 1536 is recommended for performance
+    requiresApiKey: true,
+    provider: "gemini" as EmbeddingProvider,
+  },
   custom: {
     name: "Custom",
     baseUrl: "",
@@ -387,6 +395,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
                   <SelectItem value="ollama">Ollama (Local)</SelectItem>
                   <SelectItem value="lm-studio">LM Studio (Local)</SelectItem>
                   <SelectItem value="localai">LocalAI (Local)</SelectItem>
+                  <SelectItem value="gemini">Google Gemini</SelectItem>
                   <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>

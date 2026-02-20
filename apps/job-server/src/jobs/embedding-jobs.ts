@@ -18,7 +18,7 @@ interface EmbeddingConfig {
 // Job data for embedding generation
 interface GenerateItemEmbeddingsJobData {
   serverId: number;
-  provider: "openai-compatible" | "openai" | "ollama";
+  provider: "openai-compatible" | "openai" | "ollama" | "gemini";
   config: EmbeddingConfig;
   manualStart?: boolean;
 }
@@ -456,6 +456,116 @@ async function processOllamaItem(
 }
 
 /**
+ * Process a batch of items using Gemini API.
+ * Gemini uses a different API format than OpenAI.
+ * Sends multiple texts via `contents` array and receives `embeddings` array.
+ */
+async function processGeminiBatch(
+  batchItems: Item[],
+  config: EmbeddingConfig,
+  validateEmbedding: (raw: number[], itemId: string) => number[] | null,
+  serverId: number
+): Promise<{ processed: number; skipped: number; errors: number }> {
+  let processed = 0;
+  let skipped = 0;
+  let errors = 0;
+  let firstDbWriteError: string | null = null;
+
+  const batchData: { item: Item; text: string }[] = [];
+  const toSkip: Item[] = [];
+
+  for (const item of batchItems) {
+    const text = await prepareTextForEmbedding(item, serverId);
+    if (text.trim()) {
+      batchData.push({ item, text });
+    } else {
+      toSkip.push(item);
+    }
+  }
+
+  // Mark items with no text as processed
+  for (const item of toSkip) {
+    await db
+      .update(items)
+      .set({ processed: true })
+      .where(eq(items.id, item.id));
+    skipped++;
+  }
+
+  if (batchData.length === 0) {
+    return { processed, skipped, errors };
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (config.apiKey) {
+    headers["x-goog-api-key"] = config.apiKey;
+  }
+
+  const model = `models/${config.model}`;
+
+  // Gemini supports batch embedding via `contents` array
+  // Each content can be a string, and response will have matching `embeddings` array
+  const parts = batchData.map((d) => ({ text: d.text }));
+
+  const response = await axios.post(
+    `${config.baseUrl}/${model}:embedContent`,
+    {
+      model,
+      content: { parts },
+      taskType: "SEMANTIC_SIMILARITY",
+      ...(config.dimensions ? { output_dimensionality: config.dimensions } : {}),
+    },
+    { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
+  );
+
+  // Gemini returns response.embedding as an object, .values as an array
+  const embeddings = response.data?.embedding ? [response.data.embedding] : response.data?.embeddings;
+  if (!embeddings) {
+    throw new Error("No embeddings returned from Gemini");
+  }
+
+  // Process each embedding result
+  for (let i = 0; i < batchData.length; i++) {
+    const { item } = batchData[i];
+    const embeddingData = embeddings[i];
+
+    if (!embeddingData?.values) {
+      errors++;
+      continue;
+    }
+
+    const embedding = validateEmbedding(embeddingData.values, item.id);
+    if (!embedding) {
+      errors++;
+      continue;
+    }
+
+    try {
+      const vectorLiteral = toPgVectorLiteral(embedding);
+      await db
+        .update(items)
+        .set({ embedding: sql`${vectorLiteral}::vector`, processed: true })
+        .where(eq(items.id, item.id));
+      processed++;
+    } catch (err) {
+      if (!firstDbWriteError) {
+        firstDbWriteError = getErrorMessage(err);
+      }
+      errors++;
+    }
+  }
+
+  // If we got embeddings back but couldn't persist any of them, fail fast
+  if (processed === 0 && firstDbWriteError) {
+    throw new Error(`Failed to persist embeddings to DB: ${firstDbWriteError}`);
+  }
+
+  return { processed, skipped, errors };
+}
+
+/**
  * Main embedding job - single long-running job with internal batching.
  * Checks for stop flag between batches.
  */
@@ -714,6 +824,74 @@ export async function generateItemEmbeddingsJob(
           }
 
           await sleep(100);
+        }
+      } else if (provider === "gemini") {
+        // Gemini allows us to send a batch of items, but the rest returns "embedding" instead of "embeddings" with only one item
+        // So batching to 1 for now
+        const API_BATCH_SIZE = 1;
+        // Process in smaller API batches for Gemini
+        for (let i = 0; i < batch.length; i += API_BATCH_SIZE) {
+          // Check stop flag between API calls
+          if (await isStopRequested(serverId)) {
+            stopped = true;
+            break;
+          }
+
+          const apiBatch = batch.slice(i, i + API_BATCH_SIZE);
+          try {
+            const result = await processGeminiBatch(
+              apiBatch,
+              config,
+              validateEmbedding,
+              serverId
+            );
+            totalProcessed += result.processed;
+            totalSkipped += result.skipped;
+            totalErrors += result.errors;
+            consecutiveBatchFailures = 0;
+            lastBatchError = null;
+          } catch (batchError) {
+            if (batchError instanceof Error) {
+              if (batchError.message.includes("rate_limit") || batchError.message.includes("RATE_LIMIT")) {
+                throw new Error("Rate limit exceeded. Please try again later.");
+              }
+              if (batchError.message.includes("quota") || batchError.message.includes("QUOTA")) {
+                throw new Error("Quota exceeded. Please check billing.");
+              }
+              if (
+                batchError.message.includes("API_KEY_INVALID") ||
+                getHttpStatus(batchError) === 401 ||
+                getHttpStatus(batchError) === 403
+              ) {
+                throw new Error(
+                  `Gemini API authentication failed. Please check your API key. Error: ${batchError.message}`
+                );
+              }
+              // Dimension mismatch should propagate
+              if (batchError.message.includes("Dimension mismatch")) {
+                throw batchError;
+              }
+              // Deterministic failures (DB schema/extension issues) should fail fast.
+              if (batchError.message.includes("Failed to persist embeddings to DB")) {
+                throw batchError;
+              }
+            }
+            consecutiveBatchFailures++;
+            lastBatchError = getErrorMessage(batchError);
+            console.error(
+              `[embeddings] server=${serverName} serverId=${serverId} action=batchError provider=${provider} model=${config.model} baseUrl=${config.baseUrl} consecutiveFailures=${consecutiveBatchFailures} error=${lastBatchError}`
+            );
+            totalErrors += apiBatch.length;
+
+            // Avoid infinite loops when provider/config is invalid (e.g. wrong model/baseUrl).
+            if (consecutiveBatchFailures >= MAX_CONSECUTIVE_BATCH_FAILURES) {
+              throw new Error(
+                `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`
+              );
+            }
+          }
+
+          await sleep(DEFAULT_RATE_LIMIT_DELAY);
         }
       } else {
         throw new Error(`Unsupported provider: ${provider}`);
