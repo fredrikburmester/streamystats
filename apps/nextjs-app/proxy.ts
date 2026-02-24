@@ -10,12 +10,23 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy":
     "camera=(), microphone=(), geolocation=(), interest-cohort=()",
-  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
 };
 
-function applySecurityHeaders(response: NextResponse): NextResponse {
+function applySecurityHeaders(
+  request: NextRequest,
+  response: NextResponse,
+): NextResponse {
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(key, value);
+  }
+  const isHttps =
+    request.nextUrl.protocol === "https:" ||
+    request.headers.get("x-forwarded-proto") === "https";
+  if (isHttps) {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains",
+    );
   }
   return response;
 }
@@ -293,7 +304,7 @@ const validateJellyfinToken = async (
 };
 
 export async function proxy(request: NextRequest) {
-  return applySecurityHeaders(await handleProxy(request));
+  return applySecurityHeaders(request, await handleProxy(request));
 }
 
 async function handleProxy(request: NextRequest) {
