@@ -115,7 +115,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
                     max={maxLimit}
                     step={1}
                     value={[effectiveLimit]}
-                    onValueChange={(vals) => setLimit(vals[0])}
+                    onValueChange={(vals: number[]) => setLimit(vals[0])}
                     className="w-full"
                   />
                 </div>
@@ -132,7 +132,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
                     max={1.5}
                     step={0.1}
                     value={[power]}
-                    onValueChange={(vals) => setPower(vals[0])}
+                    onValueChange={(vals: number[]) => setPower(vals[0])}
                     className="w-full"
                   />
                   <p className="text-[0.8rem] text-muted-foreground">
