@@ -20,7 +20,7 @@ import {
 
 // ─── Shared select shapes ────────────────────────────────────────────────────
 
-export const recommendationItemCardSelect = {
+const recommendationItemCardSelect = {
   id: items.id,
   name: items.name,
   type: items.type,
