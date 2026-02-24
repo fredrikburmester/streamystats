@@ -333,7 +333,7 @@ async function buildRecommendationsResponse(args: {
     const base = {
       item: r.item,
       similarity: r.similarity,
-      basedOn: params.includeBasedOn ? r.basedOn : [],
+      basedOn: params.includeBasedOn ? (r.basedOn ?? []) : [],
     };
 
     if (!params.includeReasons) return base;
@@ -346,7 +346,7 @@ async function buildRecommendationsResponse(args: {
             name: r.item.name,
             genres: r.item.genres ?? null,
           },
-          basedOn: (params.includeBasedOn ? r.basedOn : []).map((b) => ({
+          basedOn: (params.includeBasedOn ? (r.basedOn ?? []) : []).map((b) => ({
             name: b.name,
             genres: b.genres ?? null,
           })),

@@ -84,6 +84,11 @@ const SCHEDULER_JOB_CONFIG: Record<JobKey, {
     buildData: (serverId) => ({ serverId }),
     sendOptions: SEND_OPTIONS.MEDIUM,
   },
+  "user-embeddings-sync": {
+    pgBossName: "calculate-user-embeddings",
+    buildData: (serverId) => ({ serverId }),
+    sendOptions: SEND_OPTIONS.MEDIUM,
+  },
   "deleted-items-cleanup": null,
   "job-cleanup": null,
   "old-job-cleanup": null,
