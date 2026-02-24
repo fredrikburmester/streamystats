@@ -831,6 +831,35 @@ class SyncScheduler {
   }
 
   /**
+   * Manually trigger user embeddings calculation for a specific server.
+   */
+  async triggerServerUserEmbeddingsSync(serverId: number): Promise<void> {
+    try {
+      const boss = await getJobQueue();
+
+      await boss.send(
+        "calculate-user-embeddings",
+        { serverId },
+        {
+          expireInSeconds: 3600,
+          retryLimit: 1,
+          retryDelay: 60,
+        }
+      );
+
+      console.log(
+        `[scheduler] queued=user-embeddings-sync serverId=${serverId}`
+      );
+    } catch (error) {
+      console.error(
+        `[scheduler] queued=user-embeddings-sync serverId=${serverId} status=error`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Get current scheduler status
    */
   getStatus() {
