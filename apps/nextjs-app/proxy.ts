@@ -1,6 +1,7 @@
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { getSessionSecret } from "@/lib/session-secret";
 import { basePath } from "@/lib/utils";
 import { getServer, getServers } from "./lib/db/server";
 
@@ -19,19 +20,6 @@ import { getServer, getServers } from "./lib/db/server";
  * 3. Check server access and admin permissions
  * 4. Clear cookies and redirect to login if validation fails
  */
-
-function getSessionSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "SESSION_SECRET environment variable is required in production",
-      );
-    }
-    return new TextEncoder().encode("fallback-dev-secret-change-in-production");
-  }
-  return new TextEncoder().encode(secret);
-}
 
 const SESSION_SECRET = getSessionSecret();
 
