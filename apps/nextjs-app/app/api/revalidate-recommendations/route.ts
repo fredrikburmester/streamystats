@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { revalidateSeriesRecommendations } from "@/lib/db/similar-series-statistics";
 import { revalidateRecommendations } from "@/lib/db/similar-statistics";
-import { requireSession } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
   const auth = await requireSession();
