@@ -288,6 +288,13 @@
       "when": 1767518686410,
       "tag": "0040_regular_spyke",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1771897279973,
+      "tag": "0041_milky_sersi",
+      "breakpoints": true
     }
   ]
 }
