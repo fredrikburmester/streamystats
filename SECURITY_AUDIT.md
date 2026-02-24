@@ -136,29 +136,44 @@ No structured logging library installed. 76+ `console.log/error` calls in produc
 
 **Files:** `apps/nextjs-app/app/api/check-connectivity/route.ts`
 
+### 15. Server Actions Missing Authentication/Authorization
+
+7 Server Actions in settings pages have **no authentication or authorization checks** — security is enforced only in the UI (middleware route protection), not in the action itself. Any user who can call the action directly can:
+
+- `deleteServerAction()` — delete any server (no auth, no admin check)
+- `updateServerTimezoneAction()` — modify any server's timezone (no auth)
+- `updateServerConnectionAction()` — change any server's URL/API key (no auth)
+- `updateExcludedUsersAction()` / `updateExcludedLibrariesAction()` — modify exclusions (no auth)
+- `updateDisabledHolidaysAction()` — modify holiday settings (no auth)
+- `createServer()` — register new servers (no auth, should require admin)
+
+Additionally, `importFromPlaybackReporting()` and `importFromJellystats()` accept FormData with no auth check.
+
+**Files:** `app/(app)/servers/[id]/(auth)/settings/actions.ts`, `app/(app)/servers/[id]/reconnect/actions.ts`, `app/(app)/servers/[id]/(auth)/settings/exclusions/actions.ts`, `app/(app)/servers/[id]/(auth)/settings/holiday-actions.ts`, `lib/server.ts`, `lib/importPlaybackReporting.ts`
+
 ---
 
 ## MEDIUM
 
-### 15. Server Actions Lack Consistent Input Validation
+### 16. Server Actions Lack Consistent Input Validation
 
-27 files contain `"use server"`. No consistent Zod/valibot validation and no middleware pattern like `next-safe-action`.
+27 files contain `"use server"`. Zod is installed but not used for Server Action validation. No middleware pattern like `next-safe-action`.
 
-### 16. Floating Docker Base Image Tags
+### 17. Floating Docker Base Image Tags
 
 - `Dockerfile.base:2` uses `oven/bun:1-alpine` (floating major)
 - `apps/nextjs-app/Dockerfile:53` uses `node:24-alpine` (floating major)
 - `Dockerfile.aio:70` uses `node:24-bookworm-slim` (floating major)
 
-### 17. Job Server Dockerfile Missing --frozen-lockfile
+### 18. Job Server Dockerfile Missing --frozen-lockfile
 
 `apps/job-server/Dockerfile:14` runs `bun install` without `--frozen-lockfile`. `Dockerfile.base:14` has fallback that silently bypasses lock.
 
-### 18. No deploymentId for Version Skew Protection
+### 19. No deploymentId for Version Skew Protection
 
 `next.config.mjs` has no `deploymentId`. Clients may receive mismatched assets during rolling deployments.
 
-### 19. No Monitoring or Alerting
+### 20. No Monitoring or Alerting
 
 Only basic `/api/health` endpoints. No Prometheus metrics, Grafana dashboards, alerting, or incident escalation.
 
@@ -182,8 +197,9 @@ Only basic `/api/health` endpoints. No Prometheus metrics, Grafana dashboards, a
 | 12 | Add SCRAM-SHA-256 to prod docker-compose | High | Low |
 | 13 | Replace console.* with structured logger | High | High |
 | 14 | Authenticate /api/check-connectivity | High | Low |
-| 15 | Add Zod validation to Server Actions | Medium | Medium |
-| 16 | Pin all Docker base image versions | Medium | Low |
-| 17 | Add --frozen-lockfile to job-server Dockerfile | Medium | Low |
-| 18 | Configure deploymentId | Medium | Low |
-| 19 | Add monitoring/alerting | Medium | High |
+| 15 | Add auth checks to 7+ unauthenticated Server Actions | High | Medium |
+| 16 | Add Zod validation to Server Actions | Medium | Medium |
+| 17 | Pin all Docker base image versions | Medium | Low |
+| 18 | Add --frozen-lockfile to job-server Dockerfile | Medium | Low |
+| 19 | Configure deploymentId | Medium | Low |
+| 20 | Add monitoring/alerting | Medium | High |
