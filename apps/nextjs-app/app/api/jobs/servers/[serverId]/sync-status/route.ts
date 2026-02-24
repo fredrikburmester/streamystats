@@ -1,3 +1,5 @@
+import { requireSession } from "@/lib/api-auth";
+
 interface RouteParams {
   params: Promise<{
     serverId: string;
@@ -5,6 +7,8 @@ interface RouteParams {
 }
 
 export async function GET(_request: Request, { params }: RouteParams) {
+  const auth = await requireSession();
+  if (auth.error) return auth.error;
   try {
     const { serverId } = await params;
 
