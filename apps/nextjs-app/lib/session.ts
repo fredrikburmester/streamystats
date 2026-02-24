@@ -4,9 +4,20 @@ import { type JWTPayload, jwtVerify, SignJWT } from "jose";
 import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 
-const SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || "fallback-dev-secret-change-in-production",
-);
+function getSessionSecret(): Uint8Array {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "SESSION_SECRET environment variable is required in production",
+      );
+    }
+    return new TextEncoder().encode("fallback-dev-secret-change-in-production");
+  }
+  return new TextEncoder().encode(secret);
+}
+
+const SECRET = getSessionSecret();
 
 const SESSION_COOKIE = "streamystats-session";
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 days

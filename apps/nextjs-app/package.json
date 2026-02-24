@@ -83,6 +83,7 @@
     "react-leaflet": "^5.0.0",
     "recharts": "^3.6.0",
     "sequelize": "^6.37.5",
+    "server-only": "^0.0.1",
     "sharp": "^0.34.0",
     "shiki": "^3.20.0",
     "sonner": "^2.0.7",

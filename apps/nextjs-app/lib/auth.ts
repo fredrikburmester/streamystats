@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 import { getServerWithSecrets } from "./db/server";

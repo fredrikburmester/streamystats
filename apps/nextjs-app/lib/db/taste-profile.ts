@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db, items, sessions } from "@streamystats/database";
 import { and, desc, eq, isNotNull, sql, sum } from "drizzle-orm";
 import { cacheLife } from "next/cache";
