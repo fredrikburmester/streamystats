@@ -19,8 +19,8 @@ const ACTIVE_DAYS_THRESHOLD = 90;
 /** Users with fewer than this many watched items with embeddings are skipped. */
 const MIN_ITEMS_FOR_PROFILE = 3;
 
-/** Half-life for recency decay ≈ 70 days. */
-const RECENCY_LAMBDA = 0.01;
+/** Half-life for recency decay ≈ 200 days (more forgiving). */
+const RECENCY_LAMBDA = 0.0035;
 
 /** Weight applied to items the user "bounced" from (<10% watched). */
 const BOUNCE_WEIGHT = -0.3;
@@ -116,7 +116,8 @@ interface WatchedItemForProfile {
   embedding: number[];
   type: string; // "Movie" or "Episode"
   seriesId: string | null;
-  maxPercentComplete: number;
+  totalPlayDuration: number; // in ticks
+  expectedRuntime: number; // in ticks (runtimeTicks from items)
   lastWatchedMs: number; // epoch ms of last watch
   episodeCount: number; // 1 for movies, actual count for series groups
 }
@@ -133,8 +134,9 @@ async function computeUserProfile(
       embedding: items.embedding,
       type: items.type,
       seriesId: items.seriesId,
-      maxPercentComplete:
-        sql<number>`MAX(${sessions.percentComplete})`.as("maxPct"),
+      totalPlayDuration:
+        sql<number>`SUM(${sessions.playDuration})`.as("totalPlayDuration"),
+      expectedRuntime: items.runtimeTicks,
       lastWatched: sql<string>`MAX(${sessions.endTime})`.as("lastWatched"),
     })
     .from(sessions)
@@ -180,12 +182,15 @@ async function computeUserProfile(
 
   for (const row of movieRows) {
     if (!row.embedding || !row.itemId) continue;
+    const expectedRuntime = row.expectedRuntime ?? 0;
+    const totalPlayDuration = row.totalPlayDuration ?? 0;
     watched.push({
       itemId: row.itemId,
       embedding: row.embedding,
       type: "Movie",
       seriesId: null,
-      maxPercentComplete: row.maxPercentComplete ?? 0,
+      totalPlayDuration,
+      expectedRuntime,
       lastWatchedMs: row.lastWatched
         ? new Date(row.lastWatched).getTime()
         : now,
@@ -200,7 +205,8 @@ async function computeUserProfile(
       embedding: row.embedding,
       type: "Series",
       seriesId: row.seriesId,
-      maxPercentComplete: 100, // Series-level: presence means engagement
+      totalPlayDuration: 0,
+      expectedRuntime: 0,
       lastWatchedMs: row.lastWatched
         ? new Date(row.lastWatched).getTime()
         : now,
@@ -224,11 +230,17 @@ async function computeUserProfile(
 
     let weight: number;
     if (item.type === "Movie") {
-      const completionWeight =
-        item.maxPercentComplete < 10
-          ? BOUNCE_WEIGHT
-          : item.maxPercentComplete / 100;
-      weight = completionWeight * recencyDecay;
+      const expectedRuntimeSeconds = item.expectedRuntime / 10_000_000;
+      const completionRatio =
+        expectedRuntimeSeconds > 0
+          ? item.totalPlayDuration / expectedRuntimeSeconds
+          : 0;
+
+      if (completionRatio < 0.1) {
+        weight = BOUNCE_WEIGHT;
+      } else {
+        weight = completionRatio * recencyDecay;
+      }
     } else {
       // Series: engagement = min(episodes / 5, 1)
       const engagement = Math.min(item.episodeCount / 5, 1.0);
