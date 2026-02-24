@@ -11,7 +11,7 @@ COPY apps/job-server/package.json ./apps/job-server/
 RUN mkdir -p apps/nextjs-app && echo '{"name":"@streamystats/nextjs-app","version":"0.0.0","dependencies":{}}' > apps/nextjs-app/package.json
 
 # Install dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY packages/database ./packages/database
@@ -31,7 +31,7 @@ RUN bun add geoip-lite@1.4.10
 RUN bun build ./src/index.ts --compile --minify --outfile server
 
 # Production runtime stage - Debian Slim (glibc compatible)
-FROM debian:stable-slim AS runner
+FROM debian:bookworm-20250224-slim AS runner
 
 # Install minimal dependencies (wget/curl for healthcheck)
 RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*

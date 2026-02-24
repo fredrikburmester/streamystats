@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db } from "@streamystats/database";
 import {
   hiddenRecommendations,

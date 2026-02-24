@@ -10,7 +10,7 @@ COPY apps/job-server/package.json ./apps/job-server/
 RUN mkdir -p apps/nextjs-app && echo '{"name":"@streamystats/nextjs-app","version":"0.0.0","dependencies":{}}' > apps/nextjs-app/package.json
 
 # Install dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # Copy database package source
 COPY packages/database ./packages/database

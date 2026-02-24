@@ -20,9 +20,20 @@ import { getServer, getServers } from "./lib/db/server";
  * 4. Clear cookies and redirect to login if validation fails
  */
 
-const SESSION_SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || "fallback-dev-secret-change-in-production",
-);
+function getSessionSecret(): Uint8Array {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "SESSION_SECRET environment variable is required in production",
+      );
+    }
+    return new TextEncoder().encode("fallback-dev-secret-change-in-production");
+  }
+  return new TextEncoder().encode(secret);
+}
+
+const SESSION_SECRET = getSessionSecret();
 
 interface SessionUser {
   id: string;
