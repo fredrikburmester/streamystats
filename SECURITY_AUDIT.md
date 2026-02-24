@@ -72,11 +72,25 @@ This env var is not referenced anywhere in the project. Without it, Next.js gene
 
 **Files:** `docker-compose.yml`, `docker-compose.aio.yml`, `.env.example`
 
+### 7. SESSION_SECRET Falls Back to Hardcoded String
+
+Both `proxy.ts` and `lib/session.ts` fall back to `"fallback-dev-secret-change-in-production"` when `SESSION_SECRET` is not set:
+
+```typescript
+const SECRET = new TextEncoder().encode(
+  process.env.SESSION_SECRET || "fallback-dev-secret-change-in-production",
+);
+```
+
+This fallback is discoverable in source code. An attacker can forge valid JWT session cookies (containing user ID, admin status, server ID) and gain full admin access if `SESSION_SECRET` is not configured. The fallback should be replaced with an explicit error throw.
+
+**Files:** `apps/nextjs-app/proxy.ts:23-25`, `apps/nextjs-app/lib/session.ts:7-9`
+
 ---
 
 ## HIGH
 
-### 7. Dangerous next.config.mjs Settings
+### 8. Dangerous next.config.mjs Settings
 
 - `images.remotePatterns` allows `*` hostname on both HTTP and HTTPS — potential SSRF vector
 - `images.dangerouslyAllowLocalIP: true` — allows image optimization requests to local/private IPs
@@ -86,37 +100,37 @@ This env var is not referenced anywhere in the project. Without it, Next.js gene
 
 **Files:** `apps/nextjs-app/next.config.mjs`
 
-### 8. Job Server Dockerfile Runs as Root
+### 9. Job Server Dockerfile Runs as Root
 
 `apps/job-server/Dockerfile` has no `USER` directive. Also uses floating base image tag `debian:stable-slim`.
 
 **Files:** `apps/job-server/Dockerfile:34`
 
-### 9. No Container Image Vulnerability Scanning in CI/CD
+### 10. No Container Image Vulnerability Scanning in CI/CD
 
 No Trivy, Snyk, or any image scanner in GitHub Actions workflows. No `npm audit` or `bun audit` scripts. No SBOM generation.
 
 **Files:** `.github/workflows/docker-build.yml`, `.github/workflows/pr-docker-build.yml`
 
-### 10. .dockerignore Missing .env Exclusion
+### 11. .dockerignore Missing .env Exclusion
 
 `.dockerignore` does not exclude `.env*` files. Secrets could be accidentally copied into Docker images.
 
 **Files:** `.dockerignore`
 
-### 11. Production docker-compose.yml Missing SCRAM-SHA-256 Auth
+### 12. Production docker-compose.yml Missing SCRAM-SHA-256 Auth
 
 `docker-compose.dev.yml` sets `POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256` but production `docker-compose.yml` does not — defaulting to MD5.
 
 **Files:** `docker-compose.yml` (missing), `docker-compose.dev.yml:17`
 
-### 12. No Logging Framework — 76+ console.* Calls in Production
+### 13. No Logging Framework — 76+ console.* Calls in Production
 
 No structured logging library installed. 76+ `console.log/error` calls in production code, violating CLAUDE.md. No error tracking (Sentry/Datadog). No authentication audit trail.
 
 **Files:** Throughout `apps/job-server/src/` and `apps/nextjs-app/lib/`
 
-### 13. Unprotected Information Disclosure Endpoint
+### 14. Unprotected Information Disclosure Endpoint
 
 `/api/check-connectivity` requires no authentication and calls `getServersWithSecrets()`, exposing all registered Jellyfin server names, URLs, and connectivity status.
 
@@ -126,25 +140,25 @@ No structured logging library installed. 76+ `console.log/error` calls in produc
 
 ## MEDIUM
 
-### 14. Server Actions Lack Consistent Input Validation
+### 15. Server Actions Lack Consistent Input Validation
 
 27 files contain `"use server"`. No consistent Zod/valibot validation and no middleware pattern like `next-safe-action`.
 
-### 15. Floating Docker Base Image Tags
+### 16. Floating Docker Base Image Tags
 
 - `Dockerfile.base:2` uses `oven/bun:1-alpine` (floating major)
 - `apps/nextjs-app/Dockerfile:53` uses `node:24-alpine` (floating major)
 - `Dockerfile.aio:70` uses `node:24-bookworm-slim` (floating major)
 
-### 16. Job Server Dockerfile Missing --frozen-lockfile
+### 17. Job Server Dockerfile Missing --frozen-lockfile
 
 `apps/job-server/Dockerfile:14` runs `bun install` without `--frozen-lockfile`. `Dockerfile.base:14` has fallback that silently bypasses lock.
 
-### 17. No deploymentId for Version Skew Protection
+### 18. No deploymentId for Version Skew Protection
 
 `next.config.mjs` has no `deploymentId`. Clients may receive mismatched assets during rolling deployments.
 
-### 18. No Monitoring or Alerting
+### 19. No Monitoring or Alerting
 
 Only basic `/api/health` endpoints. No Prometheus metrics, Grafana dashboards, alerting, or incident escalation.
 
@@ -160,15 +174,16 @@ Only basic `/api/health` endpoints. No Prometheus metrics, Grafana dashboards, a
 | 4 | Enforce server-only boundary | Critical | Low |
 | 5 | Fix AIO Dockerfile (non-root + remove hardcoded creds) | Critical | Low |
 | 6 | Configure NEXT_SERVER_ACTIONS_ENCRYPTION_KEY | Critical | Low |
-| 7 | Fix next.config.mjs (image patterns, body size, allowedOrigins) | High | Low |
-| 8 | Add non-root user to job-server Dockerfile | High | Low |
-| 9 | Add Trivy scanning to CI/CD | High | Medium |
-| 10 | Add .env* to .dockerignore | High | Low |
-| 11 | Add SCRAM-SHA-256 to prod docker-compose | High | Low |
-| 12 | Replace console.* with structured logger | High | High |
-| 13 | Authenticate /api/check-connectivity | High | Low |
-| 14 | Add Zod validation to Server Actions | Medium | Medium |
-| 15 | Pin all Docker base image versions | Medium | Low |
-| 16 | Add --frozen-lockfile to job-server Dockerfile | Medium | Low |
-| 17 | Configure deploymentId | Medium | Low |
-| 18 | Add monitoring/alerting | Medium | High |
+| 7 | Remove SESSION_SECRET hardcoded fallback, throw on missing | Critical | Low |
+| 8 | Fix next.config.mjs (image patterns, body size, allowedOrigins) | High | Low |
+| 9 | Add non-root user to job-server Dockerfile | High | Low |
+| 10 | Add Trivy scanning to CI/CD | High | Medium |
+| 11 | Add .env* to .dockerignore | High | Low |
+| 12 | Add SCRAM-SHA-256 to prod docker-compose | High | Low |
+| 13 | Replace console.* with structured logger | High | High |
+| 14 | Authenticate /api/check-connectivity | High | Low |
+| 15 | Add Zod validation to Server Actions | Medium | Medium |
+| 16 | Pin all Docker base image versions | Medium | Low |
+| 17 | Add --frozen-lockfile to job-server Dockerfile | Medium | Low |
+| 18 | Configure deploymentId | Medium | Low |
+| 19 | Add monitoring/alerting | Medium | High |
