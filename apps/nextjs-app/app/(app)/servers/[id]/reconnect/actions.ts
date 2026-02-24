@@ -6,7 +6,6 @@ import {
   type UpdateServerConnectionResult,
   updateServerConnection,
 } from "@/lib/db/server";
-import { isUserAdmin } from "@/lib/db/users";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 
 const updateConnectionSchema = z.object({
@@ -27,11 +26,6 @@ export const updateServerConnectionAction = async (input: {
   name?: string;
 }): Promise<UpdateServerConnectionResult> => {
   try {
-    const isAdmin = await isUserAdmin();
-    if (!isAdmin) {
-      return { success: false, message: "Admin privileges required" };
-    }
-
     const parsed = updateConnectionSchema.safeParse(input);
     if (!parsed.success) {
       return { success: false, message: "Invalid input" };
