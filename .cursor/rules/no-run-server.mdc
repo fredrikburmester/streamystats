@@ -1,5 +1,0 @@
----
-description: Don't run a dev server.
-alwaysApply: true
----
-Don't run a dev server for this project. It is already running in another terminal. Also, don't run build commands since this will cause outage for the dev server.
