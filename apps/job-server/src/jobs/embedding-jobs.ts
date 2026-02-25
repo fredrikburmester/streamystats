@@ -1,4 +1,11 @@
-import { db, Item, items, servers, people, itemPeople } from "@streamystats/database";
+import {
+  db,
+  Item,
+  items,
+  servers,
+  people,
+  itemPeople,
+} from "@streamystats/database";
 import axios from "axios";
 import { and, eq, sql } from "drizzle-orm";
 import OpenAI from "openai";
@@ -16,10 +23,12 @@ interface EmbeddingConfig {
 }
 
 // Job data for embedding generation
+// provider and config are optional to support scheduled jobs that omit them;
+// the handler will fetch them from the DB using serverId in that case.
 interface GenerateItemEmbeddingsJobData {
   serverId: number;
-  provider: "openai-compatible" | "openai" | "ollama";
-  config: EmbeddingConfig;
+  provider?: "openai-compatible" | "openai" | "ollama";
+  config?: EmbeddingConfig;
   manualStart?: boolean;
 }
 
@@ -35,7 +44,7 @@ const MAX_CONSECUTIVE_BATCH_FAILURES = 5;
 const indexEnsuredForDimension = new Set<number>();
 
 function sanitizeErrorMessage(message: string): string {
-  // postgres-js style errors can include the full parameter list. For embeddings that’s a 1536-length
+  // postgres-js style errors can include the full parameter list. For embeddings that's a 1536-length
   // vector which is noisy and can bloat logs.
   if (message.includes("Failed query:") && message.includes("params:")) {
     const beforeParams = message.split("params:")[0]?.trimEnd() ?? message;
@@ -76,7 +85,8 @@ function isUnsupportedDimensionsParamError(error: unknown): boolean {
 function getHttpStatus(error: unknown): number | null {
   const anyErr = error as { status?: unknown; response?: { status?: unknown } };
   if (typeof anyErr?.status === "number") return anyErr.status;
-  if (typeof anyErr?.response?.status === "number") return anyErr.response.status;
+  if (typeof anyErr?.response?.status === "number")
+    return anyErr.response.status;
   return null;
 }
 
@@ -181,7 +191,7 @@ async function ensureEmbeddingIndex(dimensions: number): Promise<void> {
   // pgvector HNSW index has a max of 2000 dimensions
   if (dimensions > 2000) {
     console.info(
-      `[embeddings-index] dimensions=${dimensions} action=skip reason=exceedsMaxDimensions`
+      `[embeddings-index] dimensions=${dimensions} action=skip reason=exceedsMaxDimensions`,
     );
     await db.execute(sql`DROP INDEX IF EXISTS items_embedding_idx`);
     indexEnsuredForDimension.add(dimensions);
@@ -205,13 +215,13 @@ async function ensureEmbeddingIndex(dimensions: number): Promise<void> {
         return;
       }
       console.info(
-        `[embeddings-index] dimensions=${dimensions} action=dropExisting reason=dimensionMismatch`
+        `[embeddings-index] dimensions=${dimensions} action=dropExisting reason=dimensionMismatch`,
       );
       await db.execute(sql`DROP INDEX IF EXISTS items_embedding_idx`);
     }
 
     console.info(
-      `[embeddings-index] dimensions=${dimensions} action=create method=hnsw`
+      `[embeddings-index] dimensions=${dimensions} action=create method=hnsw`,
     );
     await db.execute(sql`
       CREATE INDEX CONCURRENTLY IF NOT EXISTS items_embedding_idx
@@ -228,7 +238,10 @@ async function ensureEmbeddingIndex(dimensions: number): Promise<void> {
  * Prepare item text for embedding.
  * Fetches people data from the normalized people/item_people tables.
  */
-async function prepareTextForEmbedding(item: Item, serverId: number): Promise<string> {
+async function prepareTextForEmbedding(
+  item: Item,
+  serverId: number,
+): Promise<string> {
   const parts: string[] = [];
 
   parts.push(`Title: ${item.name}`);
@@ -274,8 +287,8 @@ async function prepareTextForEmbedding(item: Item, serverId: number): Promise<st
         people,
         and(
           eq(itemPeople.personId, people.id),
-          eq(itemPeople.serverId, people.serverId)
-        )
+          eq(itemPeople.serverId, people.serverId),
+        ),
       )
       .where(eq(itemPeople.itemId, item.id))
       .orderBy(itemPeople.sortOrder);
@@ -310,7 +323,7 @@ async function processOpenAIBatch(
   batchItems: Item[],
   config: EmbeddingConfig,
   validateEmbedding: (raw: number[], itemId: string) => number[] | null,
-  serverId: number
+  serverId: number,
 ): Promise<{ processed: number; skipped: number; errors: number }> {
   let processed = 0;
   let skipped = 0;
@@ -365,7 +378,7 @@ async function processOpenAIBatch(
 
   if (!response.data || response.data.length !== batchData.length) {
     throw new Error(
-      `Invalid response: expected ${batchData.length} embeddings, got ${response.data?.length || 0}`
+      `Invalid response: expected ${batchData.length} embeddings, got ${response.data?.length || 0}`,
     );
   }
 
@@ -415,7 +428,7 @@ async function processOllamaItem(
   item: Item,
   config: EmbeddingConfig,
   validateEmbedding: (raw: number[], itemId: string) => number[] | null,
-  serverId: number
+  serverId: number,
 ): Promise<{ processed: number; skipped: number; errors: number }> {
   const text = await prepareTextForEmbedding(item, serverId);
 
@@ -427,7 +440,9 @@ async function processOllamaItem(
     return { processed: 0, skipped: 1, errors: 0 };
   }
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (config.apiKey) {
     headers["Authorization"] = `Bearer ${config.apiKey}`;
   }
@@ -435,7 +450,7 @@ async function processOllamaItem(
   const response = await axios.post(
     `${config.baseUrl}/api/embeddings`,
     { model: config.model, prompt: text },
-    { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
+    { headers, timeout: TIMEOUT_CONFIG.DEFAULT },
   );
 
   const rawEmbedding = response.data.embedding || response.data.embeddings;
@@ -450,7 +465,10 @@ async function processOllamaItem(
 
   await db
     .update(items)
-    .set({ embedding: sql`${toPgVectorLiteral(embedding)}::vector`, processed: true })
+    .set({
+      embedding: sql`${toPgVectorLiteral(embedding)}::vector`,
+      processed: true,
+    })
     .where(eq(items.id, item.id));
   return { processed: 1, skipped: 0, errors: 0 };
 }
@@ -460,11 +478,53 @@ async function processOllamaItem(
  * Checks for stop flag between batches.
  */
 export async function generateItemEmbeddingsJob(
-  job: PgBossJob<GenerateItemEmbeddingsJobData>
+  job: PgBossJob<GenerateItemEmbeddingsJobData>,
 ) {
   const startTime = Date.now();
-  const { serverId, provider: rawProvider, config, manualStart = false } = job.data;
-  const provider = rawProvider === "openai" ? "openai-compatible" : rawProvider;
+  const {
+    serverId,
+    provider: rawProvider,
+    config: jobConfig,
+    manualStart = false,
+  } = job.data;
+
+  // Resolve provider and config — scheduled jobs omit these fields so we
+  // fetch them fresh from the DB here. This also means config is always
+  // up-to-date even if the user changed it after the schedule was created.
+  let provider: "openai-compatible" | "ollama" | undefined =
+    rawProvider === "openai" ? "openai-compatible" : rawProvider;
+  let config: EmbeddingConfig | undefined = jobConfig;
+
+  if (!provider || !config?.baseUrl || !config?.model) {
+    const serverConfig = await db
+      .select({
+        embeddingProvider: servers.embeddingProvider,
+        embeddingBaseUrl: servers.embeddingBaseUrl,
+        embeddingApiKey: servers.embeddingApiKey,
+        embeddingModel: servers.embeddingModel,
+        embeddingDimensions: servers.embeddingDimensions,
+      })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1);
+
+    const s = serverConfig[0];
+
+    if (!s?.embeddingProvider || !s?.embeddingBaseUrl || !s?.embeddingModel) {
+      throw new Error("Embedding provider not configured.");
+    }
+
+    provider =
+      s.embeddingProvider === "openai"
+        ? "openai-compatible"
+        : (s.embeddingProvider as "openai-compatible" | "ollama");
+    config = {
+      baseUrl: s.embeddingBaseUrl,
+      apiKey: s.embeddingApiKey ?? undefined,
+      model: s.embeddingModel,
+      dimensions: s.embeddingDimensions ?? 1536,
+    };
+  }
 
   let totalProcessed = 0;
   let totalSkipped = 0;
@@ -485,7 +545,7 @@ export async function generateItemEmbeddingsJob(
     const now = Date.now();
     if (now - lastHeartbeat > 30000) {
       console.info(
-        `[embeddings] server=${serverName} serverId=${serverId} action=heartbeat processed=${totalProcessed} skipped=${totalSkipped} errors=${totalErrors}`
+        `[embeddings] server=${serverName} serverId=${serverId} action=heartbeat processed=${totalProcessed} skipped=${totalSkipped} errors=${totalErrors}`,
       );
       lastHeartbeat = now;
 
@@ -503,21 +563,14 @@ export async function generateItemEmbeddingsJob(
           lastError: lastBatchError,
           lastHeartbeat: new Date().toISOString(),
         },
-        Date.now() - startTime
+        Date.now() - startTime,
       );
     }
   };
 
   try {
-    if (!provider) {
-      throw new Error("Embedding provider not configured.");
-    }
-    if (!config.baseUrl || !config.model) {
-      throw new Error("Embedding configuration incomplete.");
-    }
-
     console.info(
-      `[embeddings] server=${serverName} serverId=${serverId} action=start provider=${provider} model=${config.model} dimensions=${config.dimensions} baseUrl=${config.baseUrl}`
+      `[embeddings] server=${serverName} serverId=${serverId} action=start provider=${provider} model=${config.model} dimensions=${config.dimensions} baseUrl=${config.baseUrl}`,
     );
 
     await logJobResult(
@@ -530,7 +583,7 @@ export async function generateItemEmbeddingsJob(
         status: "starting",
         lastHeartbeat: new Date().toISOString(),
       },
-      0
+      0,
     );
 
     // Validate embedding dimensions
@@ -539,7 +592,7 @@ export async function generateItemEmbeddingsJob(
 
     const validateEmbedding = (
       raw: number[],
-      itemId: string
+      itemId: string,
     ): number[] | null => {
       if (!Array.isArray(raw) || raw.length === 0) {
         console.error(`Invalid embedding for item ${itemId}`);
@@ -550,7 +603,7 @@ export async function generateItemEmbeddingsJob(
           dimensionMismatchDetected = true;
           throw new Error(
             `Dimension mismatch: model outputs ${raw.length}, configured for ${expectedDimensions}. ` +
-              `Update dimension setting to ${raw.length}.`
+              `Update dimension setting to ${raw.length}.`,
           );
         }
         return null;
@@ -564,8 +617,8 @@ export async function generateItemEmbeddingsJob(
       const apiKey = config.apiKey?.trim();
       console.info(
         `[embeddings] server=${serverName} serverId=${serverId} action=authConfigured provider=${provider} apiKeyPresent=${Boolean(
-          apiKey && apiKey.length > 0
-        )}`
+          apiKey && apiKey.length > 0,
+        )}`,
       );
       openaiClient = new OpenAI({
         // Trim to avoid copy/paste whitespace/newline issues causing 401s.
@@ -581,7 +634,7 @@ export async function generateItemEmbeddingsJob(
       // Check for stop flag at the start of each batch
       if (await isStopRequested(serverId)) {
         console.info(
-          `[embeddings] server=${serverName} serverId=${serverId} action=stopped processed=${totalProcessed}`
+          `[embeddings] server=${serverName} serverId=${serverId} action=stopped processed=${totalProcessed}`,
         );
         stopped = true;
         break;
@@ -597,7 +650,7 @@ export async function generateItemEmbeddingsJob(
       const autoEnabled = serverCheck[0]?.autoGenerateEmbeddings === true;
       if (!manualStart && !autoEnabled) {
         console.info(
-          `[embeddings] server=${serverName} serverId=${serverId} action=paused reason=autoDisabled processed=${totalProcessed}`
+          `[embeddings] server=${serverName} serverId=${serverId} action=paused reason=autoDisabled processed=${totalProcessed}`,
         );
         break;
       }
@@ -610,14 +663,14 @@ export async function generateItemEmbeddingsJob(
           and(
             eq(items.serverId, serverId),
             eq(items.processed, false),
-            sql`${items.type} IN ('Movie', 'Series')`
-          )
+            sql`${items.type} IN ('Movie', 'Series')`,
+          ),
         )
         .limit(ITEMS_PER_BATCH);
 
       if (batch.length === 0) {
         console.info(
-          `[embeddings] server=${serverName} serverId=${serverId} action=completed processed=${totalProcessed} skipped=${totalSkipped} errors=${totalErrors}`
+          `[embeddings] server=${serverName} serverId=${serverId} action=completed processed=${totalProcessed} skipped=${totalSkipped} errors=${totalErrors}`,
         );
         break;
       }
@@ -641,7 +694,7 @@ export async function generateItemEmbeddingsJob(
               apiBatch,
               config,
               validateEmbedding,
-              serverId
+              serverId,
             );
             totalProcessed += result.processed;
             totalSkipped += result.skipped;
@@ -666,7 +719,7 @@ export async function generateItemEmbeddingsJob(
                     `baseUrl=${config.baseUrl} ` +
                     `type=${info.type ?? "unknown"} code=${info.code ?? "unknown"} ` +
                     `requestId=${info.requestId ?? "unknown"} ` +
-                    `message=${info.message}`
+                    `message=${info.message}`,
                 );
               }
               // Dimension mismatch should propagate
@@ -674,21 +727,25 @@ export async function generateItemEmbeddingsJob(
                 throw batchError;
               }
               // Deterministic failures (DB schema/extension issues) should fail fast.
-              if (batchError.message.includes("Failed to persist embeddings to DB")) {
+              if (
+                batchError.message.includes(
+                  "Failed to persist embeddings to DB",
+                )
+              ) {
                 throw batchError;
               }
             }
             consecutiveBatchFailures++;
             lastBatchError = getErrorMessage(batchError);
             console.error(
-              `[embeddings] server=${serverName} serverId=${serverId} action=batchError provider=${provider} model=${config.model} baseUrl=${config.baseUrl} consecutiveFailures=${consecutiveBatchFailures} error=${lastBatchError}`
+              `[embeddings] server=${serverName} serverId=${serverId} action=batchError provider=${provider} model=${config.model} baseUrl=${config.baseUrl} consecutiveFailures=${consecutiveBatchFailures} error=${lastBatchError}`,
             );
             totalErrors += apiBatch.length;
 
             // Avoid infinite loops when provider/config is invalid (e.g. wrong model/baseUrl).
             if (consecutiveBatchFailures >= MAX_CONSECUTIVE_BATCH_FAILURES) {
               throw new Error(
-                `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`
+                `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`,
               );
             }
           }
@@ -704,7 +761,12 @@ export async function generateItemEmbeddingsJob(
           }
 
           try {
-            const result = await processOllamaItem(item, config, validateEmbedding, serverId);
+            const result = await processOllamaItem(
+              item,
+              config,
+              validateEmbedding,
+              serverId,
+            );
             totalProcessed += result.processed;
             totalSkipped += result.skipped;
             totalErrors += result.errors;
@@ -735,7 +797,7 @@ export async function generateItemEmbeddingsJob(
           serverId,
         });
         console.info(
-          `[embeddings] server=${serverName} serverId=${serverId} action=revalidatedCache`
+          `[embeddings] server=${serverName} serverId=${serverId} action=revalidatedCache`,
         );
       } catch {
         // Non-critical
@@ -758,7 +820,7 @@ export async function generateItemEmbeddingsJob(
         errors: totalErrors,
         stopped,
       },
-      processingTime
+      processingTime,
     );
 
     return {
@@ -786,7 +848,7 @@ export async function generateItemEmbeddingsJob(
         error: error instanceof Error ? error.message : String(error),
       },
       processingTime,
-      error instanceof Error ? error : undefined
+      error instanceof Error ? error : undefined,
     );
     throw error;
   }
