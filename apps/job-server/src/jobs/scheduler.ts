@@ -30,21 +30,16 @@ const SEND_OPTIONS = {
 /**
  * Maps scheduler job keys to pg-boss job names and their data builders
  */
-const SCHEDULER_JOB_CONFIG: Record<
-  JobKey,
-  {
-    pgBossName: string;
-    buildData: (serverId: number) => object | Promise<object>;
-    sendOptions: (typeof SEND_OPTIONS)[keyof typeof SEND_OPTIONS];
-  } | null
-> = {
+const SCHEDULER_JOB_CONFIG: Record<JobKey, {
+  pgBossName: string;
+  buildData: (serverId: number) => object;
+  sendOptions: typeof SEND_OPTIONS[keyof typeof SEND_OPTIONS];
+} | null> = {
   "activity-sync": {
     pgBossName: JELLYFIN_JOB_NAMES.RECENT_ACTIVITIES_SYNC,
     buildData: (serverId) => ({
       serverId,
-      options: {
-        activityOptions: { pageSize: 100, maxPages: 1, intelligent: true },
-      },
+      options: { activityOptions: { pageSize: 100, maxPages: 1, intelligent: true } },
     }),
     sendOptions: SEND_OPTIONS.STANDARD,
   },
@@ -71,41 +66,7 @@ const SCHEDULER_JOB_CONFIG: Record<
   },
   "embeddings-sync": {
     pgBossName: "generate-item-embeddings",
-    buildData: async (serverId) => {
-      const result = await db
-        .select({
-          embeddingProvider: servers.embeddingProvider,
-          embeddingBaseUrl: servers.embeddingBaseUrl,
-          embeddingApiKey: servers.embeddingApiKey,
-          embeddingModel: servers.embeddingModel,
-          embeddingDimensions: servers.embeddingDimensions,
-        })
-        .from(servers)
-        .where(eq(servers.id, serverId))
-        .limit(1);
-
-      const server = result[0];
-
-      if (
-        !server?.embeddingProvider ||
-        !server?.embeddingBaseUrl ||
-        !server?.embeddingModel
-      ) {
-        // Job will fail gracefully with existing "Embedding provider not configured" error
-        return { serverId };
-      }
-
-      return {
-        serverId,
-        provider: server.embeddingProvider,
-        config: {
-          baseUrl: server.embeddingBaseUrl,
-          apiKey: server.embeddingApiKey ?? undefined,
-          model: server.embeddingModel,
-          dimensions: server.embeddingDimensions ?? 1536,
-        },
-      };
-    },
+    buildData: (serverId) => ({ serverId, batchSize: 50 }),
     sendOptions: SEND_OPTIONS.MEDIUM,
   },
   "full-sync": {
@@ -160,7 +121,7 @@ class SyncScheduler {
         console.log(
           `[scheduler] phase=startup-cleanup status=reset resetCount=${
             result.length
-          } servers=${result.map((s) => s.name).join(",")}`,
+          } servers=${result.map((s) => s.name).join(",")}`
         );
       } else {
         console.log("[scheduler] phase=startup-cleanup status=clean");
@@ -190,9 +151,7 @@ class SyncScheduler {
       Bun.env.SKIP_STARTUP_FULL_SYNC === "1";
 
     if (skipStartupFullSync) {
-      console.log(
-        "[scheduler] trigger=startup-full-sync status=skipped reason=SKIP_STARTUP_FULL_SYNC",
-      );
+      console.log("[scheduler] trigger=startup-full-sync status=skipped reason=SKIP_STARTUP_FULL_SYNC");
     } else {
       console.log("[scheduler] trigger=startup-full-sync");
       await this.triggerFullSync();
@@ -204,7 +163,9 @@ class SyncScheduler {
       // Sync pg-boss schedules for all servers
       await this.syncAllSchedules();
 
-      console.log(`[scheduler] status=started mode=pg-boss-native`);
+      console.log(
+        `[scheduler] status=started mode=pg-boss-native`
+      );
 
       // Log per-server configurations
       await this.logServerConfigs();
@@ -220,13 +181,9 @@ class SyncScheduler {
    */
   private async syncAllSchedules(): Promise<void> {
     const boss = await getJobQueue();
-    const allServers = await db
-      .select({ id: servers.id, name: servers.name })
-      .from(servers);
+    const allServers = await db.select({ id: servers.id, name: servers.name }).from(servers);
 
-    console.log(
-      `[scheduler] syncing schedules for ${allServers.length} servers`,
-    );
+    console.log(`[scheduler] syncing schedules for ${allServers.length} servers`);
 
     for (const server of allServers) {
       await this.syncSchedulesForServer(server.id, server.name);
@@ -239,10 +196,7 @@ class SyncScheduler {
   /**
    * Sync pg-boss schedules for a specific server
    */
-  async syncSchedulesForServer(
-    serverId: number,
-    serverName?: string,
-  ): Promise<void> {
+  async syncSchedulesForServer(serverId: number, serverName?: string): Promise<void> {
     const boss = await getJobQueue();
     const name = serverName || `server-${serverId}`;
 
@@ -263,26 +217,26 @@ class SyncScheduler {
           await boss.schedule(
             config.pgBossName,
             cronExpression,
-            await config.buildData(serverId),
+            config.buildData(serverId),
             {
               key: scheduleKey,
               ...config.sendOptions,
-            },
+            }
           );
           console.log(
-            `[scheduler] scheduled job=${jobKey} server="${name}" cron="${cronExpression}"`,
+            `[scheduler] scheduled job=${jobKey} server="${name}" cron="${cronExpression}"`
           );
         } else {
           // Remove the schedule if disabled
           await boss.unschedule(config.pgBossName, scheduleKey);
           console.log(
-            `[scheduler] unscheduled job=${jobKey} server="${name}" reason=disabled`,
+            `[scheduler] unscheduled job=${jobKey} server="${name}" reason=disabled`
           );
         }
       } catch (error) {
         console.error(
           `[scheduler] failed to sync schedule job=${jobKey} server="${name}"`,
-          error,
+          error
         );
       }
     }
@@ -301,7 +255,7 @@ class SyncScheduler {
       SCHEDULER_MAINTENANCE_JOB_NAME,
       maintenanceCron,
       {},
-      { key: "global" },
+      { key: "global" }
     );
     console.log(`[scheduler] scheduled global maintenance job`);
   }
@@ -351,10 +305,10 @@ class SyncScheduler {
             eq(servers.syncStatus, "syncing"),
             or(
               isNull(servers.lastSyncStarted),
-              lt(servers.lastSyncStarted, sql`NOW() - INTERVAL '30 minutes'`),
-            ),
-          ),
-        ),
+              lt(servers.lastSyncStarted, sql`NOW() - INTERVAL '30 minutes'`)
+            )
+          )
+        )
       );
   }
 
@@ -380,7 +334,7 @@ class SyncScheduler {
       }
 
       console.log(
-        `[scheduler] loaded ${this.serverJobConfigs.size} servers with custom job configs`,
+        `[scheduler] loaded ${this.serverJobConfigs.size} servers with custom job configs`
       );
     } catch (error) {
       console.error("[scheduler] failed to load server job configs:", error);
@@ -393,17 +347,13 @@ class SyncScheduler {
   private async logServerConfigs(): Promise<void> {
     try {
       // Get all servers
-      const allServers = await db
-        .select({ id: servers.id, name: servers.name })
-        .from(servers);
+      const allServers = await db.select({ id: servers.id, name: servers.name }).from(servers);
 
       for (const server of allServers) {
         const serverConfigs = this.serverJobConfigs.get(server.id);
 
         if (!serverConfigs || serverConfigs.size === 0) {
-          console.log(
-            `[scheduler] server="${server.name}" (id=${server.id}) using all defaults`,
-          );
+          console.log(`[scheduler] server="${server.name}" (id=${server.id}) using all defaults`);
           continue;
         }
 
@@ -428,7 +378,7 @@ class SyncScheduler {
         }
 
         console.log(
-          `[scheduler] server="${server.name}" (id=${server.id}) ${parts.join(" ")}`,
+          `[scheduler] server="${server.name}" (id=${server.id}) ${parts.join(" ")}`
         );
       }
     } catch (error) {
@@ -462,7 +412,7 @@ class SyncScheduler {
       }
 
       console.log(
-        `[scheduler] reloaded config for server ${serverId}, ${serverConfigs.size} custom jobs`,
+        `[scheduler] reloaded config for server ${serverId}, ${serverConfigs.size} custom jobs`
       );
 
       // Sync pg-boss schedules for this server
@@ -470,7 +420,7 @@ class SyncScheduler {
     } catch (error) {
       console.error(
         `[scheduler] failed to reload config for server ${serverId}:`,
-        error,
+        error
       );
     }
   }
@@ -511,6 +461,7 @@ class SyncScheduler {
     return getDefaultCron(jobKey);
   }
 
+
   /**
    * Backfill Jellyfin server IDs for existing servers missing jellyfinId
    * This is a one-time startup job that only runs if there are servers without IDs
@@ -525,9 +476,7 @@ class SyncScheduler {
         .limit(1);
 
       if (serversWithoutId.length === 0) {
-        console.log(
-          "[scheduler] trigger=jellyfin-id-backfill status=skipped reason=all-servers-have-ids",
-        );
+        console.log("[scheduler] trigger=jellyfin-id-backfill status=skipped reason=all-servers-have-ids");
         return;
       }
 
@@ -535,10 +484,7 @@ class SyncScheduler {
       const boss = await getJobQueue();
       await boss.send(BACKFILL_JOB_NAMES.BACKFILL_JELLYFIN_IDS, {});
     } catch (error) {
-      console.error(
-        "[scheduler] trigger=jellyfin-id-backfill status=error",
-        error,
-      );
+      console.error("[scheduler] trigger=jellyfin-id-backfill status=error", error);
     }
   }
 
@@ -591,22 +537,24 @@ class SyncScheduler {
               expireInSeconds: 21600, // Job expires after 6 hours (21600 seconds)
               retryLimit: 1, // Retry once if it fails
               retryDelay: 300, // Wait 5 minutes before retrying
-            },
+            }
           );
 
           queuedCount++;
           console.log(
-            `[scheduler] queued=full-sync server=${server.name} serverId=${server.id}`,
+            `[scheduler] queued=full-sync server=${server.name} serverId=${server.id}`
           );
         } catch (error) {
           console.error(
             `[scheduler] queued=full-sync server=${server.name} status=error`,
-            error,
+            error
           );
         }
       }
 
-      console.log(`[scheduler] completed=full-sync serverCount=${queuedCount}`);
+      console.log(
+        `[scheduler] completed=full-sync serverCount=${queuedCount}`
+      );
     } catch (error) {
       console.error("[scheduler] trigger=full-sync status=error", error);
     }
@@ -617,7 +565,7 @@ class SyncScheduler {
    */
   async triggerServerActivitySync(
     serverId: number,
-    limit: number = 100,
+    limit: number = 100
   ): Promise<void> {
     try {
       const boss = await getJobQueue();
@@ -636,16 +584,16 @@ class SyncScheduler {
           expireInSeconds: 1800, // Job expires after 30 minutes (1800 seconds)
           retryLimit: 1, // Retry once if it fails
           retryDelay: 60, // Wait 60 seconds before retrying
-        },
+        }
       );
 
       console.log(
-        `[scheduler] queued=manual-activity-sync serverId=${serverId} limit=${limit}`,
+        `[scheduler] queued=manual-activity-sync serverId=${serverId} limit=${limit}`
       );
     } catch (error) {
       console.error(
         `[scheduler] queued=manual-activity-sync serverId=${serverId} status=error`,
-        error,
+        error
       );
       throw error;
     }
@@ -656,7 +604,7 @@ class SyncScheduler {
    */
   async triggerServerRecentItemsSync(
     serverId: number,
-    limit: number = 100,
+    limit: number = 100
   ): Promise<void> {
     try {
       const boss = await getJobQueue();
@@ -675,16 +623,16 @@ class SyncScheduler {
           expireInSeconds: 1800, // Job expires after 30 minutes (1800 seconds)
           retryLimit: 1, // Retry once if it fails
           retryDelay: 60, // Wait 60 seconds before retrying
-        },
+        }
       );
 
       console.log(
-        `[scheduler] queued=manual-recent-items-sync serverId=${serverId} limit=${limit}`,
+        `[scheduler] queued=manual-recent-items-sync serverId=${serverId} limit=${limit}`
       );
     } catch (error) {
       console.error(
         `[scheduler] queued=manual-recent-items-sync serverId=${serverId} status=error`,
-        error,
+        error
       );
       throw error;
     }
@@ -698,11 +646,11 @@ class SyncScheduler {
     try {
       const cancelledCount = await cancelJobsByName(
         JELLYFIN_JOB_NAMES.FULL_SYNC,
-        serverId,
+        serverId
       );
       if (cancelledCount > 0) {
         console.log(
-          `[scheduler] cancelled=full-sync serverId=${serverId} cancelledCount=${cancelledCount}`,
+          `[scheduler] cancelled=full-sync serverId=${serverId} cancelledCount=${cancelledCount}`
         );
       }
 
@@ -731,14 +679,14 @@ class SyncScheduler {
           expireInSeconds: 21600, // Job expires after 6 hours (21600 seconds)
           retryLimit: 1, // Retry once if it fails
           retryDelay: 300, // Wait 5 minutes before retrying
-        },
+        }
       );
 
       console.log(`[scheduler] queued=manual-full-sync serverId=${serverId}`);
     } catch (error) {
       console.error(
         `[scheduler] queued=manual-full-sync serverId=${serverId} status=error`,
-        error,
+        error
       );
       throw error;
     }
@@ -765,14 +713,14 @@ class SyncScheduler {
           expireInSeconds: 1800, // Job expires after 30 minutes (1800 seconds)
           retryLimit: 1, // Retry once if it fails
           retryDelay: 60, // Wait 60 seconds before retrying
-        },
+        }
       );
 
       console.log(`[scheduler] queued=manual-user-sync serverId=${serverId}`);
     } catch (error) {
       console.error(
         `[scheduler] queued=manual-user-sync serverId=${serverId} status=error`,
-        error,
+        error
       );
       throw error;
     }
@@ -783,7 +731,7 @@ class SyncScheduler {
    */
   async triggerLibraryItemsSync(
     serverId: number,
-    libraryId: string,
+    libraryId: string
   ): Promise<void> {
     try {
       const boss = await getJobQueue();
@@ -803,16 +751,16 @@ class SyncScheduler {
           expireInSeconds: 7200, // Job expires after 2 hours (7200 seconds)
           retryLimit: 1, // Retry once if it fails
           retryDelay: 60, // Wait 60 seconds before retrying
-        },
+        }
       );
 
       console.log(
-        `[scheduler] queued=manual-library-items-sync serverId=${serverId} libraryId=${libraryId}`,
+        `[scheduler] queued=manual-library-items-sync serverId=${serverId} libraryId=${libraryId}`
       );
     } catch (error) {
       console.error(
         `[scheduler] queued=manual-library-items-sync serverId=${serverId} libraryId=${libraryId} status=error`,
-        error,
+        error
       );
       throw error;
     }
@@ -834,14 +782,14 @@ class SyncScheduler {
           expireInSeconds: 3600,
           retryLimit: 1,
           retryDelay: 60,
-        },
+        }
       );
 
       console.log(`[scheduler] queued=manual-people-sync serverId=${serverId}`);
     } catch (error) {
       console.error(
         `[scheduler] queued=manual-people-sync serverId=${serverId} status=error`,
-        error,
+        error
       );
       throw error;
     }
@@ -862,16 +810,16 @@ class SyncScheduler {
           expireInSeconds: 21600,
           retryLimit: 1,
           retryDelay: 300,
-        },
+        }
       );
 
       console.log(
-        `[scheduler] queued=geolocation-backfill serverId=${serverId}`,
+        `[scheduler] queued=geolocation-backfill serverId=${serverId}`
       );
     } catch (error) {
       console.error(
         `[scheduler] queued=geolocation-backfill serverId=${serverId} status=error`,
-        error,
+        error
       );
       throw error;
     }
