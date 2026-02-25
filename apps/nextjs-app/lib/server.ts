@@ -2,7 +2,6 @@
 
 import type { Server } from "@streamystats/database";
 import { z } from "zod/v4";
-import { getSession } from "@/lib/session";
 import type { ServerPublic } from "@/lib/types";
 
 const createServerSchema = z.object({
@@ -47,11 +46,6 @@ interface CreateServerErrorResponse {
 export async function createServer(
   serverData: CreateServerRequest,
 ): Promise<CreateServerSuccessResponse | CreateServerErrorResponse> {
-  const session = await getSession();
-  if (!session) {
-    return { success: false, details: "Authentication required" };
-  }
-
   const parsed = createServerSchema.safeParse(serverData);
   if (!parsed.success) {
     return { success: false, details: "Invalid input" };
