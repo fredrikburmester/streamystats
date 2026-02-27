@@ -346,10 +346,12 @@ async function buildRecommendationsResponse(args: {
             name: r.item.name,
             genres: r.item.genres ?? null,
           },
-          basedOn: (params.includeBasedOn ? (r.basedOn ?? []) : []).map((b) => ({
-            name: b.name,
-            genres: b.genres ?? null,
-          })),
+          basedOn: (params.includeBasedOn ? (r.basedOn ?? []) : []).map(
+            (b) => ({
+              name: b.name,
+              genres: b.genres ?? null,
+            }),
+          ),
         },
       }),
     };
