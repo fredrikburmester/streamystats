@@ -29,6 +29,12 @@ const BOUNCE_WEIGHT = -0.3;
 /** Number of episodes to consider a series "fully engaged" for profile weighting. */
 const SERIES_FULL_ENGAGEMENT_EPISODES = 5;
 
+/** Minimum average completion per episode to avoid bounce penalty for series. */
+const SERIES_BOUNCE_THRESHOLD = 0.15;
+
+/** Minimum average completion to avoid bounce penalty for movies. */
+const MOVIES_BOUNCE_THRESHOLD = 0.10;
+
 /** Freshness multiplier is documented but applied at query-time, not here. */
 
 // Track if user embedding HNSW index has been ensured this session (per dimension)
@@ -150,6 +156,10 @@ async function computeUserProfile(
       embedding: items.embedding,
       episodeCount:
         sql<number>`COUNT(DISTINCT ${sessions.itemId})`.as("episodeCount"),
+      totalPlayDuration:
+        sql<number>`SUM(${sessions.playDuration})`.as("totalPlayDuration"),
+      avgEpisodeRuntimeTicks:
+        sql<number>`AVG(${sessions.runtimeTicks})`.as("avgEpisodeRuntimeTicks"),
       lastWatched: sql<string>`MAX(${sessions.endTime})`.as("lastWatched"),
     })
     .from(sessions)
@@ -191,17 +201,21 @@ async function computeUserProfile(
 
   for (const row of seriesRows) {
     if (!row.embedding || !row.seriesId) continue;
+    const episodeCount = row.episodeCount ?? 1;
+    const avgEpisodeRuntimeTicks = row.avgEpisodeRuntimeTicks ?? 0;
+    // Total expected = avgEpisodeRuntime * episodeCount (in ticks)
+    const totalExpectedRuntime = avgEpisodeRuntimeTicks * episodeCount;
     watched.push({
       itemId: row.seriesId,
       embedding: row.embedding,
       type: "Series",
       seriesId: row.seriesId,
-      totalPlayDuration: 0,
-      expectedRuntime: 0,
+      totalPlayDuration: row.totalPlayDuration ?? 0,
+      expectedRuntime: totalExpectedRuntime,
       lastWatchedMs: row.lastWatched
         ? new Date(row.lastWatched).getTime()
         : now,
-      episodeCount: row.episodeCount ?? 1,
+      episodeCount,
     });
   }
 
@@ -232,15 +246,29 @@ async function computeUserProfile(
           ? item.totalPlayDuration / expectedRuntimeSeconds
           : 0;
 
-      if (completionRatio < 0.1) {
+      if (completionRatio < MOVIES_BOUNCE_THRESHOLD) {
         weight = BOUNCE_WEIGHT;
       } else {
         weight = completionRatio * recencyDecay;
       }
     } else {
-      // Series: engagement = min(episodes / 5, 1)
-      const engagement = Math.min(item.episodeCount / SERIES_FULL_ENGAGEMENT_EPISODES, 1.0);
-      weight = engagement * recencyDecay;
+      // Series: combine episode count engagement with completion ratio
+      const engagement = Math.min(
+        item.episodeCount / SERIES_FULL_ENGAGEMENT_EPISODES,
+        1.0
+      );
+
+      const expectedRuntimeSeconds = item.expectedRuntime / 10_000_000;
+      const avgCompletionPerEpisode =
+        expectedRuntimeSeconds > 0 && item.episodeCount > 0
+          ? item.totalPlayDuration / expectedRuntimeSeconds
+          : 0;
+
+      if (avgCompletionPerEpisode < SERIES_BOUNCE_THRESHOLD) {
+        weight = BOUNCE_WEIGHT; // Bounced from the series
+      } else {
+        weight = engagement * recencyDecay;
+      }
     }
 
     for (let d = 0; d < dims; d++) {
