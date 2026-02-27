@@ -8,6 +8,7 @@ import {
 } from "@streamystats/database";
 import { and, eq, sql, isNotNull, gte } from "drizzle-orm";
 import type { PgBossJob } from "../types/job-status";
+import { normalizeVector, toPgVectorLiteral } from "../utils/vector";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -24,6 +25,9 @@ const RECENCY_LAMBDA = 0.0035;
 
 /** Weight applied to items the user "bounced" from (<10% watched). */
 const BOUNCE_WEIGHT = -0.3;
+
+/** Number of episodes to consider a series "fully engaged" for profile weighting. */
+const SERIES_FULL_ENGAGEMENT_EPISODES = 5;
 
 /** Freshness multiplier is documented but applied at query-time, not here. */
 
@@ -95,19 +99,6 @@ async function ensureUserEmbeddingIndex(dimensions: number): Promise<void> {
   }
 }
 
-// ─── Vector math helpers ─────────────────────────────────────────────────────
-
-function normalizeVector(vec: number[]): number[] {
-  let norm = 0;
-  for (const v of vec) norm += v * v;
-  norm = Math.sqrt(norm);
-  if (norm === 0) return vec;
-  return vec.map((v) => v / norm);
-}
-
-function toPgVectorLiteral(value: number[]): string {
-  return `[${value.join(",")}]`;
-}
 
 // ─── Per-user profile computation ────────────────────────────────────────────
 
@@ -222,7 +213,12 @@ async function computeUserProfile(
   let totalAbsWeight = 0;
 
   for (const item of watched) {
-    if (item.embedding.length !== dims) continue; // dimension mismatch guard
+    if (item.embedding.length !== dims) {
+      console.warn(
+        `[user-embeddings] userId=${userId} itemId=${item.itemId} action=skipDimensionMismatch expected=${dims} got=${item.embedding.length}`
+      );
+      continue;
+    }
 
     const daysSinceWatched =
       (now - item.lastWatchedMs) / (1000 * 60 * 60 * 24);
@@ -243,7 +239,7 @@ async function computeUserProfile(
       }
     } else {
       // Series: engagement = min(episodes / 5, 1)
-      const engagement = Math.min(item.episodeCount / 5, 1.0);
+      const engagement = Math.min(item.episodeCount / SERIES_FULL_ENGAGEMENT_EPISODES, 1.0);
       weight = engagement * recencyDecay;
     }
 
@@ -330,22 +326,23 @@ export async function calculateUserEmbeddingsJob(
       }
 
       // Upsert
+      const upsertNow = new Date();
       await db
         .insert(userEmbeddings)
         .values({
           userId: user.id,
           serverId,
-          embedding: result.embedding,
+          embedding: sql`${toPgVectorLiteral(result.embedding)}::vector`,
           itemCount: result.itemCount,
-          lastCalculatedAt: new Date(),
+          lastCalculatedAt: upsertNow,
         })
         .onConflictDoUpdate({
           target: [userEmbeddings.userId, userEmbeddings.serverId],
           set: {
             embedding: sql`${toPgVectorLiteral(result.embedding)}::vector`,
             itemCount: result.itemCount,
-            lastCalculatedAt: new Date(),
-            updatedAt: new Date(),
+            lastCalculatedAt: upsertNow,
+            updatedAt: upsertNow,
           },
         });
 

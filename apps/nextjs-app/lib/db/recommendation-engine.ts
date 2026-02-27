@@ -74,6 +74,19 @@ export interface RecommendationResult {
 const FRESHNESS_BOOST = 1.1;
 const FRESHNESS_WINDOW_DAYS = 14;
 
+/**
+ * Minimum similarity score to include in results.
+ * Filters out noise from items with near-zero or negative cosine similarity.
+ */
+const MIN_SIMILARITY = 0.05;
+
+/**
+ * Maximum number of item IDs to pass in the exclusion list.
+ * Postgres handles NOT IN efficiently up to ~5000 values;
+ * beyond that, consider a temp table or NOT EXISTS subquery.
+ */
+const MAX_EXCLUSION_LIST_SIZE = 5000;
+
 // ─── Core engine ─────────────────────────────────────────────────────────────
 
 /**
@@ -157,57 +170,54 @@ export async function getProfileRecommendations(
 
   const excludeArray = Array.from(excludeIds);
 
-  // ── 3. Single vector search ──────────────────────────────────────────────
-  const similarity = sql<number>`1 - (${cosineDistance(
-    items.embedding,
-    profileVector,
-  )})`;
+  // ── 3. Single vector search with freshness boost ─────────────────
+  const freshnessThreshold = new Date(
+    Date.now() - FRESHNESS_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
 
-  // Fetch more than needed to allow for freshness re-ranking
-  const fetchLimit = Math.min((offset + limit) * 2, 200);
+  const adjustedSimilarity = sql<number>`
+    CASE
+      WHEN ${items.createdAt} > ${freshnessThreshold}
+      THEN (1 - (${cosineDistance(items.embedding, profileVector)})) * ${FRESHNESS_BOOST}
+      ELSE (1 - (${cosineDistance(items.embedding, profileVector)}))
+    END
+  `;
 
   const conditions = [
     eq(items.serverId, serverId),
     eq(items.type, targetType),
     isNull(items.deletedAt),
     isNotNull(items.embedding),
+    sql`(1 - (${cosineDistance(items.embedding, profileVector)})) > ${MIN_SIMILARITY}`,
   ];
 
+  // Cap the exclusion list to avoid perf degradation with very large NOT IN clauses
   if (excludeArray.length > 0) {
-    conditions.push(notInArray(items.id, excludeArray));
+    if (excludeArray.length > MAX_EXCLUSION_LIST_SIZE) {
+      console.warn(
+        `[recommendations] userId=${userId} exclusionListSize=${excludeArray.length} action=capped max=${MAX_EXCLUSION_LIST_SIZE}`,
+      );
+    }
+    conditions.push(
+      notInArray(items.id, excludeArray.slice(0, MAX_EXCLUSION_LIST_SIZE)),
+    );
   }
 
   const candidates = await db
     .select({
       item: recommendationItemCardSelect,
-      similarity,
-      createdAt: items.createdAt,
+      similarity: adjustedSimilarity,
     })
     .from(items)
     .where(and(...conditions))
-    .orderBy(desc(similarity))
-    .limit(fetchLimit);
+    .orderBy(desc(adjustedSimilarity))
+    .limit(limit)
+    .offset(offset);
 
-  // ── 4. Freshness bump + final ranking ────────────────────────────────────
-  const now = Date.now();
-  const freshnessThreshold =
-    now - FRESHNESS_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-
-  const results: RecommendationResult[] = candidates.map((row) => {
-    const rawSim = Number(row.similarity);
-    const isFresh =
-      row.createdAt && new Date(row.createdAt).getTime() > freshnessThreshold;
-    const adjustedSim = isFresh ? rawSim * FRESHNESS_BOOST : rawSim;
-
-    return {
-      item: row.item,
-      similarity: adjustedSim,
-      basedOn: [], // Profile-based — no individual attribution
-    };
-  });
-
-  // Re-sort after freshness adjustment
-  results.sort((a, b) => b.similarity - a.similarity);
-
-  return results.slice(offset, offset + limit);
+  // ── 4. Map to result shape ────────────────────────────────────────────────
+  return candidates.map((row) => ({
+    item: row.item,
+    similarity: Number(row.similarity),
+    basedOn: [], // Profile-based — no individual attribution
+  }));
 }
