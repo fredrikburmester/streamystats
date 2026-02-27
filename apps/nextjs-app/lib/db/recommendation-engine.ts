@@ -177,7 +177,7 @@ export async function getProfileRecommendations(
 
   const adjustedSimilarity = sql<number>`
     CASE
-      WHEN ${items.createdAt} > ${freshnessThreshold}
+      WHEN ${items.createdAt} > ${freshnessThreshold.toISOString()}
       THEN (1 - (${cosineDistance(items.embedding, profileVector)})) * ${FRESHNESS_BOOST}
       ELSE (1 - (${cosineDistance(items.embedding, profileVector)}))
     END
