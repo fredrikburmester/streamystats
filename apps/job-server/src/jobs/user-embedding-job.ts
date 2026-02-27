@@ -137,12 +137,11 @@ async function computeUserProfile(
       lastWatched: sql<string>`MAX(${sessions.endTime})`.as("lastWatched"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(items, and(eq(items.id, sessions.itemId), eq(items.type, "Movie")))
     .where(
       and(
         eq(sessions.serverId, serverId),
         eq(sessions.userId, userId),
-        eq(items.type, "Movie"),
         isNotNull(items.embedding),
         isNotNull(sessions.playDuration)
       )
