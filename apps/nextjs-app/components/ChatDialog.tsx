@@ -50,7 +50,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { getInternalUrl } from "@/lib/server-url";
 import type { User } from "@/lib/types";
 import JellyfinAvatar from "./JellyfinAvatar";
 
@@ -81,7 +80,7 @@ function ItemCard({ item, serverId, server }: ItemCardProps) {
   const [imageError, setImageError] = useState(false);
 
   const imageUrl = useMemo(() => {
-    const baseUrl = getInternalUrl(server);
+    const baseUrl = server.url;
     if (item.primaryImageTag) {
       return `${baseUrl}/Items/${item.id}/Images/Primary?fillHeight=120&fillWidth=80&quality=96&tag=${item.primaryImageTag}`;
     }

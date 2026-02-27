@@ -71,6 +71,11 @@ export async function updateConnectionSettingsAction({
   apiKey,
 }: UpdateConnectionSettingsParams): Promise<UpdateConnectionSettingsResult> {
   try {
+    const isAdmin = await isUserAdmin();
+    if (!isAdmin) {
+      return { success: false, message: "Admin privileges required" };
+    }
+
     // Fetch existing server to get current API key if none provided
     const existingServer = await db
       .select({ apiKey: servers.apiKey })
@@ -155,7 +160,37 @@ export async function updateConnectionSettingsAction({
         Version?: string;
       };
 
-      // Build update object - only include apiKey if a new one was provided
+      // Validate internal URL connectivity if provided
+      if (normalizedInternalUrl) {
+        try {
+          const internalResponse = await fetch(
+            `${normalizedInternalUrl}/System/Info`,
+            {
+              method: "GET",
+              headers: {
+                "X-Emby-Token": effectiveApiKey,
+                "Content-Type": "application/json",
+              },
+              signal: AbortSignal.timeout(5000),
+            },
+          );
+
+          if (!internalResponse.ok) {
+            return {
+              success: false,
+              message:
+                "Internal URL is unreachable. Please check the URL and try again.",
+            };
+          }
+        } catch {
+          return {
+            success: false,
+            message:
+              "Failed to connect to internal URL. Please check the URL and try again.",
+          };
+        }
+      }
+
       const updateData: {
         url: string;
         internalUrl: string | null;
@@ -166,17 +201,19 @@ export async function updateConnectionSettingsAction({
       } = {
         url: normalizedUrl,
         internalUrl: normalizedInternalUrl,
-        version: serverInfo.Version ?? undefined,
-        name: serverInfo.ServerName ?? undefined,
         updatedAt: new Date(),
       };
 
-      // Only update API key if a new one was explicitly provided
+      if (serverInfo.Version) {
+        updateData.version = serverInfo.Version;
+      }
+      if (serverInfo.ServerName) {
+        updateData.name = serverInfo.ServerName;
+      }
       if (apiKey) {
         updateData.apiKey = apiKey;
       }
 
-      // Update the server record
       await db.update(servers).set(updateData).where(eq(servers.id, serverId));
 
       // Revalidate relevant paths
