@@ -32,7 +32,8 @@ export const updateServerConnectionAction = async (input: {
       return { success: false, message: "Invalid input" };
     }
 
-    const { serverId, url, internalUrl, apiKey, username, password } = parsed.data;
+    const { serverId, url, internalUrl, apiKey, username, password } =
+      parsed.data;
 
     const result = await updateServerConnection({
       serverId,
