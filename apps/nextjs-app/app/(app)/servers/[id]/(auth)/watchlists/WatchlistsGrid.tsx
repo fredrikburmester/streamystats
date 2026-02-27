@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useDebounce } from "use-debounce";
+import { FormattedDate } from "@/components/FormattedDate";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,6 @@ import {
 import { usePersistantState } from "@/hooks/usePersistantState";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import type { WatchlistWithItemCount } from "@/lib/db/watchlists";
-import { formatLocalDate } from "@/lib/timezone";
 
 interface WatchlistWithPreviews extends WatchlistWithItemCount {
   previewItems: Item[];
@@ -228,17 +228,13 @@ export function WatchlistsTable({
         );
       },
       cell: ({ row }) => {
-        const dateValue = row.getValue("createdAt") as Date | null;
-        if (!dateValue) {
-          return <div>No Date</div>;
-        }
-
-        const date = new Date(dateValue);
-        if (Number.isNaN(date.getTime())) {
-          return <div>Invalid Date</div>;
-        }
-
-        return <div>{formatLocalDate(date, "d MMM yyyy, HH:mm")}</div>;
+        return (
+          <FormattedDate
+            date={row.getValue("createdAt") as Date | null}
+            format="datetime"
+            fallback="No Date"
+          />
+        );
       },
     },
   ];

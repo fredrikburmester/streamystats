@@ -40,10 +40,6 @@ export async function GET(
   try {
     const res = await fetch(jellyfinUrl, {
       method: "GET",
-      // Forward headers if needed, but usually image requests are public if they have the tag?
-      // Actually, Jellyfin images with ?tag= usually don't require auth if they are cached/public,
-      // BUT generally API access requires token.
-      // We should use the Server API Key to fetch the image.
       headers: {
         "X-Emby-Token": server.apiKey,
       },

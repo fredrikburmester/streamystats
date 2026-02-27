@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "infer_watchtime_on_mark_watched" boolean;

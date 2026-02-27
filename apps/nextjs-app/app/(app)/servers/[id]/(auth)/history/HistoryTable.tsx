@@ -19,6 +19,7 @@ import * as React from "react";
 import { useEffect } from "react";
 import { useDebounce } from "use-debounce";
 import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
+import { FormattedDate } from "@/components/FormattedDate";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import { PlaybackMethodBadge } from "@/components/PlaybackMethodBadge";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +42,6 @@ import {
 import { usePersistantState } from "@/hooks/usePersistantState";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import type { HistoryItem, HistoryResponse } from "@/lib/db/history";
-import { formatLocalDate } from "@/lib/timezone";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 import { HistoryFilters } from "./HistoryFilters";
@@ -305,17 +305,13 @@ export function HistoryTable({
         );
       },
       cell: ({ row }) => {
-        const dateValue = row.original.session.startTime;
-        if (!dateValue) {
-          return <div>No Date</div>;
-        }
-
-        const date = new Date(dateValue);
-        if (Number.isNaN(date.getTime())) {
-          return <div>Invalid Date</div>;
-        }
-
-        return <div>{formatLocalDate(date, "d MMM yyyy, HH:mm")}</div>;
+        return (
+          <FormattedDate
+            date={row.original.session.startTime}
+            format="datetime"
+            fallback="No Date"
+          />
+        );
       },
     },
   ];
@@ -372,6 +368,7 @@ export function HistoryTable({
           deviceNames={deviceNames}
           clientNames={clientNames}
           playMethods={playMethods}
+          hideUserFilter={hideUserColumn}
         />
       </div>
       <div className="flex items-center pb-4">

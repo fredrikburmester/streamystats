@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useDebounce } from "use-debounce";
+import { FormattedDate } from "@/components/FormattedDate";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -170,12 +171,7 @@ export function ActivityLogTable({
         );
       },
       cell: ({ row }) => (
-        <div>
-          {new Date(row.getValue("date")).toLocaleString("en-UK", {
-            dateStyle: "medium",
-            timeStyle: "short",
-          })}
-        </div>
+        <FormattedDate date={row.getValue("date")} format="datetime" />
       ),
     },
     {

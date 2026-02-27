@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { FormattedDate } from "@/components/FormattedDate";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import {
   AlertDialog,
@@ -74,7 +75,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { usePersistantState } from "@/hooks/usePersistantState";
 import type { WatchlistWithItemCount } from "@/lib/db/watchlists";
-import { formatLocalDate } from "@/lib/timezone";
 
 interface WatchlistRowActionsProps {
   watchlist: WatchlistWithItemCount;
@@ -467,17 +467,13 @@ export function WatchlistsTable({
         );
       },
       cell: ({ row }) => {
-        const dateValue = row.getValue("createdAt") as Date | null;
-        if (!dateValue) {
-          return <div>No Date</div>;
-        }
-
-        const date = new Date(dateValue);
-        if (Number.isNaN(date.getTime())) {
-          return <div>Invalid Date</div>;
-        }
-
-        return <div>{formatLocalDate(date, "d MMM yyyy, HH:mm")}</div>;
+        return (
+          <FormattedDate
+            date={row.getValue("createdAt") as Date | null}
+            format="datetime"
+            fallback="No Date"
+          />
+        );
       },
     },
     {

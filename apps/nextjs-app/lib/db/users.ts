@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db, items, sessions, type User, users } from "@streamystats/database";
 import {
   and,
@@ -17,6 +19,7 @@ import { cookies } from "next/headers";
 import { getInternalUrl } from "../server-url";
 import { destroySession, getSession } from "../session";
 import { getExclusionSettings } from "./exclusions";
+import { isBetterDisplayName, normalizeGenre } from "./genres";
 import { getServer } from "./server";
 
 interface JellyfinUser {
@@ -717,23 +720,31 @@ export const getUserGenreStats = async ({
       ),
     );
 
-  const genreMap: Record<string, { watchTime: number; playCount: number }> = {};
+  const genreMap: Record<
+    string,
+    { watchTime: number; playCount: number; displayName: string }
+  > = {};
 
   for (const row of sessionItems) {
     if (Array.isArray(row.genres)) {
       for (const genre of row.genres) {
         if (!genre) continue;
-        if (!genreMap[genre]) {
-          genreMap[genre] = { watchTime: 0, playCount: 0 };
+        const { key, displayName } = normalizeGenre(genre);
+        if (!genreMap[key]) {
+          genreMap[key] = { watchTime: 0, playCount: 0, displayName };
+        } else if (
+          isBetterDisplayName(genreMap[key].displayName, displayName)
+        ) {
+          genreMap[key].displayName = displayName;
         }
-        genreMap[genre].watchTime += row.playDuration || 0;
-        genreMap[genre].playCount += 1;
+        genreMap[key].watchTime += row.playDuration || 0;
+        genreMap[key].playCount += 1;
       }
     }
   }
 
-  return Object.entries(genreMap).map(([genre, stats]) => ({
-    genre,
+  return Object.entries(genreMap).map(([_key, stats]) => ({
+    genre: stats.displayName,
     watchTime: stats.watchTime,
     playCount: stats.playCount,
   }));

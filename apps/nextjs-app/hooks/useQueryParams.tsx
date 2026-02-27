@@ -1,4 +1,4 @@
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
 /**
@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
  */
 export function useQueryParams<_T = unknown>() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,9 +46,8 @@ export function useQueryParams<_T = unknown>() {
         }
 
         setIsLoading(true); // Show loading state immediately
-        const basePath =
-          typeof window !== "undefined" ? window.location.pathname : "";
-        router.replace(nextQueryString ? `?${nextQueryString}` : basePath, {
+
+        router.replace(nextQueryString ? `?${nextQueryString}` : pathname, {
           scroll: options.scroll,
         });
       });

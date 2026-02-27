@@ -40,6 +40,7 @@ interface HistoryFiltersProps {
   deviceNames: string[];
   clientNames: string[];
   playMethods: string[];
+  hideUserFilter?: boolean;
 }
 
 export function HistoryFilters({
@@ -47,6 +48,7 @@ export function HistoryFilters({
   deviceNames,
   clientNames,
   playMethods,
+  hideUserFilter = false,
 }: HistoryFiltersProps) {
   const searchParams = useSearchParams();
   const { updateQueryParams, isLoading } = useQueryParams();
@@ -180,23 +182,25 @@ export function HistoryFilters({
         </PopoverContent>
       </Popover>
 
-      <Select
-        value={searchParams.get("userId") || "all"}
-        onValueChange={(value) => handleFilterChange("userId", value)}
-        disabled={isLoading}
-      >
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="All users" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All users</SelectItem>
-          {users.map((user) => (
-            <SelectItem key={user.id} value={user.id}>
-              {user.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {!hideUserFilter && (
+        <Select
+          value={searchParams.get("userId") || "all"}
+          onValueChange={(value) => handleFilterChange("userId", value)}
+          disabled={isLoading}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All users" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All users</SelectItem>
+            {users.map((user) => (
+              <SelectItem key={user.id} value={user.id}>
+                {user.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <Select
         value={searchParams.get("itemType") || "all"}

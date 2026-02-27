@@ -1,20 +1,24 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { z } from "zod/v4";
 import {
   type UpdateServerConnectionResult,
   updateServerConnection,
 } from "@/lib/db/server";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 
-export const updateServerConnectionAction = async ({
-  serverId,
-  url,
-  internalUrl,
-  apiKey,
-  username,
-  password,
-}: {
+const updateConnectionSchema = z.object({
+  serverId: z.number().int().positive(),
+  url: z.string().min(1).max(1000),
+  internalUrl: z.string().max(1000).nullish(),
+  apiKey: z.string().min(1).max(500),
+  username: z.string().min(1).max(200),
+  password: z.string().max(500).nullish(),
+  name: z.string().max(200).optional(),
+});
+
+export const updateServerConnectionAction = async (input: {
   serverId: number;
   url: string;
   internalUrl?: string | null;
@@ -23,6 +27,13 @@ export const updateServerConnectionAction = async ({
   password?: string | null;
 }): Promise<UpdateServerConnectionResult> => {
   try {
+    const parsed = updateConnectionSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, message: "Invalid input" };
+    }
+
+    const { serverId, url, internalUrl, apiKey, username, password } = parsed.data;
+
     const result = await updateServerConnection({
       serverId,
       url,

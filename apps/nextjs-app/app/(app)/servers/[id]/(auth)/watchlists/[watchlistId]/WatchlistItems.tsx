@@ -14,6 +14,7 @@ import * as React from "react";
 import { useState } from "react";
 import { useDebounce } from "use-debounce";
 import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
+import { FormattedDate } from "@/components/FormattedDate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +44,6 @@ import type {
   WatchlistItemWithListItem,
   WatchlistWithItemsLite,
 } from "@/lib/db/watchlists";
-import { formatLocalDate } from "@/lib/timezone";
 import type { ServerPublic } from "@/lib/types";
 
 function getItemIdsInCustomOrder(items: WatchlistItemWithListItem[]): string[] {
@@ -408,17 +408,13 @@ export function WatchlistItems({
         id: "addedAt",
         header: "Date Added",
         cell: ({ row }) => {
-          const dateValue = row.original.addedAt;
-          if (!dateValue) {
-            return <div>No Date</div>;
-          }
-
-          const date = new Date(dateValue);
-          if (Number.isNaN(date.getTime())) {
-            return <div>Invalid Date</div>;
-          }
-
-          return <div>{formatLocalDate(date, "d MMM yyyy, HH:mm")}</div>;
+          return (
+            <FormattedDate
+              date={row.original.addedAt}
+              format="datetime"
+              fallback="No Date"
+            />
+          );
         },
       },
     ];

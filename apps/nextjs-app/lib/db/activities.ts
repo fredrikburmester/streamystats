@@ -1,3 +1,5 @@
+import "server-only";
+
 import { db } from "@streamystats/database";
 import { activities } from "@streamystats/database/schema";
 import {

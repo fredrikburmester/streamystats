@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Settings,
   Shield,
+  Sparkles,
   TrendingUp,
   User as UserIcon,
   Users,
@@ -244,6 +245,11 @@ export const SideBar: React.FC<Props> = ({
   }, [me?.name, me?.serverId]);
 
   const items = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed, so December = 11
+    const wrappedYear = currentMonth === 11 ? currentYear : currentYear - 1;
+
     return [
       {
         title: "Library",
@@ -254,6 +260,11 @@ export const SideBar: React.FC<Props> = ({
         title: "Watchlists",
         url: "/watchlists",
         icon: ListVideo,
+      },
+      {
+        title: "Wrapped",
+        url: `/wrapped/${wrappedYear}`,
+        icon: Sparkles,
       },
       {
         title: "Me",

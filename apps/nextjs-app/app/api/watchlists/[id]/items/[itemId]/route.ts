@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { requireSession } from "@/lib/api-auth";
+import { requireAuth } from "@/lib/api-auth";
 import { removeItemFromWatchlist } from "@/lib/db/watchlists";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -12,12 +12,14 @@ function jsonResponse(body: unknown, status = 200) {
 /**
  * DELETE /api/watchlists/[id]/items/[itemId]
  * Remove an item from a watchlist
+ *
+ * Supports both session cookie auth (web app) and MediaBrowser token (external API).
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; itemId: string }> },
 ) {
-  const auth = await requireSession();
+  const auth = await requireAuth(request);
   if (auth.error) return auth.error;
 
   const { session } = auth;

@@ -1,0 +1,1 @@
+ALTER TABLE "servers" ADD COLUMN "timezone" text DEFAULT 'Etc/UTC' NOT NULL;

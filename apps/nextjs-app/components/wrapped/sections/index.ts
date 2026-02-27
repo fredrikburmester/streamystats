@@ -1,0 +1,9 @@
+export { ActivityPatternsSection } from "./ActivityPatternsSection";
+export { DominantGenreSection } from "./DominantGenreSection";
+export { FirstLastPlaysSection } from "./FirstLastPlaysSection";
+export { FooterSection } from "./FooterSection";
+export { HeroSection } from "./HeroSection";
+export { MostPlayedSection } from "./MostPlayedSection";
+export { MostWatchedPeopleSection } from "./MostWatchedPeopleSection";
+export { RewatchSection } from "./RewatchSection";
+export { YearInNumbersSection } from "./YearInNumbersSection";

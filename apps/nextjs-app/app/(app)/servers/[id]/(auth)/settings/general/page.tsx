@@ -11,6 +11,7 @@ import { InferWatchtimeAdminManager } from "../InferWatchtimeAdminManager";
 import { MergeItemsManager } from "../MergeItemsManager";
 import { UpdateConnection } from "../UpdateConnection";
 import { VersionSection } from "../VersionSection";
+import { TimezoneManager } from "./TimezoneManager";
 
 export default async function GeneralSettings(props: {
   params: Promise<{ id: string }>;
@@ -33,6 +34,10 @@ export default async function GeneralSettings(props: {
 
       <div className="space-y-8">
         <VersionSection />
+        <TimezoneManager
+          serverId={server.id}
+          currentTimezone={server.timezone}
+        />
         <UpdateConnection
           serverId={server.id}
           url={server.url}

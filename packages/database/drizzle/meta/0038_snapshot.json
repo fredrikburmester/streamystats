@@ -1,5 +1,5 @@
 {
-  "id": "8bf71c71-3461-4f73-88c8-8d83139e84e7",
+  "id": "ffe1c2cd-bfc4-4d9b-848a-54c9f1d8f743",
   "prevId": "a0ce9fca-4684-4746-ad58-efc8c3bd0c68",
   "version": "7",
   "dialect": "postgresql",
@@ -1874,12 +1874,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "internal_url": {
-          "name": "internal_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "version": {
           "name": "version",
           "type": "text",
@@ -2032,6 +2026,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Etc/UTC'"
         },
         "created_at": {
           "name": "created_at",

@@ -179,3 +179,7 @@ tmux capture-pane -t streamystats-dev:dev -p -S -200
 To attach and watch live: `tmux attach -t streamystats-dev`
 
 This allows Claude to monitor server output, debug issues, and verify changes in real-time.
+
+## Communication Style
+
+- When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.

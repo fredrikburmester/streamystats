@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { requireSession } from "@/lib/api-auth";
+import { requireAuth } from "@/lib/api-auth";
 import { addItemToWatchlist, getWatchlistWithItems } from "@/lib/db/watchlists";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -12,12 +12,14 @@ function jsonResponse(body: unknown, status = 200) {
 /**
  * GET /api/watchlists/[id]/items
  * Get all items in a watchlist with optional filtering
+ *
+ * Supports both session cookie auth (web app) and MediaBrowser token (external API).
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireSession();
+  const auth = await requireAuth(request);
   if (auth.error) return auth.error;
 
   const { session } = auth;
@@ -49,12 +51,14 @@ export async function GET(
 /**
  * POST /api/watchlists/[id]/items
  * Add an item to a watchlist
+ *
+ * Supports both session cookie auth (web app) and MediaBrowser token (external API).
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireSession();
+  const auth = await requireAuth(request);
   if (auth.error) return auth.error;
 
   const { session } = auth;

@@ -1,8 +1,11 @@
 "use server";
 
+import "server-only";
+
 import { db, items, sessions } from "@streamystats/database";
 import { and, desc, eq, isNotNull, sql, sum } from "drizzle-orm";
 import { cacheLife } from "next/cache";
+import { isBetterDisplayName, normalizeGenre } from "./genres";
 
 export interface TasteProfile {
   userId: string;
@@ -180,8 +183,11 @@ export async function getUserTasteProfile(
     };
   }
 
-  // Calculate genre weights from items with embeddings
-  const genreWatchTime: Record<string, number> = {};
+  // Calculate genre weights from items with embeddings (case-insensitive)
+  const genreWatchTime: Record<
+    string,
+    { watchTime: number; displayName: string }
+  > = {};
   let embeddedWatchTime = 0;
 
   for (const item of watchedItems) {
@@ -190,7 +196,15 @@ export async function getUserTasteProfile(
 
     if (item.genres) {
       for (const genre of item.genres) {
-        genreWatchTime[genre] = (genreWatchTime[genre] || 0) + watchTime;
+        const { key, displayName } = normalizeGenre(genre);
+        if (!genreWatchTime[key]) {
+          genreWatchTime[key] = { watchTime: 0, displayName };
+        } else if (
+          isBetterDisplayName(genreWatchTime[key].displayName, displayName)
+        ) {
+          genreWatchTime[key].displayName = displayName;
+        }
+        genreWatchTime[key].watchTime += watchTime;
       }
     }
   }
@@ -198,9 +212,9 @@ export async function getUserTasteProfile(
   // Convert to percentage of total watch time (from embedded items)
   // Note: genres overlap, so percentages won't add to 100%
   const genreWeights: Record<string, number> = {};
-  for (const genre of Object.keys(genreWatchTime)) {
-    genreWeights[genre] =
-      embeddedWatchTime > 0 ? genreWatchTime[genre] / embeddedWatchTime : 0;
+  for (const [_key, data] of Object.entries(genreWatchTime)) {
+    genreWeights[data.displayName] =
+      embeddedWatchTime > 0 ? data.watchTime / embeddedWatchTime : 0;
   }
 
   const embeddingsWithWeights = watchedItems

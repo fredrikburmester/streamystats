@@ -1,5 +1,5 @@
 # Base image with dependencies (Bun workspace)
-FROM oven/bun:1-alpine AS deps
+FROM oven/bun:1.3.5-alpine AS deps
 
 RUN apk add --no-cache libc6-compat
 
@@ -11,7 +11,7 @@ COPY packages/database/package.json ./packages/database/
 COPY apps/nextjs-app/package.json ./apps/nextjs-app/
 COPY apps/job-server/package.json ./apps/job-server/
 
-RUN bun install --frozen-lockfile || bun install
+RUN bun install --frozen-lockfile
 
 FROM deps AS database-builder
 

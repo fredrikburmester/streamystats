@@ -5,12 +5,11 @@ WORKDIR /app
 # Copy configuration files
 COPY package.json bun.lock ./
 COPY packages/database/package.json ./packages/database/
-# Create dummy package.json for other workspaces to satisfy bun install
 COPY apps/job-server/package.json ./apps/job-server/
-RUN mkdir -p apps/nextjs-app && echo '{"name":"@streamystats/nextjs-app","version":"0.0.0","dependencies":{}}' > apps/nextjs-app/package.json
+COPY apps/nextjs-app/package.json ./apps/nextjs-app/
 
 # Install dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # Copy database package source
 COPY packages/database ./packages/database

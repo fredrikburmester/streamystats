@@ -31,6 +31,8 @@ services:
       - JOB_SERVER_URL=http://job-server:3005
       - HOSTNAME=0.0.0.0
       - SESSION_SECRET=${SESSION_SECRET}
+      # Stable encryption key for server action closures (prevents session breakage on redeploy)
+      - NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
     depends_on:
       vectorchord:
         condition: service_healthy
@@ -83,6 +85,8 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-streamystats}
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     volumes:
       - vectorchord_data:/var/lib/postgresql/data
     restart: unless-stopped

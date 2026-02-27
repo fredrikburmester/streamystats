@@ -1,17 +1,7 @@
 import type { NextRequest } from "next/server";
-import {
-  authenticateMediaBrowser,
-  requireAuth,
-  validateJellyfinToken,
-} from "@/lib/api-auth";
-import {
-  hasServerIdentifier,
-  parseServerIdentifier,
-  resolveServer,
-} from "@/lib/db/server-resolver";
+import { requireAuth } from "@/lib/api-auth";
 import {
   deleteWatchlist,
-  getPublicWatchlistWithItems,
   getWatchlistWithItemsLite,
   updateWatchlist,
   updateWatchlistAsAdmin,
@@ -28,9 +18,8 @@ function jsonResponse(body: unknown, status = 200) {
  * GET /api/watchlists/[id]
  * Get a single watchlist by ID with items
  *
- * Supports two modes:
- * 1. Session auth: Returns watchlist if user owns it or it's public
- * 2. MediaBrowser auth with server identifier: Returns watchlist if public/promoted
+ * Supports both session cookie auth (web app) and MediaBrowser token (external API).
+ * Returns watchlist if user owns it or it's public.
  *
  * Query params:
  * - format: "full" (default) or "ids" - IDs format returns only item IDs
@@ -39,96 +28,18 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const auth = await requireAuth(request);
+  if (auth.error) return auth.error;
+
+  const { session } = auth;
   const { id } = await params;
+
   const watchlistId = parseInt(id, 10);
   if (Number.isNaN(watchlistId)) {
     return jsonResponse({ error: "Invalid watchlist ID" }, 400);
   }
 
-  const searchParams = request.nextUrl.searchParams;
-  const serverIdentifier = parseServerIdentifier(searchParams);
-  const format = searchParams.get("format") || "full";
-
-  // If server identifier provided, use MediaBrowser auth for external clients
-  if (hasServerIdentifier(serverIdentifier)) {
-    const server = await resolveServer(serverIdentifier);
-    if (!server) {
-      return jsonResponse({ error: "Server not found" }, 404);
-    }
-
-    const mediaBrowserAuth = await authenticateMediaBrowser(request);
-    if (!mediaBrowserAuth) {
-      return jsonResponse(
-        {
-          error: "Unauthorized",
-          message:
-            'Valid Jellyfin token required. Use Authorization: MediaBrowser Token="..." header.',
-        },
-        401,
-      );
-    }
-
-    // Verify the authenticated server matches the requested server
-    if (mediaBrowserAuth.server.id !== server.id) {
-      const authHeader = request.headers.get("authorization");
-      const tokenMatch = authHeader?.match(/Token="([^"]*)"/i);
-      const token = tokenMatch?.[1];
-
-      if (token) {
-        const userInfo = await validateJellyfinToken(server.url, token);
-        if (!userInfo) {
-          return jsonResponse(
-            {
-              error: "Unauthorized",
-              message: "Token is not valid for the requested server.",
-            },
-            401,
-          );
-        }
-      } else {
-        return jsonResponse(
-          {
-            error: "Unauthorized",
-            message: "Token is not valid for the requested server.",
-          },
-          401,
-        );
-      }
-    }
-
-    // For external clients, only return public/promoted watchlists with items
-    const watchlist = await getPublicWatchlistWithItems({
-      watchlistId,
-      serverId: server.id,
-    });
-
-    if (!watchlist) {
-      return jsonResponse({ error: "Watchlist not found" }, 404);
-    }
-
-    // Return IDs-only format
-    if (format === "ids") {
-      return jsonResponse({
-        server: { id: server.id, name: server.name },
-        data: {
-          id: watchlist.id,
-          name: watchlist.name,
-          items: watchlist.items.map((i) => i.itemId),
-        },
-      });
-    }
-
-    return jsonResponse({
-      server: { id: server.id, name: server.name },
-      data: watchlist,
-    });
-  }
-
-  // Standard session auth for web app
-  const auth = await requireAuth(request);
-  if (auth.error) return auth.error;
-
-  const { session } = auth;
+  const format = request.nextUrl.searchParams.get("format") || "full";
 
   const watchlist = await getWatchlistWithItemsLite({
     watchlistId,

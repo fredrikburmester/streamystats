@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
+import { MarkAsWatchedMenuItem } from "@/components/MarkAsWatchedMenuItem";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +55,7 @@ interface RecentlyAddedProps {
   items: RecentlyAddedItem[];
   server: ServerPublic;
   itemType: "Movie" | "Series";
+  userId: string;
 }
 
 const themeConfig = {
@@ -83,6 +85,7 @@ export function RecentlyAdded({
   items: initialItems,
   server,
   itemType,
+  userId,
 }: RecentlyAddedProps) {
   const [items, setItems] = useState(initialItems);
   const [isLoading, setIsLoading] = useState(false);
@@ -383,6 +386,12 @@ export function RecentlyAdded({
                               }}
                             >
                               <DropdownMenuContent align="end" className="w-48">
+                                <MarkAsWatchedMenuItem
+                                  itemId={item.id}
+                                  serverId={server.id}
+                                  userId={userId}
+                                />
+                                <DropdownMenuSeparator />
                                 <DropdownMenuSub>
                                   <DropdownMenuSubTrigger>
                                     <ListPlus className="h-4 w-4 mr-2" />

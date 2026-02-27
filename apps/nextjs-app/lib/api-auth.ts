@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import type { Server } from "@streamystats/database";
 import { db, servers, users } from "@streamystats/database";
 import { eq } from "drizzle-orm";

@@ -1,9 +1,13 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { getServersWithSecrets } from "@/lib/db/server";
 import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET() {
+  const { error } = await requireSession();
+  if (error) return error;
+
   // The middleware will set this header if there's a server connectivity issue
   const headersList = await headers();
   const connectivityError = headersList.get("x-server-connectivity-error");
@@ -20,7 +24,12 @@ export async function GET() {
   try {
     const servers = await getServersWithSecrets();
     let hasConnectivityIssue = false;
-    const serverErrors = [];
+    const serverErrors: {
+      serverId: number;
+      name: string;
+      status?: number;
+      error: string;
+    }[] = [];
 
     // Check each server for connectivity issues
     for (const server of servers) {

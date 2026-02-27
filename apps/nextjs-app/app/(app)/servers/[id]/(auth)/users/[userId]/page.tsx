@@ -45,10 +45,27 @@ export default async function User({
     search?: string;
     sort_by?: string;
     sort_order?: string;
+    startDate?: string;
+    endDate?: string;
+    itemType?: string;
+    deviceName?: string;
+    clientName?: string;
+    playMethod?: string;
   }>;
 }) {
   const { id, userId } = await params;
-  const { page = "1", search, sort_by, sort_order } = await searchParams;
+  const {
+    page = "1",
+    search,
+    sort_by,
+    sort_order,
+    startDate,
+    endDate,
+    itemType,
+    deviceName,
+    clientName,
+    playMethod,
+  } = await searchParams;
   const server = await getServer({ serverId: id });
 
   if (!server) {
@@ -95,6 +112,12 @@ export default async function User({
       search: search || undefined,
       sortBy: sort_by || undefined,
       sortOrder: (sort_order as "asc" | "desc") || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      itemType: itemType || undefined,
+      deviceName: deviceName || undefined,
+      clientName: clientName || undefined,
+      playMethod: playMethod || undefined,
     }),
     getUserGenreStats({ userId: user.id, serverId: server.id }),
     getMostWatchedItems({ serverId: server.id, userId: user.id }),

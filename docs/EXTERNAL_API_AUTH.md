@@ -69,12 +69,17 @@ curl "https://your-streamystats/api/search?q=matrix" \
 |----------|--------|-------------|
 | `/api/search` | GET | Global search across media, people, users |
 | `/api/recommendations` | GET | Get personalized recommendations for authenticated user |
-| `/api/watchlists/promoted` | GET | Get promoted watchlists for display on home screens |
-| `/api/watchlists/[id]` | GET | Get a single watchlist by ID |
+| `/api/watchlists` | GET | List user's watchlists (own + public) |
+| `/api/watchlists` | POST | Create a new watchlist |
+| `/api/watchlists/[id]` | GET | Get a single watchlist by ID with items |
 | `/api/watchlists/[id]` | PATCH | Update a watchlist (admin-only: isPromoted flag) |
 | `/api/watchlists/[id]` | DELETE | Delete a watchlist |
+| `/api/watchlists/[id]/items` | GET | List items in a watchlist |
+| `/api/watchlists/[id]/items` | POST | Add item to a watchlist |
+| `/api/watchlists/[id]/items/[itemId]` | DELETE | Remove item from a watchlist |
+| `/api/watchlists/promoted` | GET | Get promoted watchlists for display on home screens |
 
-*More endpoints will be added as they are updated to support external authentication.*
+See [API_WATCHLISTS.md](./API_WATCHLISTS.md) for detailed watchlist API documentation.
 
 ## Query Parameters for Search
 

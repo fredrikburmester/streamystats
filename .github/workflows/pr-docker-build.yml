@@ -127,6 +127,15 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ steps.pr.outputs.number }}
 
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.34.1
+        with:
+          image-ref: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ steps.pr.outputs.number }}
+          format: table
+          exit-code: "0"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
   summary:
     runs-on: ubuntu-latest
     needs: [lint, test, typecheck, build-and-push]

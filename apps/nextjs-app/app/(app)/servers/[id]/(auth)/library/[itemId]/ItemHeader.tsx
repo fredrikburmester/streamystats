@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 import { AddToWatchlistButton } from "./AddToWatchlistButton";
+import { MarkAsWatchedButton } from "./MarkAsWatchedButton";
 import type { ItemDetailsResponse } from "./types";
 
 interface ItemHeaderProps {
@@ -25,6 +26,8 @@ interface ItemHeaderProps {
   server: ServerPublic;
   statistics: ItemDetailsResponse;
   serverId: number;
+  userId: string;
+  isPlayed: boolean;
 }
 
 function formatRuntime(runtimeTicks: number): string {
@@ -42,6 +45,8 @@ export function ItemHeader({
   server,
   statistics,
   serverId,
+  userId,
+  isPlayed,
 }: ItemHeaderProps) {
   const isDeleted = item.deletedAt !== null;
 
@@ -61,11 +66,19 @@ export function ItemHeader({
           className={`absolute ${isDeleted ? "top-14" : "top-4"} right-4 z-10 flex gap-2`}
         >
           {!isDeleted && (
-            <AddToWatchlistButton
-              itemId={item.id}
-              itemType={item.type}
-              serverId={serverId}
-            />
+            <>
+              <MarkAsWatchedButton
+                itemId={item.id}
+                serverId={serverId}
+                userId={userId}
+                initialIsPlayed={isPlayed}
+              />
+              <AddToWatchlistButton
+                itemId={item.id}
+                itemType={item.type}
+                serverId={serverId}
+              />
+            </>
           )}
           <Button
             asChild

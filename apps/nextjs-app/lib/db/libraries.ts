@@ -1,3 +1,5 @@
+import "server-only";
+
 import { db, libraries } from "@streamystats/database";
 import { and, eq } from "drizzle-orm";
 

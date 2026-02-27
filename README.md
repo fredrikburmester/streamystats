@@ -6,7 +6,7 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 ## Features
 
-- Dashboard with overview statistics, live sessions, recomendations, and more
+- Dashboard with overview statistics, live sessions, recommendations, and more
 - User-specific watch history and statistics
 - Library statistics
 - Watch time graphs with advanced filtering

@@ -61,3 +61,12 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:latest
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:${{ github.sha }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.34.1
+        with:
+          image-ref: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:${{ github.sha }}
+          format: table
+          exit-code: "0"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true

@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   db,
   type Item,
@@ -43,6 +45,12 @@ interface UserHistoryOptions {
   search?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  startDate?: string;
+  endDate?: string;
+  itemType?: string;
+  deviceName?: string;
+  clientName?: string;
+  playMethod?: string;
 }
 
 /**
@@ -229,11 +237,17 @@ export const getUserHistory = async (
     search,
     sortBy,
     sortOrder = "desc",
+    startDate,
+    endDate,
+    itemType,
+    deviceName,
+    clientName,
+    playMethod,
   } = options;
   const offset = (page - 1) * perPage;
 
   // Build query conditions for specific user
-  const conditions = [
+  const conditions: SQL[] = [
     eq(sessions.serverId, serverId),
     eq(sessions.userId, userId),
     isNotNull(sessions.itemId),
@@ -248,6 +262,39 @@ export const getUserHistory = async (
         ilike(sessions.deviceName, `%${search}%`),
       )!,
     );
+  }
+
+  // Add date range filters
+  if (startDate) {
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    conditions.push(gte(sessions.startTime, start));
+  }
+
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    conditions.push(lte(sessions.startTime, end));
+  }
+
+  // Add item type filter
+  if (itemType) {
+    conditions.push(eq(items.type, itemType));
+  }
+
+  // Add device name filter
+  if (deviceName) {
+    conditions.push(eq(sessions.deviceName, deviceName));
+  }
+
+  // Add client name filter
+  if (clientName) {
+    conditions.push(eq(sessions.clientName, clientName));
+  }
+
+  // Add play method filter
+  if (playMethod) {
+    conditions.push(eq(sessions.playMethod, playMethod));
   }
 
   // Build the query to get session data with joined item and user information

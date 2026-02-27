@@ -19,6 +19,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getServer, getServers } from "@/lib/db/server";
 import { getMe, isUserAdmin } from "@/lib/db/users";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
+import { ServerTimezoneProvider } from "@/providers/ServerTimezoneProvider";
 
 interface Props extends PropsWithChildren {
   params: Promise<{ id: string }>;
@@ -123,8 +125,13 @@ function SideBarSkeleton() {
 }
 
 async function LayoutContent({ children, params }: Props) {
-  const cookieStore = await cookies();
+  const { id } = await params;
+  const [cookieStore, server] = await Promise.all([
+    cookies(),
+    getServer({ serverId: id }),
+  ]);
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+  const timezone = server?.timezone ?? DEFAULT_TIMEZONE;
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
@@ -132,12 +139,14 @@ async function LayoutContent({ children, params }: Props) {
         <SideBarContent params={params} />
       </Suspense>
       <SidebarInset className="min-w-0">
-        <ErrorBoundary>
-          <Suspense fallback={<HeaderSkeleton />}>
-            <HeaderContent params={params} />
-          </Suspense>
-          <Suspense fallback={<SuspenseLoading />}>{children}</Suspense>
-        </ErrorBoundary>
+        <ServerTimezoneProvider timezone={timezone}>
+          <ErrorBoundary>
+            <Suspense fallback={<HeaderSkeleton />}>
+              <HeaderContent params={params} />
+            </Suspense>
+            <Suspense fallback={<SuspenseLoading />}>{children}</Suspense>
+          </ErrorBoundary>
+        </ServerTimezoneProvider>
       </SidebarInset>
     </SidebarProvider>
   );

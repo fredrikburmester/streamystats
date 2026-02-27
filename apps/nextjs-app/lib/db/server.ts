@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db, items, jobResults, servers } from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { and, count, desc, eq, sql } from "drizzle-orm";
@@ -43,6 +45,7 @@ const SERVER_PUBLIC_SELECT = {
   excludedUserIds: servers.excludedUserIds,
   excludedLibraryIds: servers.excludedLibraryIds,
   embeddingStopRequested: servers.embeddingStopRequested,
+  timezone: servers.timezone,
   createdAt: servers.createdAt,
   updatedAt: servers.updatedAt,
   // Select secrets only to compute boolean flags; never return them to callers

@@ -1,6 +1,0 @@
----
-description: Prevents the use of node commands in the terminal.
-alwaysApply: true
----
-Don't run node commands in the terminal like:
-node -p

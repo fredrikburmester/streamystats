@@ -75,8 +75,8 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
     syncStatus: (0, pg_core_1.text)("sync_status").notNull().default("pending"), // pending, syncing, completed, failed
     syncProgress: (0, pg_core_1.text)("sync_progress").notNull().default("not_started"), // not_started, users, libraries, items, activities, completed
     syncError: (0, pg_core_1.text)("sync_error"),
-    lastSyncStarted: (0, pg_core_1.timestamp)("last_sync_started"),
-    lastSyncCompleted: (0, pg_core_1.timestamp)("last_sync_completed"),
+    lastSyncStarted: (0, pg_core_1.timestamp)("last_sync_started", { withTimezone: true }),
+    lastSyncCompleted: (0, pg_core_1.timestamp)("last_sync_completed", { withTimezone: true }),
     // Holiday/seasonal recommendations settings
     disabledHolidays: (0, pg_core_1.text)("disabled_holidays").array().default([]),
     // Statistics exclusion settings
@@ -87,8 +87,11 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
     embeddingStopRequested: (0, pg_core_1.boolean)("embedding_stop_requested")
         .notNull()
         .default(false),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    // Display timezone for this server (IANA timezone identifier)
+    // All data is stored in UTC; this controls display formatting only
+    timezone: (0, pg_core_1.text)("timezone").notNull().default("Etc/UTC"),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [(0, pg_core_1.unique)("servers_url_unique").on(table.url)]);
 exports.libraries = (0, pg_core_1.pgTable)("libraries", {
     id: (0, pg_core_1.text)("id").primaryKey(), // External library ID from server
@@ -97,8 +100,8 @@ exports.libraries = (0, pg_core_1.pgTable)("libraries", {
     serverId: (0, pg_core_1.integer)("server_id")
         .notNull()
         .references(() => exports.servers.id, { onDelete: "cascade" }),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 // Users table - users from various servers
 exports.users = (0, pg_core_1.pgTable)("users", {
@@ -181,8 +184,11 @@ exports.users = (0, pg_core_1.pgTable)("users", {
     syncPlayAccess: (0, pg_core_1.text)("sync_play_access")
         .notNull()
         .default("CreateAndJoinGroups"),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    // User preference for automatic watchtime inference when marking items as watched
+    // null = not asked yet, true = yes infer, false = no don't infer
+    inferWatchtimeOnMarkWatched: (0, pg_core_1.boolean)("infer_watchtime_on_mark_watched"),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
     // Full-text search vector - populated by database trigger
     searchVector: tsvector("search_vector"),
 }, (table) => [
@@ -202,7 +208,7 @@ exports.activities = (0, pg_core_1.pgTable)("activities", {
         .references(() => exports.servers.id, { onDelete: "cascade" }),
     userId: (0, pg_core_1.text)("user_id").references(() => exports.users.id, { onDelete: "set null" }), // Optional, some activities aren't user-specific
     itemId: (0, pg_core_1.text)("item_id"), // Optional, media item ID from server
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
     // Full-text search vector - populated by database trigger
     searchVector: tsvector("search_vector"),
 }, (table) => [
@@ -218,7 +224,7 @@ exports.jobResults = (0, pg_core_1.pgTable)("job_results", {
     result: (0, pg_core_1.jsonb)("result"),
     error: (0, pg_core_1.text)("error"),
     processingTime: (0, pg_core_1.integer)("processing_time"), // in milliseconds (capped at 1 hour)
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 // Server job configurations table - per-server cron job settings
 exports.serverJobConfigurations = (0, pg_core_1.pgTable)("server_job_configurations", {
@@ -230,8 +236,8 @@ exports.serverJobConfigurations = (0, pg_core_1.pgTable)("server_job_configurati
     cronExpression: (0, pg_core_1.text)("cron_expression"), // null = use default (for cron-based jobs)
     intervalSeconds: (0, pg_core_1.integer)("interval_seconds"), // null = use default (for interval-based jobs like session-polling)
     enabled: (0, pg_core_1.boolean)("enabled").notNull().default(true),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.unique)("server_job_config_unique").on(table.serverId, table.jobKey),
     (0, pg_core_1.index)("server_job_config_server_idx").on(table.serverId),
@@ -316,8 +322,8 @@ exports.items = (0, pg_core_1.pgTable)("items", {
     peopleSynced: (0, pg_core_1.boolean)("people_synced").default(false),
     mediaSourcesSynced: (0, pg_core_1.boolean)("media_sources_synced").default(false),
     // Timestamps
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
     // Soft delete
     deletedAt: (0, pg_core_1.timestamp)("deleted_at", { withTimezone: true }),
     // Full-text search vector - populated by database trigger
@@ -351,8 +357,8 @@ exports.mediaSources = (0, pg_core_1.pgTable)("media_sources", {
     isRemote: (0, pg_core_1.boolean)("is_remote"),
     runtimeTicks: (0, pg_core_1.bigint)("runtime_ticks", { mode: "number" }),
     // Timestamps
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.index)("media_sources_item_id_idx").on(table.itemId),
     (0, pg_core_1.index)("media_sources_server_id_idx").on(table.serverId),
@@ -438,8 +444,8 @@ exports.sessions = (0, pg_core_1.pgTable)("sessions", {
     // Hybrid approach - complete session data
     rawData: (0, pg_core_1.jsonb)("raw_data").notNull(), // Full Jellyfin session data
     // Timestamps
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     // Performance indexes for common query patterns
     (0, pg_core_1.index)("sessions_server_user_idx").on(table.serverId, table.userId),
@@ -456,8 +462,8 @@ exports.activeSessions = (0, pg_core_1.pgTable)("active_sessions", {
     sessionKey: (0, pg_core_1.text)("session_key").notNull(),
     payload: (0, pg_core_1.jsonb)("payload").notNull(),
     lastSeenAt: (0, pg_core_1.timestamp)("last_seen_at", { withTimezone: true }).notNull(),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.primaryKey)({ columns: [table.serverId, table.sessionKey] }),
     (0, pg_core_1.index)("active_sessions_server_last_seen_idx").on(table.serverId, table.lastSeenAt),
@@ -469,7 +475,7 @@ exports.activityLogCursors = (0, pg_core_1.pgTable)("activity_log_cursors", {
         .references(() => exports.servers.id, { onDelete: "cascade" }),
     cursorDate: (0, pg_core_1.timestamp)("cursor_date", { withTimezone: true }),
     cursorId: (0, pg_core_1.text)("cursor_id"),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 // Hidden recommendations table - stores user's hidden recommendations
 exports.hiddenRecommendations = (0, pg_core_1.pgTable)("hidden_recommendations", {
@@ -481,7 +487,7 @@ exports.hiddenRecommendations = (0, pg_core_1.pgTable)("hidden_recommendations",
     itemId: (0, pg_core_1.text)("item_id")
         .references(() => exports.items.id, { onDelete: "cascade" })
         .notNull(),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 // Activity locations table - geolocated IP data for activities
 exports.activityLocations = (0, pg_core_1.pgTable)("activity_locations", {
@@ -500,7 +506,7 @@ exports.activityLocations = (0, pg_core_1.pgTable)("activity_locations", {
     timezone: (0, pg_core_1.text)("timezone"),
     // IP classification
     isPrivateIp: (0, pg_core_1.boolean)("is_private_ip").default(false).notNull(),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.index)("activity_locations_activity_id_idx").on(table.activityId),
     (0, pg_core_1.index)("activity_locations_ip_address_idx").on(table.ipAddress),
@@ -534,8 +540,8 @@ exports.userFingerprints = (0, pg_core_1.pgTable)("user_fingerprints", {
     avgSessionsPerDay: (0, pg_core_1.doublePrecision)("avg_sessions_per_day"),
     totalSessions: (0, pg_core_1.integer)("total_sessions").default(0),
     lastCalculatedAt: (0, pg_core_1.timestamp)("last_calculated_at", { withTimezone: true }),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.index)("user_fingerprints_user_id_idx").on(table.userId),
     (0, pg_core_1.index)("user_fingerprints_server_id_idx").on(table.serverId),
@@ -563,7 +569,7 @@ exports.anomalyEvents = (0, pg_core_1.pgTable)("anomaly_events", {
     resolvedAt: (0, pg_core_1.timestamp)("resolved_at", { withTimezone: true }),
     resolvedBy: (0, pg_core_1.text)("resolved_by"),
     resolutionNote: (0, pg_core_1.text)("resolution_note"),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.index)("anomaly_events_user_id_idx").on(table.userId),
     (0, pg_core_1.index)("anomaly_events_server_id_idx").on(table.serverId),
@@ -581,8 +587,8 @@ exports.people = (0, pg_core_1.pgTable)("people", {
     name: (0, pg_core_1.text)("name").notNull(),
     primaryImageTag: (0, pg_core_1.text)("primary_image_tag"),
     searchVector: tsvector("search_vector"),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.primaryKey)({ columns: [table.id, table.serverId] }),
     (0, pg_core_1.index)("people_name_trgm_idx").using("gin", table.name),
@@ -604,7 +610,7 @@ exports.itemPeople = (0, pg_core_1.pgTable)("item_people", {
     type: (0, pg_core_1.text)("type").notNull(), // Actor, Director, Writer, Producer, etc.
     role: (0, pg_core_1.text)("role"), // Character name for actors
     sortOrder: (0, pg_core_1.integer)("sort_order"),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     // Unique per item+person+type (same person can be Actor AND Director in same item)
     (0, pg_core_1.unique)("item_people_unique").on(table.itemId, table.personId, table.type),
@@ -625,8 +631,8 @@ exports.watchlists = (0, pg_core_1.pgTable)("watchlists", {
     isPromoted: (0, pg_core_1.boolean)("is_promoted").notNull().default(false), // Admin-only: visible on all users' home screens in external clients
     allowedItemType: (0, pg_core_1.text)("allowed_item_type"), // If set, only items of this type can be added (Movie, Series, Episode, etc.)
     defaultSortOrder: (0, pg_core_1.text)("default_sort_order").notNull().default("custom"), // custom, name, dateAdded, releaseDate
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
     // Full-text search vector - populated by database trigger
     searchVector: tsvector("search_vector"),
 }, (table) => [
@@ -645,7 +651,7 @@ exports.watchlistItems = (0, pg_core_1.pgTable)("watchlist_items", {
         .notNull()
         .references(() => exports.items.id, { onDelete: "cascade" }),
     position: (0, pg_core_1.integer)("position").notNull().default(0), // For custom ordering
-    addedAt: (0, pg_core_1.timestamp)("added_at").defaultNow().notNull(),
+    addedAt: (0, pg_core_1.timestamp)("added_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.index)("watchlist_items_watchlist_idx").on(table.watchlistId),
     (0, pg_core_1.index)("watchlist_items_item_idx").on(table.itemId),
