@@ -467,43 +467,25 @@ export async function generateItemEmbeddingsJob(
   const startTime = Date.now();
   const { serverId, provider: rawProvider, config: jobConfig, manualStart = false } = job.data;
 
-  // Resolve provider and config — scheduled jobs omit these fields so we
-  // fetch them fresh from the DB here. This also means config is always
-  // up-to-date even if the user changed it after the schedule was created.
-  let provider: "openai-compatible" | "ollama" | undefined =
-    rawProvider === "openai" ? "openai-compatible" : rawProvider;
-  let config: EmbeddingConfig | undefined = jobConfig;
+  // Normalize provider from job data if present.
+  // DB resolution happens inside the try block below so errors are properly logged.
+  let provider: "openai-compatible" | "ollama" | undefined;
 
-  if (!provider || !config?.baseUrl || !config?.model) {
-    const serverConfig = await db
-      .select({
-        embeddingProvider: servers.embeddingProvider,
-        embeddingBaseUrl: servers.embeddingBaseUrl,
-        embeddingApiKey: servers.embeddingApiKey,
-        embeddingModel: servers.embeddingModel,
-        embeddingDimensions: servers.embeddingDimensions,
-      })
-      .from(servers)
-      .where(eq(servers.id, serverId))
-      .limit(1);
-
-    const s = serverConfig[0];
-
-    if (!s?.embeddingProvider || !s?.embeddingBaseUrl || !s?.embeddingModel) {
-      throw new Error("Embedding provider not configured.");
+  if (rawProvider != null) {
+    switch (rawProvider) {
+      case "openai":
+        provider = "openai-compatible";
+        break;
+      case "openai-compatible":
+      case "ollama":
+        provider = rawProvider;
+        break;
+      default:
+        throw new Error(`Unsupported embedding provider from job data: ${rawProvider as string}`);
     }
-
-    provider =
-      s.embeddingProvider === "openai"
-        ? "openai-compatible"
-        : (s.embeddingProvider as "openai-compatible" | "ollama");
-    config = {
-      baseUrl: s.embeddingBaseUrl,
-      apiKey: s.embeddingApiKey ?? undefined,
-      model: s.embeddingModel,
-      dimensions: s.embeddingDimensions ?? 1536,
-    };
   }
+
+  let config: EmbeddingConfig | undefined = jobConfig;
 
   let totalProcessed = 0;
   let totalSkipped = 0;
@@ -548,6 +530,54 @@ export async function generateItemEmbeddingsJob(
   };
 
   try {
+    // Resolve provider and config — scheduled jobs omit these fields so we
+    // fetch them fresh from the DB here. This also means config is always
+    // up-to-date even if the user changed it after the schedule was created.
+    // Placed inside try so misconfiguration errors flow through structured logging.
+    if (!provider || !config?.baseUrl || !config?.model) {
+      const serverConfig = await db
+        .select({
+          embeddingProvider: servers.embeddingProvider,
+          embeddingBaseUrl: servers.embeddingBaseUrl,
+          embeddingApiKey: servers.embeddingApiKey,
+          embeddingModel: servers.embeddingModel,
+          embeddingDimensions: servers.embeddingDimensions,
+        })
+        .from(servers)
+        .where(eq(servers.id, serverId))
+        .limit(1);
+
+      const s = serverConfig[0];
+
+      if (!s?.embeddingProvider || !s?.embeddingBaseUrl || !s?.embeddingModel) {
+        throw new Error("Embedding provider not configured.");
+      }
+
+      // Validate DB provider value with explicit runtime check to catch
+      // unexpected values from old data or future enum changes.
+      const dbProvider = s.embeddingProvider;
+      switch (dbProvider) {
+        case "openai":
+          provider = "openai-compatible";
+          break;
+        case "openai-compatible":
+        case "ollama":
+          provider = dbProvider;
+          break;
+        default:
+          throw new Error(
+            `Unsupported embedding provider in database for server ${serverId}: ${dbProvider as string}`
+          );
+      }
+
+      config = {
+        baseUrl: s.embeddingBaseUrl,
+        apiKey: s.embeddingApiKey ?? undefined,
+        model: s.embeddingModel,
+        dimensions: s.embeddingDimensions ?? 1536,
+      };
+    }
+
     console.info(
       `[embeddings] server=${serverName} serverId=${serverId} action=start provider=${provider} model=${config.model} dimensions=${config.dimensions} baseUrl=${config.baseUrl}`
     );
