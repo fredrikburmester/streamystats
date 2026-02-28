@@ -16,10 +16,12 @@ interface EmbeddingConfig {
 }
 
 // Job data for embedding generation
+// provider and config are optional to support scheduled jobs that omit them;
+// the handler will fetch them from the DB using serverId in that case.
 interface GenerateItemEmbeddingsJobData {
   serverId: number;
-  provider: "openai-compatible" | "openai" | "ollama";
-  config: EmbeddingConfig;
+  provider?: "openai-compatible" | "openai" | "ollama";
+  config?: EmbeddingConfig;
   manualStart?: boolean;
 }
 
@@ -35,7 +37,7 @@ const MAX_CONSECUTIVE_BATCH_FAILURES = 5;
 const indexEnsuredForDimension = new Set<number>();
 
 function sanitizeErrorMessage(message: string): string {
-  // postgres-js style errors can include the full parameter list. For embeddings that’s a 1536-length
+  // postgres-js style errors can include the full parameter list. For embeddings that's a 1536-length
   // vector which is noisy and can bloat logs.
   if (message.includes("Failed query:") && message.includes("params:")) {
     const beforeParams = message.split("params:")[0]?.trimEnd() ?? message;
@@ -463,8 +465,45 @@ export async function generateItemEmbeddingsJob(
   job: PgBossJob<GenerateItemEmbeddingsJobData>
 ) {
   const startTime = Date.now();
-  const { serverId, provider: rawProvider, config, manualStart = false } = job.data;
-  const provider = rawProvider === "openai" ? "openai-compatible" : rawProvider;
+  const { serverId, provider: rawProvider, config: jobConfig, manualStart = false } = job.data;
+
+  // Resolve provider and config — scheduled jobs omit these fields so we
+  // fetch them fresh from the DB here. This also means config is always
+  // up-to-date even if the user changed it after the schedule was created.
+  let provider: "openai-compatible" | "ollama" | undefined =
+    rawProvider === "openai" ? "openai-compatible" : rawProvider;
+  let config: EmbeddingConfig | undefined = jobConfig;
+
+  if (!provider || !config?.baseUrl || !config?.model) {
+    const serverConfig = await db
+      .select({
+        embeddingProvider: servers.embeddingProvider,
+        embeddingBaseUrl: servers.embeddingBaseUrl,
+        embeddingApiKey: servers.embeddingApiKey,
+        embeddingModel: servers.embeddingModel,
+        embeddingDimensions: servers.embeddingDimensions,
+      })
+      .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1);
+
+    const s = serverConfig[0];
+
+    if (!s?.embeddingProvider || !s?.embeddingBaseUrl || !s?.embeddingModel) {
+      throw new Error("Embedding provider not configured.");
+    }
+
+    provider =
+      s.embeddingProvider === "openai"
+        ? "openai-compatible"
+        : (s.embeddingProvider as "openai-compatible" | "ollama");
+    config = {
+      baseUrl: s.embeddingBaseUrl,
+      apiKey: s.embeddingApiKey ?? undefined,
+      model: s.embeddingModel,
+      dimensions: s.embeddingDimensions ?? 1536,
+    };
+  }
 
   let totalProcessed = 0;
   let totalSkipped = 0;
@@ -509,13 +548,6 @@ export async function generateItemEmbeddingsJob(
   };
 
   try {
-    if (!provider) {
-      throw new Error("Embedding provider not configured.");
-    }
-    if (!config.baseUrl || !config.model) {
-      throw new Error("Embedding configuration incomplete.");
-    }
-
     console.info(
       `[embeddings] server=${serverName} serverId=${serverId} action=start provider=${provider} model=${config.model} dimensions=${config.dimensions} baseUrl=${config.baseUrl}`
     );
