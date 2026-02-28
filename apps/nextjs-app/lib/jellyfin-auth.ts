@@ -28,6 +28,10 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
+function embyAuthHeader(): string {
+  return 'MediaBrowser Client="StreamyStats", Device="Server", DeviceId="streamystats-server", Version="1.0.0"';
+}
+
 function asNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -120,7 +124,10 @@ export async function checkQuickConnectEnabled(args: {
   try {
     const res = await fetch(`${serverUrl}/QuickConnect/Enabled`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: embyAuthHeader(),
+      },
       signal: AbortSignal.timeout(5_000),
     });
     if (!res.ok) return false;
@@ -145,7 +152,10 @@ export async function initiateQuickConnect(args: {
   try {
     const res = await fetch(`${serverUrl}/QuickConnect/Initiate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: embyAuthHeader(),
+      },
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
@@ -185,7 +195,10 @@ export async function checkQuickConnectStatus(args: {
       `${serverUrl}/QuickConnect/Connect?Secret=${encodeURIComponent(args.secret)}`,
       {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: embyAuthHeader(),
+        },
         signal: AbortSignal.timeout(10_000),
       },
     );
@@ -218,7 +231,10 @@ export async function authenticateWithQuickConnect(args: {
       `${serverUrl}/Users/AuthenticateWithQuickConnect`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: embyAuthHeader(),
+        },
         body: JSON.stringify({ Secret: args.secret }),
         signal: AbortSignal.timeout(10_000),
       },
