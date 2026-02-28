@@ -5,6 +5,10 @@ import "server-only";
 import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 import { getServerWithSecrets } from "./db/server";
+import {
+  authenticateWithQuickConnect,
+  initiateQuickConnect,
+} from "./jellyfin-auth";
 import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";
 
@@ -65,4 +69,68 @@ export const login = async ({
     maxAge,
     secure,
   });
+};
+
+export const initiateQuickConnectLogin = async ({
+  serverId,
+}: {
+  serverId: number;
+}): Promise<{ secret: string; code: string }> => {
+  const server = await getServerWithSecrets({ serverId: serverId.toString() });
+  if (!server) {
+    throw new Error("Server not found");
+  }
+
+  const result = await initiateQuickConnect({
+    serverUrl: getInternalUrl(server),
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+
+  return { secret: result.secret, code: result.code };
+};
+
+export const loginWithQuickConnect = async ({
+  serverId,
+  secret,
+}: {
+  serverId: number;
+  secret: string;
+}): Promise<void> => {
+  const server = await getServerWithSecrets({ serverId: serverId.toString() });
+  if (!server) {
+    throw new Error("Server not found");
+  }
+
+  const result = await authenticateWithQuickConnect({
+    serverUrl: getInternalUrl(server),
+    secret,
+  });
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+
+  const secure = await shouldUseSecureCookies();
+  const maxAge = 30 * 24 * 60 * 60;
+
+  await createSession({
+    id: result.user.id,
+    name: result.user.name ?? "",
+    serverId,
+    isAdmin: result.user.isAdmin,
+  });
+
+  if (result.accessToken) {
+    const c = await cookies();
+    c.set("streamystats-token", result.accessToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge,
+      secure,
+    });
+  }
 };
