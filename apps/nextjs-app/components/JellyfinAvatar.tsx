@@ -1,5 +1,9 @@
-import { useMemo } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+"use client";
+
+import Image from "next/image";
+import { useMemo, useState } from "react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getInternalUrl } from "@/lib/server-url";
 import type { User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -7,7 +11,7 @@ interface Props {
   user:
     | User
     | { id: string | number; name: string | null; jellyfin_id: string | null };
-  serverUrl?: string;
+  server: { url: string; internalUrl?: string | null };
   imageTag?: string;
   quality?: number;
   className?: string;
@@ -15,18 +19,20 @@ interface Props {
 
 export default function JellyfinAvatar({
   user,
-  serverUrl,
+  server,
   imageTag,
   quality = 90,
   className,
 }: Props) {
-  const imageUrl = useMemo(() => {
-    if (!serverUrl || !user?.id) return null;
+  const [hasError, setHasError] = useState(false);
 
-    return `${serverUrl}/Users/${user.id}/Images/Primary?quality=${quality}${
+  const imageUrl = useMemo(() => {
+    if (!server || !user?.id) return null;
+
+    return `${getInternalUrl(server)}/Users/${user.id}/Images/Primary?quality=${quality}${
       imageTag ? `&tag=${imageTag}` : ""
     }`;
-  }, [serverUrl, user?.id, imageTag, quality]);
+  }, [server, user?.id, imageTag, quality]);
 
   const initials = useMemo(() => {
     if (!user?.name) return "?";
@@ -38,12 +44,22 @@ export default function JellyfinAvatar({
       .slice(0, 2);
   }, [user?.name]);
 
-  if (!serverUrl || !user) return null;
+  if (!server || !user) return null;
 
   return (
     <Avatar className={cn("h-8 w-8", className)}>
-      <AvatarImage src={imageUrl || undefined} alt={user.name || "User"} />
-      <AvatarFallback>{initials}</AvatarFallback>
+      {imageUrl && !hasError ? (
+        <Image
+          src={imageUrl}
+          alt={user.name || "User"}
+          width={64}
+          height={64}
+          className="aspect-square h-full w-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <AvatarFallback>{initials}</AvatarFallback>
+      )}
     </Avatar>
   );
 }

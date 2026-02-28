@@ -21,6 +21,7 @@ interface ReconnectFormProps {
   serverId: number;
   serverName: string;
   currentUrl: string;
+  currentInternalUrl?: string | null;
   showUnreachableAlert?: boolean;
 }
 
@@ -28,15 +29,16 @@ export function ReconnectForm({
   serverId,
   serverName,
   currentUrl,
+  currentInternalUrl,
   showUnreachableAlert = true,
 }: ReconnectFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(currentUrl);
+  const [internalUrl, setInternalUrl] = useState(currentInternalUrl || "");
   const [apiKey, setApiKey] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState(serverName);
 
   const handleTryReconnect = () => {
     router.push(`/servers/${serverId}/dashboard`);
@@ -50,10 +52,10 @@ export function ReconnectForm({
       const result = await updateServerConnectionAction({
         serverId,
         url,
+        internalUrl: internalUrl || undefined,
         apiKey,
         username,
         password,
-        name,
       });
 
       if (result.success) {
@@ -122,19 +124,8 @@ export function ReconnectForm({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Server Name</Label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="My Jellyfin Server"
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="url">
-                Server URL <span className="text-red-500">*</span>
+                External URL <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="url"
@@ -144,6 +135,23 @@ export function ReconnectForm({
                 placeholder="http://localhost:8096"
                 required
               />
+              <p className="text-sm text-muted-foreground">
+                Public URL used by clients to access Jellyfin
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="internalUrl">Internal URL (Optional)</Label>
+              <Input
+                id="internalUrl"
+                type="text"
+                value={internalUrl}
+                onChange={(e) => setInternalUrl(e.target.value)}
+                placeholder="http://192.168.1.100:8096"
+              />
+              <p className="text-sm text-muted-foreground">
+                Internal URL for server-to-server communication
+              </p>
             </div>
 
             <div className="space-y-2">

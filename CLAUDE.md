@@ -104,6 +104,17 @@ if (requiresItemsJoin || otherCondition) {
 
 See `docs/STATISTICS_EXCLUSIONS.md` for complete patterns.
 
+### Internal vs External URLs
+
+Servers have two URL fields: `url` (external, required) and `internalUrl` (optional). Use helpers from `lib/server-url.ts` (nextjs-app) or `src/utils/server-url.ts` (job-server):
+
+- **Server-to-server requests** (API routes, server actions, job-server jobs): use `getInternalUrl(server)` — returns `internalUrl` with fallback to `url`
+- **Client-side browser links** (opening Jellyfin web UI, client components): use `server.url` directly
+- **Images in server components**: use `getInternalUrl(server)` since Next.js fetches server-side
+- **Images in client components**: route through `/api/image-proxy/[itemId]` so the proxy fetches internally and serves to the browser
+
+Never use raw `server.url` for server-to-server Jellyfin API calls — always use `getInternalUrl()`.
+
 ### API Endpoints
 
 - All endpoints must be authenticated

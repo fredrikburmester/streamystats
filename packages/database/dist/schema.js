@@ -47,6 +47,7 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
         .notNull()
         .default(0),
     localAddress: (0, pg_core_1.text)("local_address"),
+    internalUrl: (0, pg_core_1.text)("internal_url"),
     version: (0, pg_core_1.text)("version"),
     productName: (0, pg_core_1.text)("product_name"),
     operatingSystem: (0, pg_core_1.text)("operating_system"),

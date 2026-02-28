@@ -11,6 +11,7 @@ import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 const updateConnectionSchema = z.object({
   serverId: z.number().int().positive(),
   url: z.string().min(1).max(1000),
+  internalUrl: z.string().max(1000).nullish(),
   apiKey: z.string().min(1).max(500),
   username: z.string().min(1).max(200),
   password: z.string().max(500).nullish(),
@@ -20,10 +21,10 @@ const updateConnectionSchema = z.object({
 export const updateServerConnectionAction = async (input: {
   serverId: number;
   url: string;
+  internalUrl?: string | null;
   apiKey: string;
   username: string;
   password?: string | null;
-  name?: string;
 }): Promise<UpdateServerConnectionResult> => {
   try {
     const parsed = updateConnectionSchema.safeParse(input);
@@ -31,15 +32,16 @@ export const updateServerConnectionAction = async (input: {
       return { success: false, message: "Invalid input" };
     }
 
-    const { serverId, url, apiKey, username, password, name } = parsed.data;
+    const { serverId, url, internalUrl, apiKey, username, password } =
+      parsed.data;
 
     const result = await updateServerConnection({
       serverId,
       url,
+      internalUrl,
       apiKey,
       username,
       password,
-      name,
     });
 
     if (result.success && result.accessToken && result.userId) {

@@ -3,6 +3,7 @@ import Bottleneck from "bottleneck";
 import pRetry from "p-retry";
 import { Server } from "@streamystats/database";
 import { JellyfinSession } from "./types";
+import { getInternalUrl } from "../utils/server-url";
 
 export interface JellyfinConfig {
   baseURL: string;
@@ -775,7 +776,7 @@ export class JellyfinClient {
   // Helper method to create client from server configuration
   static fromServer(server: Server): JellyfinClient {
     return new JellyfinClient({
-      baseURL: server.url,
+      baseURL: getInternalUrl(server),
       apiKey: server.apiKey,
     });
   }

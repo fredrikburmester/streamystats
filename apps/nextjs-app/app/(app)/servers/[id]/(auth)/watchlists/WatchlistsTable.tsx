@@ -313,14 +313,14 @@ function WatchlistRowActions({
 interface WatchlistsTableProps {
   watchlists: WatchlistWithItemCount[];
   serverId: number;
-  serverUrl: string;
+  server: { url: string; internalUrl?: string | null };
   currentUserId: string;
 }
 
 export function WatchlistsTable({
   watchlists,
   serverId,
-  serverUrl,
+  server,
   currentUserId,
 }: WatchlistsTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -445,7 +445,7 @@ export function WatchlistsTable({
                   name: null,
                   jellyfin_id: userId,
                 }}
-                serverUrl={serverUrl}
+                server={server}
                 className="h-6 w-6 transition-transform duration-200"
               />
               <span className="font-medium transition-colors duration-200 group-hover:text-primary">
