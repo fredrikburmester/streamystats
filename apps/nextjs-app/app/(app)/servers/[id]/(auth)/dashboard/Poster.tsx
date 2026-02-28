@@ -4,7 +4,7 @@ import { Film, Tv } from "lucide-react";
 import Image from "next/image";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Blurhash } from "react-blurhash";
-import { getInternalUrl } from "@/lib/server-url";
+import { getExternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 import type { RecommendationCardItem } from "./recommendation-types";
 
@@ -75,16 +75,16 @@ const PosterComponent = ({
       switch (type) {
         case "Primary":
           if (item.primaryImageTag) {
-            return `${getInternalUrl(server)}/Items/${item.id}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.primaryImageTag}`;
+            return `${getExternalUrl(server)}/Items/${item.id}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.primaryImageTag}`;
           }
           if (isEpisode && item.seriesId && item.seriesPrimaryImageTag) {
-            return `${getInternalUrl(server)}/Items/${item.seriesId}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.seriesPrimaryImageTag}`;
+            return `${getExternalUrl(server)}/Items/${item.seriesId}/Images/Primary?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.seriesPrimaryImageTag}`;
           }
           return null;
 
         case "Backdrop":
           if (item.backdropImageTags && item.backdropImageTags.length > 0) {
-            return `${getInternalUrl(server)}/Items/${item.id}/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.backdropImageTags[0]}`;
+            return `${getExternalUrl(server)}/Items/${item.id}/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.backdropImageTags[0]}`;
           }
           if (
             isEpisode &&
@@ -92,26 +92,26 @@ const PosterComponent = ({
             item.parentBackdropImageTags &&
             item.parentBackdropImageTags.length > 0
           ) {
-            return `${getInternalUrl(server)}/Items/${item.parentBackdropItemId}/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.parentBackdropImageTags[0]}`;
+            return `${getExternalUrl(server)}/Items/${item.parentBackdropItemId}/Images/Backdrop?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.parentBackdropImageTags[0]}`;
           }
           return null;
 
         case "Thumb":
           if (item?.primaryImageThumbTag) {
-            return `${getInternalUrl(server)}/Items/${item?.id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primaryImageThumbTag}`;
+            return `${getExternalUrl(server)}/Items/${item?.id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primaryImageThumbTag}`;
           }
           if (
             isEpisode &&
             item?.parentThumbItemId &&
             item?.parentThumbImageTag
           ) {
-            return `${getInternalUrl(server)}/Items/${item?.parentThumbItemId}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.parentThumbImageTag}`;
+            return `${getExternalUrl(server)}/Items/${item?.parentThumbItemId}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.parentThumbImageTag}`;
           }
           return null;
 
         case "Logo":
           if (item?.primaryImageLogoTag) {
-            return `${getInternalUrl(server)}/Items/${item?.id}/Images/Logo?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primaryImageLogoTag}`;
+            return `${getExternalUrl(server)}/Items/${item?.id}/Images/Logo?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primaryImageLogoTag}`;
           }
           return null;
 
