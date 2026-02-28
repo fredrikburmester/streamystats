@@ -29,12 +29,32 @@ interface GenerateItemEmbeddingsJobData {
 const DEFAULT_MAX_TEXT_LENGTH = 8000;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RATE_LIMIT_DELAY = 500;
+const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 const ITEMS_PER_BATCH = 100; // Items to fetch from DB at a time
 const API_BATCH_SIZE = 20; // Items to send to embedding API at once
 const MAX_CONSECUTIVE_BATCH_FAILURES = 5;
 
 // Track if index has been ensured this session (per dimension)
 const indexEnsuredForDimension = new Set<number>();
+
+/**
+ * Normalize an embedding provider string to the canonical internal value.
+ * Throws a clear error for any unrecognized value so bad data fails fast.
+ */
+function normalizeEmbeddingProvider(
+  raw: string,
+  source: string
+): "openai-compatible" | "ollama" {
+  switch (raw) {
+    case "openai":
+    case "openai-compatible":
+      return "openai-compatible";
+    case "ollama":
+      return "ollama";
+    default:
+      throw new Error(`Unsupported embedding provider from ${source}: ${raw}`);
+  }
+}
 
 function sanitizeErrorMessage(message: string): string {
   // postgres-js style errors can include the full parameter list. For embeddings that's a 1536-length
@@ -467,24 +487,7 @@ export async function generateItemEmbeddingsJob(
   const startTime = Date.now();
   const { serverId, provider: rawProvider, config: jobConfig, manualStart = false } = job.data;
 
-  // Normalize provider from job data if present.
-  // DB resolution happens inside the try block below so errors are properly logged.
   let provider: "openai-compatible" | "ollama" | undefined;
-
-  if (rawProvider != null) {
-    switch (rawProvider) {
-      case "openai":
-        provider = "openai-compatible";
-        break;
-      case "openai-compatible":
-      case "ollama":
-        provider = rawProvider;
-        break;
-      default:
-        throw new Error(`Unsupported embedding provider from job data: ${rawProvider as string}`);
-    }
-  }
-
   let config: EmbeddingConfig | undefined = jobConfig;
 
   let totalProcessed = 0;
@@ -533,7 +536,14 @@ export async function generateItemEmbeddingsJob(
     // Resolve provider and config — scheduled jobs omit these fields so we
     // fetch them fresh from the DB here. This also means config is always
     // up-to-date even if the user changed it after the schedule was created.
-    // Placed inside try so misconfiguration errors flow through structured logging.
+    // All resolution is inside try so errors flow through structured logging.
+
+    // Normalize provider from job data if present
+    if (rawProvider != null) {
+      provider = normalizeEmbeddingProvider(rawProvider, "job data");
+    }
+
+    // Fetch from DB if provider or config is missing
     if (!provider || !config?.baseUrl || !config?.model) {
       const serverConfig = await db
         .select({
@@ -553,28 +563,13 @@ export async function generateItemEmbeddingsJob(
         throw new Error("Embedding provider not configured.");
       }
 
-      // Validate DB provider value with explicit runtime check to catch
-      // unexpected values from old data or future enum changes.
-      const dbProvider = s.embeddingProvider;
-      switch (dbProvider) {
-        case "openai":
-          provider = "openai-compatible";
-          break;
-        case "openai-compatible":
-        case "ollama":
-          provider = dbProvider;
-          break;
-        default:
-          throw new Error(
-            `Unsupported embedding provider in database for server ${serverId}: ${dbProvider as string}`
-          );
-      }
+      provider = normalizeEmbeddingProvider(s.embeddingProvider, `database for server ${serverId}`);
 
       config = {
         baseUrl: s.embeddingBaseUrl,
         apiKey: s.embeddingApiKey ?? undefined,
         model: s.embeddingModel,
-        dimensions: s.embeddingDimensions ?? 1536,
+        dimensions: s.embeddingDimensions ?? DEFAULT_EMBEDDING_DIMENSIONS,
       };
     }
 
