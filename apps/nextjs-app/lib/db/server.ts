@@ -45,6 +45,7 @@ const SERVER_PUBLIC_SELECT = {
   excludedUserIds: servers.excludedUserIds,
   excludedLibraryIds: servers.excludedLibraryIds,
   embeddingStopRequested: servers.embeddingStopRequested,
+  disablePasswordLogin: servers.disablePasswordLogin,
   timezone: servers.timezone,
   createdAt: servers.createdAt,
   updatedAt: servers.updatedAt,

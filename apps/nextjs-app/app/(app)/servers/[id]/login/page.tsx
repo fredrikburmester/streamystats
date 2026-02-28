@@ -42,6 +42,7 @@ async function LoginContent({ params }: { params: Promise<{ id: string }> }) {
       server={server}
       servers={servers}
       quickConnectEnabled={quickConnectEnabled}
+      disablePasswordLogin={server.disablePasswordLogin}
     />
   );
 }
