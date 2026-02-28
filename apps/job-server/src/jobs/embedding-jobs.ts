@@ -370,6 +370,7 @@ async function processOpenAIBatch(
     response = await client.embeddings.create({
       model: config.model,
       input: texts,
+      encoding_format: "float",
       ...(config.dimensions ? { dimensions: config.dimensions } : {}),
     });
   } catch (error) {
@@ -379,6 +380,7 @@ async function processOpenAIBatch(
       response = await client.embeddings.create({
         model: config.model,
         input: texts,
+        encoding_format: "float",
       });
     } else {
       throw error;
