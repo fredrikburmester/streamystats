@@ -40,12 +40,14 @@ interface Props {
   server: ServerPublic;
   servers: ServerPublic[];
   quickConnectEnabled?: boolean;
+  disablePasswordLogin?: boolean;
 }
 
 export const SignInForm: React.FC<Props> = ({
   server,
   servers,
   quickConnectEnabled,
+  disablePasswordLogin,
 }) => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -88,7 +90,9 @@ export const SignInForm: React.FC<Props> = ({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {quickConnectEnabled ? (
+          {quickConnectEnabled && disablePasswordLogin ? (
+            <QuickConnectForm serverId={server.id} />
+          ) : quickConnectEnabled ? (
             <Tabs defaultValue="password">
               <TabsList className="mb-4 w-full">
                 <TabsTrigger value="password" className="flex-1">

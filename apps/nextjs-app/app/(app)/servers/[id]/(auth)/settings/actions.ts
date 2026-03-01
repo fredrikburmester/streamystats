@@ -17,6 +17,11 @@ const updateTimezoneSchema = z.object({
   timezone: z.string().min(1).max(100),
 });
 
+const updatePasswordLoginSchema = z.object({
+  serverId: z.number().int().positive(),
+  disablePasswordLogin: z.boolean(),
+});
+
 export async function deleteServerAction(serverId: number) {
   try {
     const isAdmin = await isUserAdmin();
@@ -281,6 +286,52 @@ export async function updateServerTimezoneAction(
       success: false,
       message:
         error instanceof Error ? error.message : "Failed to update timezone",
+    };
+  }
+}
+
+export async function updatePasswordLoginAction(
+  serverId: number,
+  disablePasswordLogin: boolean,
+) {
+  try {
+    const isAdmin = await isUserAdmin();
+    if (!isAdmin) {
+      return { success: false, message: "Admin privileges required" };
+    }
+
+    const parsed = updatePasswordLoginSchema.safeParse({
+      serverId,
+      disablePasswordLogin,
+    });
+    if (!parsed.success) {
+      return { success: false, message: "Invalid input" };
+    }
+
+    await db
+      .update(servers)
+      .set({
+        disablePasswordLogin: parsed.data.disablePasswordLogin,
+        updatedAt: new Date(),
+      })
+      .where(eq(servers.id, parsed.data.serverId));
+
+    revalidatePath(`/servers/${parsed.data.serverId}`);
+
+    return {
+      success: true,
+      message: parsed.data.disablePasswordLogin
+        ? "Password login disabled"
+        : "Password login enabled",
+    };
+  } catch (error) {
+    console.error("Server action - Error updating password login:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to update password login setting",
     };
   }
 }
