@@ -4,10 +4,12 @@ import { checkQuickConnectStatus } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as {
-    serverId?: string;
-    secret?: string;
-  };
+  let body: { serverId?: string; secret?: string };
+  try {
+    body = (await request.json()) as { serverId?: string; secret?: string };
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
   const serverId = body.serverId;
   const secret = body.secret;
 
