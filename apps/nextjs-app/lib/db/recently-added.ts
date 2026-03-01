@@ -13,9 +13,11 @@ import {
   inArray,
   isNotNull,
   isNull,
-  notInArray,
 } from "drizzle-orm";
-import { getExclusionSettings } from "./exclusions";
+import {
+  buildLibraryExclusionCondition,
+  getExclusionSettings,
+} from "./exclusions";
 import type {
   RecentlyAddedEpisode,
   RecentlyAddedItem,
@@ -65,6 +67,8 @@ export async function getRecentlyAddedItems(
   const exclusions = await getExclusionSettings(serverIdNum);
   const { excludedLibraryIds } = exclusions;
 
+  const libraryFilter = buildLibraryExclusionCondition(excludedLibraryIds);
+
   const results = await db
     .select(itemSelect)
     .from(items)
@@ -74,9 +78,7 @@ export async function getRecentlyAddedItems(
         isNull(items.deletedAt),
         isNotNull(items.dateCreated),
         eq(items.type, itemType),
-        excludedLibraryIds.length > 0
-          ? notInArray(items.libraryId, excludedLibraryIds)
-          : undefined,
+        libraryFilter,
       ),
     )
     .orderBy(desc(items.dateCreated))
@@ -103,10 +105,7 @@ export async function getRecentlyAddedSeriesWithEpisodes(
   const exclusions = await getExclusionSettings(serverIdNum);
   const { excludedLibraryIds } = exclusions;
 
-  const libraryExclusion =
-    excludedLibraryIds.length > 0
-      ? notInArray(items.libraryId, excludedLibraryIds)
-      : undefined;
+  const libraryExclusion = buildLibraryExclusionCondition(excludedLibraryIds);
 
   // 1. Get recently added episodes grouped by series
   const recentEpisodes = await db

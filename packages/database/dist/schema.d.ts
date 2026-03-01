@@ -6098,6 +6098,47 @@ export declare const watchlistItems: import("drizzle-orm/pg-core").PgTableWithCo
     };
     dialect: "pg";
 }>;
+export declare const itemLibraries: import("drizzle-orm/pg-core").PgTableWithColumns<{
+    name: "item_libraries";
+    schema: undefined;
+    columns: {
+        itemId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "item_id";
+            tableName: "item_libraries";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        libraryId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "library_id";
+            tableName: "item_libraries";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+    };
+    dialect: "pg";
+}>;
 export declare const serversRelations: import("drizzle-orm").Relations<"servers", {
     libraries: import("drizzle-orm").Many<"libraries">;
     users: import("drizzle-orm").Many<"users">;
@@ -6140,6 +6181,11 @@ export declare const itemsRelations: import("drizzle-orm").Relations<"items", {
     hiddenRecommendations: import("drizzle-orm").Many<"hidden_recommendations">;
     watchlistItems: import("drizzle-orm").Many<"watchlist_items">;
     itemPeople: import("drizzle-orm").Many<"item_people">;
+    itemLibraries: import("drizzle-orm").Many<"item_libraries">;
+}>;
+export declare const itemLibrariesRelations: import("drizzle-orm").Relations<"item_libraries", {
+    item: import("drizzle-orm").One<"items", true>;
+    library: import("drizzle-orm").One<"libraries", true>;
 }>;
 export declare const sessionsRelations: import("drizzle-orm").Relations<"sessions", {
     server: import("drizzle-orm").One<"servers", true>;
@@ -6215,4 +6261,6 @@ export type Person = typeof people.$inferSelect;
 export type NewPerson = typeof people.$inferInsert;
 export type ItemPerson = typeof itemPeople.$inferSelect;
 export type NewItemPerson = typeof itemPeople.$inferInsert;
+export type ItemLibrary = typeof itemLibraries.$inferSelect;
+export type NewItemLibrary = typeof itemLibraries.$inferInsert;
 //# sourceMappingURL=schema.d.ts.map

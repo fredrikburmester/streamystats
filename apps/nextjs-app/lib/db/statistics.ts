@@ -65,6 +65,9 @@ export async function getMostWatchedItems({
   if (userExclusion) {
     whereConditions.push(userExclusion);
   }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
 
   const rawSessionStats = await db
     .select({
@@ -73,6 +76,7 @@ export async function getMostWatchedItems({
       totalPlayDuration: sum(sessions.playDuration).as("totalPlayDuration"),
     })
     .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions))
     .groupBy(sessions.itemId)
     .orderBy(desc(sum(sessions.playDuration)));
@@ -88,18 +92,10 @@ export async function getMostWatchedItems({
   // Batch fetch all items in a single query instead of N+1 queries
   // Also filter out items from excluded libraries
   const itemIds = sessionStats.map((stat) => stat.itemId);
-  const itemConditions: SQL[] = [inArray(items.id, itemIds)];
-
-  if (itemLibraryExclusion) {
-    itemConditions.push(itemLibraryExclusion);
-  }
 
   const itemsData =
     itemIds.length > 0
-      ? await db
-          .select()
-          .from(items)
-          .where(and(...itemConditions))
+      ? await db.select().from(items).where(inArray(items.id, itemIds))
       : [];
 
   // Create a map for O(1) lookup
@@ -242,97 +238,49 @@ export async function getWatchTimePerType({
   if (userExclusion) {
     whereConditions.push(userExclusion);
   }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
 
   const rawResults = await db
     .select({
       date: sql<string>`DATE(${sessions.startTime})`.as("date"),
-      itemId: sessions.itemId,
+      itemType: items.type,
       totalWatchTime: sum(sessions.playDuration),
     })
     .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions))
-    .groupBy(sql`DATE(${sessions.startTime})`, sessions.itemId)
+    .groupBy(sql`DATE(${sessions.startTime})`, items.type)
     .orderBy(sql`DATE(${sessions.startTime})`);
-
-  const results = rawResults
-    .map((result) => ({
-      date: result.date,
-      itemId: result.itemId || "",
-      totalWatchTime: Number(result.totalWatchTime || 0),
-    }))
-    .filter((result) => result.itemId); // Filter out null itemIds
-
-  // Now get the item types for each unique itemId
-  // Also filter out items from excluded libraries
-  const itemIds = [
-    ...new Set(results.map((r) => r.itemId).filter((id) => id)),
-  ] as string[];
-  const itemTypeConditions: SQL[] = [inArray(items.id, itemIds)];
-  if (itemLibraryExclusion) {
-    itemTypeConditions.push(itemLibraryExclusion);
-  }
-  const itemTypes = (await db
-    .select({
-      id: items.id,
-      type: items.type,
-    })
-    .from(items)
-    .where(and(...itemTypeConditions))) as {
-    id: string;
-    type: string;
-  }[];
-
-  // Create a map of itemId to type
-  const itemTypeMap = new Map(itemTypes.map((item) => [item.id, item.type]));
-
-  // Group results by date and type
-  const groupedResults = new Map<
-    string,
-    { date: string; type: string; totalWatchTime: number }
-  >();
-
-  for (const result of results) {
-    if (!result.date || !result.itemId) continue;
-
-    const type = itemTypeMap.get(result.itemId);
-    if (!type) continue;
-
-    const key = `${result.date}-${type}`;
-    const existing = groupedResults.get(key);
-
-    if (existing) {
-      existing.totalWatchTime += Number(result.totalWatchTime || 0);
-    } else {
-      groupedResults.set(key, {
-        date: result.date,
-        type,
-        totalWatchTime: Number(result.totalWatchTime || 0),
-      });
-    }
-  }
 
   const statistics: WatchTimePerType = {};
 
-  for (const [_key, result] of groupedResults) {
-    if (result.date && result.type) {
-      // Normalize type: map Episode to episode, Movie to movie, Audio to music, everything else to other
-      let normalizedType: string;
-      if (result.type === "Movie") {
-        normalizedType = "movie";
-      } else if (result.type === "Episode") {
-        normalizedType = "episode";
-      } else if (result.type === "Audio") {
-        normalizedType = "music";
-      } else {
-        normalizedType = "other";
-      }
+  for (const result of rawResults) {
+    if (!result.date || !result.itemType) continue;
 
-      // Create composite key: date-type
-      const compositeKey = `${result.date}-${normalizedType}`;
+    // Normalize type: map Episode to episode, Movie to movie, Audio to music, everything else to other
+    let normalizedType: string;
+    if (result.itemType === "Movie") {
+      normalizedType = "movie";
+    } else if (result.itemType === "Episode") {
+      normalizedType = "episode";
+    } else if (result.itemType === "Audio") {
+      normalizedType = "music";
+    } else {
+      normalizedType = "other";
+    }
 
+    // Create composite key: date-type
+    const compositeKey = `${result.date}-${normalizedType}`;
+
+    const existing = statistics[compositeKey];
+    if (existing) {
+      existing.totalWatchTime += Number(result.totalWatchTime || 0);
+    } else {
       statistics[compositeKey] = {
         type: normalizedType,
-        totalWatchTime: result.totalWatchTime,
+        totalWatchTime: Number(result.totalWatchTime || 0),
       };
     }
   }

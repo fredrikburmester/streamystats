@@ -24,7 +24,10 @@ import {
 } from "drizzle-orm";
 import { cacheLife } from "next/cache";
 import { getActiveHolidays, type Holiday } from "../holidays";
-import { getExclusionSettings } from "./exclusions";
+import {
+  buildLibraryExclusionCondition,
+  getExclusionSettings,
+} from "./exclusions";
 import { getMe } from "./users";
 
 export interface SeasonalRecommendationItem {
@@ -181,10 +184,7 @@ async function getSeasonalRecommendationsCached(
           isNull(items.deletedAt),
           inArray(items.type, ["Movie", "Series"]),
           or(...searchConditions),
-          // Exclude items from excluded libraries
-          excludedLibraryIds.length > 0
-            ? notInArray(items.libraryId, excludedLibraryIds)
-            : sql`true`,
+          buildLibraryExclusionCondition(excludedLibraryIds),
           excludeIds.length > 0 ? notInArray(items.id, excludeIds) : sql`true`,
         ),
       )
