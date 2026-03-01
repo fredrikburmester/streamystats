@@ -13,8 +13,8 @@ import {
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { getSession } from "@/lib/session";
 import { getInternalUrl } from "@/lib/server-url";
+import { getSession } from "@/lib/session";
 
 export interface MarkWatchedResult {
   success: boolean;

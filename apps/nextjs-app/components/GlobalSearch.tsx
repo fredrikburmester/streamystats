@@ -138,8 +138,16 @@ function SearchResultItem({
         {(result.type === "activity" || result.type === "session") &&
           result.metadata?.date && (
             <span className="text-[10px] text-muted-foreground">
-              {new Date(result.metadata.date).toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}{" "}
-              {new Date(result.metadata.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {new Date(result.metadata.date).toLocaleDateString(undefined, {
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}{" "}
+              {new Date(result.metadata.date).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </span>
           )}
       </div>
