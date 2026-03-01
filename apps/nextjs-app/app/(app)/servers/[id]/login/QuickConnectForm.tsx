@@ -22,6 +22,8 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
   const [phase, setPhase] = useState<Phase>("idle");
   const [code, setCode] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [pollWarning, setPollWarning] = useState(false);
+  const consecutiveErrorsRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -57,6 +59,9 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
         setErrorMessage("QuickConnect code expired. Please try again.");
       }, QC_TIMEOUT_MS);
 
+      consecutiveErrorsRef.current = 0;
+      setPollWarning(false);
+
       intervalRef.current = setInterval(async () => {
         try {
           const res = await fetch("/api/quick-connect/status", {
@@ -64,7 +69,13 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ serverId: String(serverId), secret: result.secret }),
           });
-          if (!res.ok) return;
+          if (!res.ok) {
+            consecutiveErrorsRef.current++;
+            if (consecutiveErrorsRef.current >= 3) setPollWarning(true);
+            return;
+          }
+          consecutiveErrorsRef.current = 0;
+          setPollWarning(false);
           const data = (await res.json()) as { authenticated: boolean };
           if (data.authenticated) {
             clearPolling();
@@ -82,7 +93,8 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
             }
           }
         } catch {
-          // Polling error — keep trying
+          consecutiveErrorsRef.current++;
+          if (consecutiveErrorsRef.current >= 3) setPollWarning(true);
         }
       }, 3000);
     } catch (error) {
@@ -138,9 +150,16 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
             {code}
           </p>
         </div>
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Spinner />
-          <span>Waiting for authorization...</span>
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Spinner />
+            <span>Waiting for authorization...</span>
+          </div>
+          {pollWarning && (
+            <span className="text-xs text-muted-foreground">
+              Connection issues — still trying...
+            </span>
+          )}
         </div>
         <Button
           variant="outline"
