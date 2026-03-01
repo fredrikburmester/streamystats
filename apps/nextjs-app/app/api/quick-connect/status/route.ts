@@ -8,16 +8,16 @@ export async function GET(request: Request) {
   const serverId = searchParams.get("serverId");
   const secret = searchParams.get("secret");
 
-  if (!serverId || !secret) {
+  if (!serverId || !secret || !/^\d+$/.test(serverId)) {
     return NextResponse.json(
-      { error: "serverId and secret are required" },
+      { error: "Invalid request" },
       { status: 400 },
     );
   }
 
   const server = await getServerWithSecrets({ serverId });
   if (!server) {
-    return NextResponse.json({ error: "Server not found" }, { status: 404 });
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   const result = await checkQuickConnectStatus({
