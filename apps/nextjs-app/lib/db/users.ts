@@ -16,6 +16,7 @@ import {
   sum,
 } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "../server-url";
 import { destroySession, getSession } from "../session";
 import { getExclusionSettings, getStatisticsExclusions } from "./exclusions";
@@ -441,10 +442,7 @@ export const validateAdminWithJellyfin = async (): Promise<boolean> => {
   try {
     const response = await fetch(`${getInternalUrl(server)}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": token?.value || "",
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(token?.value || ""),
       signal: AbortSignal.timeout(5000),
     });
 

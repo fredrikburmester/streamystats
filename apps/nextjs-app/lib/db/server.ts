@@ -5,6 +5,7 @@ import "server-only";
 import { db, items, jobResults, servers } from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { and, count, desc, eq, sql } from "drizzle-orm";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import type { ServerPublic } from "@/lib/types";
 
 type ServerPublicSelectRow = Omit<
@@ -167,7 +168,7 @@ export const deleteServer = async ({
 
 // Embedding-related functions
 
-export type EmbeddingProvider = "openai-compatible" | "ollama";
+export type EmbeddingProvider = "openai-compatible" | "ollama" | "voyage";
 
 export interface EmbeddingConfig {
   provider: EmbeddingProvider;
@@ -670,10 +671,7 @@ export const updateServerConnection = async ({
     try {
       const testResponse = await fetch(`${normalizedUrl}/System/Info`, {
         method: "GET",
-        headers: {
-          "X-Emby-Token": apiKey,
-          "Content-Type": "application/json",
-        },
+        headers: jellyfinHeaders(apiKey),
         signal: AbortSignal.timeout(5000),
       });
 
@@ -720,10 +718,7 @@ export const updateServerConnection = async ({
         `${normalizedUrl}/Users/AuthenticateByName`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Emby-Token": apiKey,
-          },
+          headers: jellyfinHeaders(apiKey),
           body: JSON.stringify({ Username: username, Pw: password }),
           signal: AbortSignal.timeout(5000),
         },
