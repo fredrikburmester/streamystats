@@ -4,9 +4,18 @@ const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
  * Build the standard Jellyfin Authorization header.
  * Uses MediaBrowser format required by Jellyfin 10.12+ (non-legacy auth).
  */
-export function jellyfinHeaders(token: string): Record<string, string> {
+export function jellyfinHeaders(token?: string): Record<string, string> {
+  const parts = [
+    `Client="StreamyStats"`,
+    `Device="Server"`,
+    `DeviceId="streamystats-server"`,
+    `Version="${STREAMYSTATS_VERSION}"`,
+  ];
+  if (token) {
+    parts.push(`Token="${token}"`);
+  }
   return {
-    Authorization: `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${token}"`,
+    Authorization: `MediaBrowser ${parts.join(", ")}`,
     "Content-Type": "application/json",
   };
 }
@@ -39,10 +48,6 @@ export type JellyfinAuthUser = {
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
-}
-
-function embyAuthHeader(): string {
-  return 'MediaBrowser Client="StreamyStats", Device="Server", DeviceId="streamystats-server", Version="1.0.0"';
 }
 
 function asNonEmptyString(value: unknown): string | null {
@@ -131,10 +136,7 @@ export async function checkQuickConnectEnabled(args: {
   try {
     const res = await fetch(`${serverUrl}/QuickConnect/Enabled`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: embyAuthHeader(),
-      },
+      headers: jellyfinHeaders(),
       signal: AbortSignal.timeout(5_000),
     });
     if (!res.ok) return false;
@@ -159,10 +161,7 @@ export async function initiateQuickConnect(args: {
   try {
     const res = await fetch(`${serverUrl}/QuickConnect/Initiate`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: embyAuthHeader(),
-      },
+      headers: jellyfinHeaders(),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
