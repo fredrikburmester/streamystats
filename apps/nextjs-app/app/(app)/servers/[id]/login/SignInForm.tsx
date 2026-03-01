@@ -91,7 +91,7 @@ export const SignInForm: React.FC<Props> = ({
         </CardHeader>
         <CardContent>
           {quickConnectEnabled && disablePasswordLogin ? (
-            <QuickConnectForm serverId={server.id} />
+            <QuickConnectForm serverId={server.id} serverUrl={server.url} />
           ) : quickConnectEnabled ? (
             <Tabs defaultValue="password">
               <TabsList className="mb-4 w-full">
