@@ -434,27 +434,6 @@ async function processItem(
 
   const serverId = await getServerIdFromLibrary(libraryId);
 
-  // For truly new items, check for previously deleted items to migrate data from
-  if (isNewItem) {
-    const tempItemData: NewItem = {
-      id: jellyfinItem.Id,
-      serverId,
-      libraryId,
-      name: jellyfinItem.Name,
-      type: jellyfinItem.Type,
-      seriesId: jellyfinItem.SeriesId || null,
-      seriesName: jellyfinItem.SeriesName || null,
-      productionYear: jellyfinItem.ProductionYear || null,
-      indexNumber: jellyfinItem.IndexNumber || null,
-      parentIndexNumber: jellyfinItem.ParentIndexNumber || null,
-      providerIds: jellyfinItem.ProviderIds || null,
-      isFolder: jellyfinItem.IsFolder || false,
-      rawData: jellyfinItem,
-      updatedAt: new Date(),
-    };
-    await checkAndMigrateDeletedItem(tempItemData);
-  }
-
   const itemData: NewItem = {
     id: jellyfinItem.Id,
     serverId,
@@ -544,6 +523,12 @@ async function processItem(
     .insert(itemLibraries)
     .values({ itemId: jellyfinItem.Id, libraryId })
     .onConflictDoNothing();
+
+  // For truly new items, check for previously deleted items to migrate data from
+  // Must run AFTER the item is inserted so FK constraints on sessions are satisfied
+  if (isNewItem) {
+    await checkAndMigrateDeletedItem(itemData);
+  }
 
   // Sync media sources for this item and mark as synced
   await syncMediaSources(jellyfinItem, serverId);
