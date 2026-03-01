@@ -5,15 +5,9 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main]
 
-permissions:
-  contents: read
-  packages: write
-  pull-requests: write
-  issues: write
-
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: ${{ github.repository_owner }}
+  REGISTRY: docker.io
+  IMAGE_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
 
 jobs:
   lint:
@@ -106,12 +100,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Extract PR number
         id: pr
@@ -179,7 +173,7 @@ jobs:
 
             const comment = `## 🐳 PR Docker Images Built
 
-            Your PR has been built and pushed to GitHub Container Registry with the tag \`pr-${prNumber}\`.
+            Your PR has been built and pushed to Docker Hub with the tag \`pr-${prNumber}\`.
 
             ### Available Images:
             - \`${namespace}/streamystats-v2-nextjs:pr-${prNumber}\`
