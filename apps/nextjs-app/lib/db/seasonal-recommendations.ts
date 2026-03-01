@@ -2,7 +2,7 @@
 
 import "server-only";
 
-import { db } from "@streamystats/database";
+import { db, itemLibraries } from "@streamystats/database";
 import {
   hiddenRecommendations,
   items,
@@ -14,6 +14,7 @@ import {
   cosineDistance,
   desc,
   eq,
+  exists,
   ilike,
   inArray,
   isNotNull,
@@ -181,9 +182,19 @@ async function getSeasonalRecommendationsCached(
           isNull(items.deletedAt),
           inArray(items.type, ["Movie", "Series"]),
           or(...searchConditions),
-          // Exclude items from excluded libraries
+          // Exclude items that exist only in excluded libraries
           excludedLibraryIds.length > 0
-            ? notInArray(items.libraryId, excludedLibraryIds)
+            ? exists(
+                db
+                  .select({ one: sql`1` })
+                  .from(itemLibraries)
+                  .where(
+                    and(
+                      eq(itemLibraries.itemId, items.id),
+                      notInArray(itemLibraries.libraryId, excludedLibraryIds),
+                    ),
+                  ),
+              )
             : sql`true`,
           excludeIds.length > 0 ? notInArray(items.id, excludeIds) : sql`true`,
         ),

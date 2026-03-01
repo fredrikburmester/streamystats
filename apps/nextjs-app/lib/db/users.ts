@@ -106,10 +106,8 @@ export const getWatchTimePerWeekDay = async ({
   const start = getStartDateConstraint(startDate);
   const end = getEndDateConstraint(endDate);
 
-  // Get exclusion settings
-  const { excludedUserIds, excludedLibraryIds } = await getExclusionSettings(
-    Number(serverId),
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   // Build the where condition based on whether userId is provided
   const whereConditions: SQL[] = [eq(sessions.serverId, Number(serverId))];
@@ -124,11 +122,11 @@ export const getWatchTimePerWeekDay = async ({
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
-  if (excludedLibraryIds.length > 0) {
-    whereConditions.push(notInArray(items.libraryId, excludedLibraryIds));
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   // Use SQL GROUP BY for aggregation instead of fetching all rows
@@ -188,10 +186,8 @@ export const getWatchTimePerHour = async ({
   const start = getStartDateConstraint(startDate);
   const end = getEndDateConstraint(endDate);
 
-  // Get exclusion settings
-  const { excludedUserIds, excludedLibraryIds } = await getExclusionSettings(
-    Number(serverId),
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   // Build the where condition based on whether userId is provided
   const whereConditions: SQL[] = [eq(sessions.serverId, Number(serverId))];
@@ -206,11 +202,11 @@ export const getWatchTimePerHour = async ({
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
-  if (excludedLibraryIds.length > 0) {
-    whereConditions.push(notInArray(items.libraryId, excludedLibraryIds));
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   // Use SQL GROUP BY for aggregation instead of fetching all rows
@@ -245,10 +241,8 @@ export const getTotalWatchTime = async ({
   const start = getStartDateConstraint(startDate);
   const end = getEndDateConstraint(endDate);
 
-  // Get exclusion settings
-  const { excludedUserIds, excludedLibraryIds } = await getExclusionSettings(
-    Number(serverId),
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   // Build the where condition based on whether userId is provided
   const whereConditions: SQL[] = [eq(sessions.serverId, Number(serverId))];
@@ -263,11 +257,11 @@ export const getTotalWatchTime = async ({
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
-  if (excludedLibraryIds.length > 0) {
-    whereConditions.push(notInArray(items.libraryId, excludedLibraryIds));
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   const result = await db
@@ -497,10 +491,8 @@ export const getUserStatsSummaryForServer = async ({
   userId?: string;
   itemType?: "Movie" | "Series" | "Episode" | "all";
 }): Promise<UserStatsSummary[]> => {
-  // Get exclusion settings
-  const { excludedUserIds, excludedLibraryIds } = await getExclusionSettings(
-    Number(serverId),
-  );
+  const { userExclusion, itemLibraryExclusion, hasLibraryExclusions } =
+    await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -523,16 +515,15 @@ export const getUserStatsSummaryForServer = async ({
     whereConditions.push(eq(sessions.userId, userId));
   }
 
-  // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
 
   const needsItemTypeFilter =
     itemType && itemType !== "all" && itemType !== undefined;
 
   // Need to join items if we have library exclusions OR item type filter
-  const needsItemJoin = needsItemTypeFilter || excludedLibraryIds.length > 0;
+  const needsItemJoin = needsItemTypeFilter || hasLibraryExclusions;
 
   let query = db
     .select({
@@ -557,9 +548,8 @@ export const getUserStatsSummaryForServer = async ({
 
     whereConditions.push(isNotNull(sessions.itemId));
 
-    // Add library exclusion when joining items
-    if (excludedLibraryIds.length > 0) {
-      whereConditions.push(notInArray(items.libraryId, excludedLibraryIds));
+    if (itemLibraryExclusion) {
+      whereConditions.push(itemLibraryExclusion);
     }
   }
 

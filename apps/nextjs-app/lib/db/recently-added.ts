@@ -2,18 +2,20 @@
 
 import "server-only";
 
-import { db } from "@streamystats/database";
+import { db, itemLibraries } from "@streamystats/database";
 import { items } from "@streamystats/database/schema";
 import {
   and,
   count,
   desc,
   eq,
+  exists,
   gte,
   inArray,
   isNotNull,
   isNull,
   notInArray,
+  sql,
 } from "drizzle-orm";
 import { getExclusionSettings } from "./exclusions";
 import type {
@@ -65,6 +67,21 @@ export async function getRecentlyAddedItems(
   const exclusions = await getExclusionSettings(serverIdNum);
   const { excludedLibraryIds } = exclusions;
 
+  const libraryFilter =
+    excludedLibraryIds.length > 0
+      ? exists(
+          db
+            .select({ one: sql`1` })
+            .from(itemLibraries)
+            .where(
+              and(
+                eq(itemLibraries.itemId, items.id),
+                notInArray(itemLibraries.libraryId, excludedLibraryIds),
+              ),
+            ),
+        )
+      : undefined;
+
   const results = await db
     .select(itemSelect)
     .from(items)
@@ -74,9 +91,7 @@ export async function getRecentlyAddedItems(
         isNull(items.deletedAt),
         isNotNull(items.dateCreated),
         eq(items.type, itemType),
-        excludedLibraryIds.length > 0
-          ? notInArray(items.libraryId, excludedLibraryIds)
-          : undefined,
+        libraryFilter,
       ),
     )
     .orderBy(desc(items.dateCreated))
@@ -105,7 +120,17 @@ export async function getRecentlyAddedSeriesWithEpisodes(
 
   const libraryExclusion =
     excludedLibraryIds.length > 0
-      ? notInArray(items.libraryId, excludedLibraryIds)
+      ? exists(
+          db
+            .select({ one: sql`1` })
+            .from(itemLibraries)
+            .where(
+              and(
+                eq(itemLibraries.itemId, items.id),
+                notInArray(itemLibraries.libraryId, excludedLibraryIds),
+              ),
+            ),
+        )
       : undefined;
 
   // 1. Get recently added episodes grouped by series
