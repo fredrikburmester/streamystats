@@ -170,17 +170,7 @@ export async function getExcludedItemIds(
               ),
             ),
         ),
-        sql`NOT ${exists(
-          db
-            .select({ one: sql`1` })
-            .from(itemLibraries)
-            .where(
-              and(
-                eq(itemLibraries.itemId, items.id),
-                notInArray(itemLibraries.libraryId, excludedLibraryIds),
-              ),
-            ),
-        )}`,
+        sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id} AND ${notInArray(itemLibraries.libraryId, excludedLibraryIds)})`,
       ),
     );
 
