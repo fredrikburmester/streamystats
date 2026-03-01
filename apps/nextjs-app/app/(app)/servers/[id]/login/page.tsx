@@ -1,10 +1,21 @@
+import type { Server } from "@streamystats/database/schema";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getServer, getServers, getServerWithSecrets } from "@/lib/db/server";
+import { getServers, getServerWithSecrets } from "@/lib/db/server";
 import { checkQuickConnectEnabled } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
+import type { ServerPublic } from "@/lib/types";
 import { SignInForm } from "./SignInForm";
+
+function toPublic(s: Server): ServerPublic {
+  const { apiKey, embeddingApiKey, chatApiKey, ...rest } = s;
+  return {
+    ...rest,
+    hasEmbeddingApiKey: Boolean(embeddingApiKey),
+    hasChatApiKey: Boolean(chatApiKey),
+  };
+}
 
 export default async function Page({
   params,
@@ -20,26 +31,22 @@ export default async function Page({
 
 async function LoginContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [server, servers, serverWithSecrets] = await Promise.all([
-    getServer({ serverId: id }),
-    getServers(),
+  const [serverWithSecrets, servers] = await Promise.all([
     getServerWithSecrets({ serverId: id }),
+    getServers(),
   ]);
 
-  if (!server) {
+  if (!serverWithSecrets) {
     redirect("/not-found");
   }
 
-  let quickConnectEnabled = false;
-  if (serverWithSecrets) {
-    quickConnectEnabled = await checkQuickConnectEnabled({
-      serverUrl: getInternalUrl(serverWithSecrets),
-    });
-  }
+  const quickConnectEnabled = await checkQuickConnectEnabled({
+    serverUrl: getInternalUrl(serverWithSecrets),
+  });
 
   return (
     <SignInForm
-      server={server}
+      server={toPublic(serverWithSecrets)}
       servers={servers}
       quickConnectEnabled={quickConnectEnabled}
     />
