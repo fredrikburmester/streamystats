@@ -13,7 +13,7 @@ import {
 import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";
 
-// In-memory rate limiter — per-process only; does not synchronize across instances.
+// In-memory rate limiters — per-process only; does not synchronize across instances.
 const qcInitTimestamps = new Map<number, number[]>();
 const QC_RATE_LIMIT = 5;
 const QC_RATE_WINDOW_MS = 60_000;
@@ -30,6 +30,22 @@ function enforceQuickConnectRateLimit(serverId: number): void {
   qcInitTimestamps.set(serverId, recent);
 }
 
+const loginTimestamps = new Map<number, number[]>();
+const LOGIN_RATE_LIMIT = 10;
+const LOGIN_RATE_WINDOW_MS = 60_000;
+
+function enforceLoginRateLimit(serverId: number): void {
+  const now = Date.now();
+  const recent = (loginTimestamps.get(serverId) ?? []).filter(
+    (t) => now - t < LOGIN_RATE_WINDOW_MS,
+  );
+  if (recent.length >= LOGIN_RATE_LIMIT) {
+    throw new Error("Too many login attempts. Please try again later.");
+  }
+  recent.push(now);
+  loginTimestamps.set(serverId, recent);
+}
+
 export const login = async ({
   serverId,
   username,
@@ -39,6 +55,8 @@ export const login = async ({
   username: string;
   password?: string | null;
 }): Promise<void> => {
+  enforceLoginRateLimit(serverId);
+
   const server = await getServerWithSecrets({ serverId: serverId.toString() });
 
   if (!server) {
