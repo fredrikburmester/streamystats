@@ -107,7 +107,14 @@ async function searchItems(
         END,
         word_similarity(${query}, ${items.name}),
         COALESCE(word_similarity(${query}, ${items.seriesName}), 0)
-      ) as rank
+      )
+      * CASE ${items.type}
+          WHEN 'Movie' THEN 2.0
+          WHEN 'Series' THEN 2.0
+          WHEN 'Season' THEN 1.0
+          ELSE 0.8
+        END
+      as rank
     FROM ${items}
     WHERE ${items.serverId} = ${serverId}
       AND ${items.deletedAt} IS NULL
