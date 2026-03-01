@@ -45,6 +45,10 @@ export const login = async ({
     throw new Error("Server not found");
   }
 
+  if (server.disablePasswordLogin) {
+    throw new Error("Password login is disabled for this server");
+  }
+
   const res = await fetch(
     `${getInternalUrl(server)}/Users/AuthenticateByName`,
     {
