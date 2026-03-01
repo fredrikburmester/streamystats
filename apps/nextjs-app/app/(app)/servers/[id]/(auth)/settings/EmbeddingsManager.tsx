@@ -78,7 +78,7 @@ const PROVIDER_PRESETS = {
     defaultModel: "voyage-2",
     defaultDimensions: 1024,
     requiresApiKey: true,
-    provider: "openai-compatible" as EmbeddingProvider,
+    provider: "voyage" as EmbeddingProvider,
   },
   ollama: {
     name: "Ollama",
