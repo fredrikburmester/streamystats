@@ -13,6 +13,22 @@ import {
 import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";
 
+const qcInitTimestamps = new Map<number, number[]>();
+const QC_RATE_LIMIT = 5;
+const QC_RATE_WINDOW_MS = 60_000;
+
+function enforceQuickConnectRateLimit(serverId: number): void {
+  const now = Date.now();
+  const recent = (qcInitTimestamps.get(serverId) ?? []).filter(
+    (t) => now - t < QC_RATE_WINDOW_MS,
+  );
+  if (recent.length >= QC_RATE_LIMIT) {
+    throw new Error("Too many QuickConnect attempts. Please try again later.");
+  }
+  recent.push(now);
+  qcInitTimestamps.set(serverId, recent);
+}
+
 export const login = async ({
   serverId,
   username,
@@ -74,6 +90,8 @@ export const initiateQuickConnectLogin = async ({
 }: {
   serverId: number;
 }): Promise<{ secret: string; code: string }> => {
+  enforceQuickConnectRateLimit(serverId);
+
   const server = await getServerWithSecrets({ serverId: serverId.toString() });
   if (!server) {
     throw new Error("Server not found");
