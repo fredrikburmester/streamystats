@@ -80,6 +80,14 @@ const PROVIDER_PRESETS = {
     requiresApiKey: true,
     provider: "voyage" as EmbeddingProvider,
   },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    defaultModel: "openai/text-embedding-3-small",
+    defaultDimensions: 1536,
+    requiresApiKey: true,
+    provider: "openai-compatible" as EmbeddingProvider,
+  },
   ollama: {
     name: "Ollama",
     baseUrl: "http://localhost:11434",
@@ -384,6 +392,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
                   <SelectItem value="together-ai">Together AI</SelectItem>
                   <SelectItem value="fireworks">Fireworks AI</SelectItem>
                   <SelectItem value="voyage">Voyage AI</SelectItem>
+                  <SelectItem value="openrouter">OpenRouter</SelectItem>
                   <SelectItem value="ollama">Ollama (Local)</SelectItem>
                   <SelectItem value="lm-studio">LM Studio (Local)</SelectItem>
                   <SelectItem value="localai">LocalAI (Local)</SelectItem>
