@@ -3,7 +3,36 @@ import { getServerWithSecrets } from "@/lib/db/server";
 import { checkQuickConnectStatus } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 
+const pollTimestamps = new Map<string, number[]>();
+const POLL_RATE_LIMIT = 30;
+const POLL_RATE_WINDOW_MS = 60_000;
+
+function getClientIp(request: Request): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+  );
+}
+
+function enforcePollRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const recent = (pollTimestamps.get(ip) ?? []).filter(
+    (t) => now - t < POLL_RATE_WINDOW_MS,
+  );
+  if (recent.length >= POLL_RATE_LIMIT) return false;
+  recent.push(now);
+  pollTimestamps.set(ip, recent);
+  return true;
+}
+
 export async function POST(request: Request) {
+  const clientIp = getClientIp(request);
+  if (!enforcePollRateLimit(clientIp)) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   let body: { serverId?: string; secret?: string };
   try {
     body = (await request.json()) as { serverId?: string; secret?: string };
