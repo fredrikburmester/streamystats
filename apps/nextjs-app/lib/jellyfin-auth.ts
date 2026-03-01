@@ -201,10 +201,7 @@ export async function checkQuickConnectStatus(args: {
       `${serverUrl}/QuickConnect/Connect?Secret=${encodeURIComponent(args.secret)}`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: embyAuthHeader(),
-        },
+        headers: jellyfinHeaders(),
         signal: AbortSignal.timeout(10_000),
       },
     );
@@ -237,10 +234,7 @@ export async function authenticateWithQuickConnect(args: {
       `${serverUrl}/Users/AuthenticateWithQuickConnect`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: embyAuthHeader(),
-        },
+        headers: jellyfinHeaders(),
         body: JSON.stringify({ Secret: args.secret }),
         signal: AbortSignal.timeout(10_000),
       },
