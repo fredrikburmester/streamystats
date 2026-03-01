@@ -15,6 +15,7 @@ import {
   isNotNull,
   isNull,
   notInArray,
+  or,
   sql,
 } from "drizzle-orm";
 import { getExclusionSettings } from "./exclusions";
@@ -69,16 +70,19 @@ export async function getRecentlyAddedItems(
 
   const libraryFilter =
     excludedLibraryIds.length > 0
-      ? exists(
-          db
-            .select({ one: sql`1` })
-            .from(itemLibraries)
-            .where(
-              and(
-                eq(itemLibraries.itemId, items.id),
-                notInArray(itemLibraries.libraryId, excludedLibraryIds),
+      ? or(
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(itemLibraries)
+              .where(
+                and(
+                  eq(itemLibraries.itemId, items.id),
+                  notInArray(itemLibraries.libraryId, excludedLibraryIds),
+                ),
               ),
-            ),
+          ),
+          sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
         )
       : undefined;
 
@@ -120,16 +124,19 @@ export async function getRecentlyAddedSeriesWithEpisodes(
 
   const libraryExclusion =
     excludedLibraryIds.length > 0
-      ? exists(
-          db
-            .select({ one: sql`1` })
-            .from(itemLibraries)
-            .where(
-              and(
-                eq(itemLibraries.itemId, items.id),
-                notInArray(itemLibraries.libraryId, excludedLibraryIds),
+      ? or(
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(itemLibraries)
+              .where(
+                and(
+                  eq(itemLibraries.itemId, items.id),
+                  notInArray(itemLibraries.libraryId, excludedLibraryIds),
+                ),
               ),
-            ),
+          ),
+          sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
         )
       : undefined;
 

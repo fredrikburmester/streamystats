@@ -15,6 +15,7 @@ import {
   exists,
   inArray,
   notInArray,
+  or,
   type SQL,
   sql,
 } from "drizzle-orm";
@@ -85,16 +86,19 @@ export async function getStatisticsExclusions(serverId: number | string) {
     // Uses EXISTS to check if item has at least one library NOT in the excluded list.
     // This correctly handles items that exist in multiple libraries.
     itemLibraryExclusion: hasLibraryExclusions
-      ? exists(
-          db
-            .select({ one: sql`1` })
-            .from(itemLibraries)
-            .where(
-              and(
-                eq(itemLibraries.itemId, items.id),
-                notInArray(itemLibraries.libraryId, excludedLibraryIds),
+      ? or(
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(itemLibraries)
+              .where(
+                and(
+                  eq(itemLibraries.itemId, items.id),
+                  notInArray(itemLibraries.libraryId, excludedLibraryIds),
+                ),
               ),
-            ),
+          ),
+          sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
         )
       : undefined,
 
@@ -134,16 +138,19 @@ export function buildLibraryExclusionCondition(
   if (excludedLibraryIds.length === 0) {
     return undefined;
   }
-  return exists(
-    db
-      .select({ one: sql`1` })
-      .from(itemLibraries)
-      .where(
-        and(
-          eq(itemLibraries.itemId, items.id),
-          notInArray(itemLibraries.libraryId, excludedLibraryIds),
+  return or(
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(itemLibraries)
+        .where(
+          and(
+            eq(itemLibraries.itemId, items.id),
+            notInArray(itemLibraries.libraryId, excludedLibraryIds),
+          ),
         ),
-      ),
+    ),
+    sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
   );
 }
 

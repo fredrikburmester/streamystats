@@ -184,16 +184,22 @@ async function getSeasonalRecommendationsCached(
           or(...searchConditions),
           // Exclude items that exist only in excluded libraries
           excludedLibraryIds.length > 0
-            ? exists(
-                db
-                  .select({ one: sql`1` })
-                  .from(itemLibraries)
-                  .where(
-                    and(
-                      eq(itemLibraries.itemId, items.id),
-                      notInArray(itemLibraries.libraryId, excludedLibraryIds),
+            ? or(
+                exists(
+                  db
+                    .select({ one: sql`1` })
+                    .from(itemLibraries)
+                    .where(
+                      and(
+                        eq(itemLibraries.itemId, items.id),
+                        notInArray(
+                          itemLibraries.libraryId,
+                          excludedLibraryIds,
+                        ),
+                      ),
                     ),
-                  ),
+                ),
+                sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
               )
             : sql`true`,
           excludeIds.length > 0 ? notInArray(items.id, excludeIds) : sql`true`,

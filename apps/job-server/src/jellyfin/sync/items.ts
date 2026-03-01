@@ -1010,6 +1010,20 @@ async function processValidItems(
   const updateResult = await processUpdates(itemsToUpdate);
   const unchangedCount = unchangedItems.length;
 
+  // Unchanged items still need library membership tracked
+  if (unchangedItems.length > 0) {
+    const libraryValues = unchangedItems.map((item) => ({
+      itemId: item.id,
+      libraryId: item.libraryId,
+    }));
+    for (let i = 0; i < libraryValues.length; i += 500) {
+      await db
+        .insert(itemLibraries)
+        .values(libraryValues.slice(i, i + 500))
+        .onConflictDoNothing();
+    }
+  }
+
   return {
     insertResult: insertResults.insertCount,
     updateResult,
@@ -1039,6 +1053,17 @@ async function processInserts(itemsToInsert: NewItem[]): Promise<{
 
     // Insert all items first (required before migrating sessions due to FK constraints)
     await db.insert(items).values(itemsToInsert);
+
+    // Populate item_libraries for all inserted items
+    await db
+      .insert(itemLibraries)
+      .values(
+        itemsToInsert.map((item) => ({
+          itemId: item.id,
+          libraryId: item.libraryId,
+        }))
+      )
+      .onConflictDoNothing();
 
     // After inserting, check each item for matches with deleted items and migrate data
     for (const item of itemsToInsert) {
@@ -1111,6 +1136,11 @@ async function processUpdates(itemsToUpdate: NewItem[]): Promise<number> {
           processed: false,
         })
         .where(and(eq(items.id, item.id), eq(items.serverId, item.serverId)));
+
+      await db
+        .insert(itemLibraries)
+        .values({ itemId: item.id, libraryId: item.libraryId })
+        .onConflictDoNothing();
 
       updateCount++;
     } catch (error) {
