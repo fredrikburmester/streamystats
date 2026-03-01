@@ -126,9 +126,23 @@ function SearchResultItem({
           </span>
         )}
       </div>
-      <span className="text-xs text-muted-foreground capitalize flex-shrink-0">
-        {result.subtype ?? result.type}
-      </span>
+      <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
+        <span className="text-xs text-muted-foreground capitalize">
+          {result.subtype ?? result.type}
+        </span>
+        {result.type === "item" && result.metadata?.libraryName && (
+          <span className="text-[10px] text-muted-foreground">
+            {result.metadata.libraryName}
+          </span>
+        )}
+        {(result.type === "activity" || result.type === "session") &&
+          result.metadata?.date && (
+            <span className="text-[10px] text-muted-foreground">
+              {new Date(result.metadata.date).toLocaleDateString()}{" "}
+              {new Date(result.metadata.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+      </div>
     </CommandItem>
   );
 }
@@ -263,6 +277,23 @@ export function GlobalSearch({ serverUrl }: GlobalSearchProps) {
                   </CommandGroup>
                 )}
 
+                {results.actors && results.actors.length > 0 && (
+                  <>
+                    <CommandSeparator />
+                    <CommandGroup heading="Cast & Crew">
+                      {results.actors.map((actor) => (
+                        <SearchResultItem
+                          key={`actor-${actor.id}`}
+                          result={actor}
+                          serverId={serverId}
+                          serverUrl={serverUrl}
+                          onSelect={handleSelect}
+                        />
+                      ))}
+                    </CommandGroup>
+                  </>
+                )}
+
                 {results.users.length > 0 && (
                   <>
                     <CommandSeparator />
@@ -322,23 +353,6 @@ export function GlobalSearch({ serverUrl }: GlobalSearchProps) {
                         <SearchResultItem
                           key={`session-${session.id}`}
                           result={session}
-                          serverId={serverId}
-                          serverUrl={serverUrl}
-                          onSelect={handleSelect}
-                        />
-                      ))}
-                    </CommandGroup>
-                  </>
-                )}
-
-                {results.actors && results.actors.length > 0 && (
-                  <>
-                    <CommandSeparator />
-                    <CommandGroup heading="Cast & Crew">
-                      {results.actors.map((actor) => (
-                        <SearchResultItem
-                          key={`actor-${actor.id}`}
-                          result={actor}
                           serverId={serverId}
                           serverUrl={serverUrl}
                           onSelect={handleSelect}

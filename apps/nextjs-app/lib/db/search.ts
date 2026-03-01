@@ -6,6 +6,7 @@ import {
   activities,
   db,
   items,
+  libraries,
   sessions,
   users,
   watchlists,
@@ -85,6 +86,7 @@ async function searchItems(
     primary_image_tag: string | null;
     series_primary_image_tag: string | null;
     series_id: string | null;
+    library_name: string | null;
     rank: number;
   }>(sql`
     SELECT
@@ -99,6 +101,7 @@ async function searchItems(
       ${items.primaryImageTag} as primary_image_tag,
       ${items.seriesPrimaryImageTag} as series_primary_image_tag,
       ${items.seriesId} as series_id,
+      ${libraries.name} as library_name,
       GREATEST(
         CASE
           WHEN search_vector IS NOT NULL
@@ -109,6 +112,7 @@ async function searchItems(
         COALESCE(word_similarity(${query}, ${items.seriesName}), 0)
       ) as rank
     FROM ${items}
+    LEFT JOIN ${libraries} ON ${items.libraryId} = ${libraries.id}
     WHERE ${items.serverId} = ${serverId}
       AND ${items.deletedAt} IS NULL
       AND (
@@ -152,6 +156,9 @@ async function searchItems(
       imageId,
       imageTag: imageTag ?? undefined,
       href: `/library/${item.id}`,
+      metadata: {
+        ...(item.library_name ? { libraryName: item.library_name } : {}),
+      },
       rank: item.rank,
     };
   });
