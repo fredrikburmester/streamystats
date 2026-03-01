@@ -412,6 +412,16 @@ async function processItem(
     );
   }
 
+  // Always track library membership, even for unchanged items.
+  // An item can exist in multiple libraries with the same ID,
+  // so we record each library it appears in.
+  if (!isNewItem) {
+    await db
+      .insert(itemLibraries)
+      .values({ itemId: jellyfinItem.Id, libraryId })
+      .onConflictDoNothing();
+  }
+
   // If item only needs media sources sync (no other changes), just sync media sources
   if (
     !isNewItem &&
