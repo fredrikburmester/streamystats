@@ -6,7 +6,7 @@ const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
  */
 export function jellyfinHeaders(token?: string): Record<string, string> {
   const parts = [
-    `Client="StreamyStats"`,
+    `Client="Streamystats"`,
     `Device="Server"`,
     `DeviceId="streamystats-server"`,
     `Version="${STREAMYSTATS_VERSION}"`,
