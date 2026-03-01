@@ -292,14 +292,14 @@ export const getTotalWatchTimeForUsers = async ({
 
   const stringUserIds = userIds.map((id) => String(id));
 
-  const { userExclusion, itemLibraryExclusion, requiresItemsJoin } =
+  const { userExclusion, itemLibraryExclusion } =
     await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [inArray(sessions.userId, stringUserIds)];
   if (userExclusion) {
     whereConditions.push(userExclusion);
   }
-  if (requiresItemsJoin && itemLibraryExclusion) {
+  if (itemLibraryExclusion) {
     whereConditions.push(itemLibraryExclusion);
   }
 
@@ -308,18 +308,13 @@ export const getTotalWatchTimeForUsers = async ({
     totalWatchTime: sum(sessions.playDuration),
   };
 
-  const results = requiresItemsJoin
-    ? await db
-        .select(selectFields)
-        .from(sessions)
-        .innerJoin(items, eq(sessions.itemId, items.id))
-        .where(and(...whereConditions))
-        .groupBy(sessions.userId)
-    : await db
-        .select(selectFields)
-        .from(sessions)
-        .where(and(...whereConditions))
-        .groupBy(sessions.userId);
+  // Always join items for consistent results with other queries
+  const results = await db
+    .select(selectFields)
+    .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
+    .where(and(...whereConditions))
+    .groupBy(sessions.userId);
 
   const watchTimeMap: UserWithWatchTime = {};
 
@@ -491,7 +486,7 @@ export const getUserStatsSummaryForServer = async ({
   userId?: string;
   itemType?: "Movie" | "Series" | "Episode" | "all";
 }): Promise<UserStatsSummary[]> => {
-  const { userExclusion, itemLibraryExclusion, hasLibraryExclusions } =
+  const { userExclusion, itemLibraryExclusion } =
     await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
@@ -522,9 +517,9 @@ export const getUserStatsSummaryForServer = async ({
   const needsItemTypeFilter =
     itemType && itemType !== "all" && itemType !== undefined;
 
-  // Need to join items if we have library exclusions OR item type filter
-  const needsItemJoin = needsItemTypeFilter || hasLibraryExclusions;
-
+  // Always join items for consistent results — without the join, orphaned
+  // sessions (no matching item) inflate per-user totals, then suddenly
+  // disappear when any library exclusion is enabled.
   let query = db
     .select({
       userId: sessions.userId,
@@ -533,24 +528,21 @@ export const getUserStatsSummaryForServer = async ({
       sessionCount: sql<number>`COUNT(${sessions.id})`.as("sessionCount"),
     })
     .from(sessions)
-    .leftJoin(users, eq(sessions.userId, users.id));
+    .leftJoin(users, eq(sessions.userId, users.id))
+    .innerJoin(items, eq(sessions.itemId, items.id));
 
-  if (needsItemJoin) {
-    query = query.innerJoin(items, eq(sessions.itemId, items.id));
-
-    if (needsItemTypeFilter) {
-      if (itemType === "Series") {
-        whereConditions.push(eq(items.type, "Episode"));
-      } else {
-        whereConditions.push(eq(items.type, itemType));
-      }
+  if (needsItemTypeFilter) {
+    if (itemType === "Series") {
+      whereConditions.push(eq(items.type, "Episode"));
+    } else {
+      whereConditions.push(eq(items.type, itemType));
     }
+  }
 
-    whereConditions.push(isNotNull(sessions.itemId));
+  whereConditions.push(isNotNull(sessions.itemId));
 
-    if (itemLibraryExclusion) {
-      whereConditions.push(itemLibraryExclusion);
-    }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   const results = await query
