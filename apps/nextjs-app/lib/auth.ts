@@ -13,6 +13,7 @@ import {
 import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";
 
+// In-memory rate limiter — per-process only; does not synchronize across instances.
 const qcInitTimestamps = new Map<number, number[]>();
 const QC_RATE_LIMIT = 5;
 const QC_RATE_WINDOW_MS = 60_000;
