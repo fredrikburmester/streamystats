@@ -85,22 +85,7 @@ export async function getStatisticsExclusions(serverId: number | string) {
     // For queries involving 'items' table (either direct or joined)
     // Uses EXISTS to check if item has at least one library NOT in the excluded list.
     // This correctly handles items that exist in multiple libraries.
-    itemLibraryExclusion: hasLibraryExclusions
-      ? or(
-          exists(
-            db
-              .select({ one: sql`1` })
-              .from(itemLibraries)
-              .where(
-                and(
-                  eq(itemLibraries.itemId, items.id),
-                  notInArray(itemLibraries.libraryId, excludedLibraryIds),
-                ),
-              ),
-          ),
-          sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
-        )
-      : undefined,
+    itemLibraryExclusion: buildLibraryExclusionCondition(excludedLibraryIds),
 
     // For 'users' table queries
     usersTableExclusion: hasUserExclusions

@@ -95,10 +95,7 @@ export async function getMostWatchedItems({
 
   const itemsData =
     itemIds.length > 0
-      ? await db
-          .select()
-          .from(items)
-          .where(inArray(items.id, itemIds))
+      ? await db.select().from(items).where(inArray(items.id, itemIds))
       : [];
 
   // Create a map for O(1) lookup

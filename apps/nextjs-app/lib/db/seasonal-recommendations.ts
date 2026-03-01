@@ -2,7 +2,7 @@
 
 import "server-only";
 
-import { db, itemLibraries } from "@streamystats/database";
+import { db } from "@streamystats/database";
 import {
   hiddenRecommendations,
   items,
@@ -14,7 +14,6 @@ import {
   cosineDistance,
   desc,
   eq,
-  exists,
   ilike,
   inArray,
   isNotNull,
@@ -25,7 +24,10 @@ import {
 } from "drizzle-orm";
 import { cacheLife } from "next/cache";
 import { getActiveHolidays, type Holiday } from "../holidays";
-import { getExclusionSettings } from "./exclusions";
+import {
+  buildLibraryExclusionCondition,
+  getExclusionSettings,
+} from "./exclusions";
 import { getMe } from "./users";
 
 export interface SeasonalRecommendationItem {
@@ -182,26 +184,7 @@ async function getSeasonalRecommendationsCached(
           isNull(items.deletedAt),
           inArray(items.type, ["Movie", "Series"]),
           or(...searchConditions),
-          // Exclude items that exist only in excluded libraries
-          excludedLibraryIds.length > 0
-            ? or(
-                exists(
-                  db
-                    .select({ one: sql`1` })
-                    .from(itemLibraries)
-                    .where(
-                      and(
-                        eq(itemLibraries.itemId, items.id),
-                        notInArray(
-                          itemLibraries.libraryId,
-                          excludedLibraryIds,
-                        ),
-                      ),
-                    ),
-                ),
-                sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
-              )
-            : sql`true`,
+          buildLibraryExclusionCondition(excludedLibraryIds),
           excludeIds.length > 0 ? notInArray(items.id, excludeIds) : sql`true`,
         ),
       )

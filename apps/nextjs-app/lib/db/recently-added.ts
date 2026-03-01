@@ -2,23 +2,22 @@
 
 import "server-only";
 
-import { db, itemLibraries } from "@streamystats/database";
+import { db } from "@streamystats/database";
 import { items } from "@streamystats/database/schema";
 import {
   and,
   count,
   desc,
   eq,
-  exists,
   gte,
   inArray,
   isNotNull,
   isNull,
-  notInArray,
-  or,
-  sql,
 } from "drizzle-orm";
-import { getExclusionSettings } from "./exclusions";
+import {
+  buildLibraryExclusionCondition,
+  getExclusionSettings,
+} from "./exclusions";
 import type {
   RecentlyAddedEpisode,
   RecentlyAddedItem,
@@ -68,23 +67,7 @@ export async function getRecentlyAddedItems(
   const exclusions = await getExclusionSettings(serverIdNum);
   const { excludedLibraryIds } = exclusions;
 
-  const libraryFilter =
-    excludedLibraryIds.length > 0
-      ? or(
-          exists(
-            db
-              .select({ one: sql`1` })
-              .from(itemLibraries)
-              .where(
-                and(
-                  eq(itemLibraries.itemId, items.id),
-                  notInArray(itemLibraries.libraryId, excludedLibraryIds),
-                ),
-              ),
-          ),
-          sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
-        )
-      : undefined;
+  const libraryFilter = buildLibraryExclusionCondition(excludedLibraryIds);
 
   const results = await db
     .select(itemSelect)
@@ -122,23 +105,7 @@ export async function getRecentlyAddedSeriesWithEpisodes(
   const exclusions = await getExclusionSettings(serverIdNum);
   const { excludedLibraryIds } = exclusions;
 
-  const libraryExclusion =
-    excludedLibraryIds.length > 0
-      ? or(
-          exists(
-            db
-              .select({ one: sql`1` })
-              .from(itemLibraries)
-              .where(
-                and(
-                  eq(itemLibraries.itemId, items.id),
-                  notInArray(itemLibraries.libraryId, excludedLibraryIds),
-                ),
-              ),
-          ),
-          sql`NOT EXISTS (SELECT 1 FROM item_libraries WHERE item_id = ${items.id})`,
-        )
-      : undefined;
+  const libraryExclusion = buildLibraryExclusionCondition(excludedLibraryIds);
 
   // 1. Get recently added episodes grouped by series
   const recentEpisodes = await db
