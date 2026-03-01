@@ -49,6 +49,11 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
 
     try {
       const result = await initiateQuickConnectLogin({ serverId });
+      if (!result.ok) {
+        setPhase("error");
+        setErrorMessage(result.error);
+        return;
+      }
       setCode(result.code);
       setPhase("waiting");
 

@@ -90,12 +90,21 @@ export const initiateQuickConnectLogin = async ({
   serverId,
 }: {
   serverId: number;
-}): Promise<{ secret: string; code: string }> => {
-  enforceQuickConnectRateLimit(serverId);
+}): Promise<
+  { ok: true; secret: string; code: string } | { ok: false; error: string }
+> => {
+  try {
+    enforceQuickConnectRateLimit(serverId);
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Rate limited",
+    };
+  }
 
   const server = await getServerWithSecrets({ serverId: serverId.toString() });
   if (!server) {
-    throw new Error("Server not found");
+    return { ok: false, error: "Server not found" };
   }
 
   const result = await initiateQuickConnect({
@@ -103,10 +112,10 @@ export const initiateQuickConnectLogin = async ({
   });
 
   if (!result.ok) {
-    throw new Error(result.error);
+    return { ok: false, error: result.error };
   }
 
-  return { secret: result.secret, code: result.code };
+  return { ok: true, secret: result.secret, code: result.code };
 };
 
 export const loginWithQuickConnect = async ({
