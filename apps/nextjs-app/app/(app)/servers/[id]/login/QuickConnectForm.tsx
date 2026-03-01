@@ -14,9 +14,10 @@ type Phase = "idle" | "initiating" | "waiting" | "authenticating" | "error";
 
 interface Props {
   serverId: number;
+  serverUrl: string;
 }
 
-export const QuickConnectForm: React.FC<Props> = ({ serverId }) => {
+export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [code, setCode] = useState<string>("");
@@ -122,7 +123,16 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId }) => {
       <div className="space-y-4">
         <div className="text-center">
           <p className="text-sm text-muted-foreground mb-2">
-            Enter this code in Jellyfin:
+            Enter this code in{" "}
+            <a
+              href={`${serverUrl}/web/#/quickconnect`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
+            >
+              Jellyfin QuickConnect settings
+            </a>
+            :
           </p>
           <p className="text-4xl font-mono font-bold tracking-widest">
             {code}

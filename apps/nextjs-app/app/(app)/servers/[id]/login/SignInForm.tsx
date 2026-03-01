@@ -106,7 +106,7 @@ export const SignInForm: React.FC<Props> = ({
                 />
               </TabsContent>
               <TabsContent value="quickconnect">
-                <QuickConnectForm serverId={server.id} />
+                <QuickConnectForm serverId={server.id} serverUrl={server.url} />
               </TabsContent>
             </Tabs>
           ) : (
