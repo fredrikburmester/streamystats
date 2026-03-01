@@ -8,6 +8,10 @@
         {
           "type": "generic",
           "path": "apps/job-server/src/jobs/server-jobs.ts"
+        },
+        {
+          "type": "generic",
+          "path": "apps/nextjs-app/lib/jellyfin-auth.ts"
         }
       ],
       "include-v-in-tag": true,

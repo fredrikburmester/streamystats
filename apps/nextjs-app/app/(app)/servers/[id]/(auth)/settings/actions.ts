@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod/v4";
 import { deleteServer as deleteServerFromDb } from "@/lib/db/server";
 import { isUserAdmin } from "@/lib/db/users";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 
 const deleteServerSchema = z.object({
   serverId: z.number().int().positive(),
@@ -132,10 +133,7 @@ export async function updateConnectionSettingsAction({
     try {
       const testResponse = await fetch(`${normalizedUrl}/System/Info`, {
         method: "GET",
-        headers: {
-          "X-Emby-Token": effectiveApiKey,
-          "Content-Type": "application/json",
-        },
+        headers: jellyfinHeaders(effectiveApiKey),
         signal: AbortSignal.timeout(5000),
       });
 
@@ -167,10 +165,7 @@ export async function updateConnectionSettingsAction({
             `${normalizedInternalUrl}/System/Info`,
             {
               method: "GET",
-              headers: {
-                "X-Emby-Token": effectiveApiKey,
-                "Content-Type": "application/json",
-              },
+              headers: jellyfinHeaders(effectiveApiKey),
               signal: AbortSignal.timeout(5000),
             },
           );

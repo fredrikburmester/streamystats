@@ -6,6 +6,7 @@ import type { Server } from "@streamystats/database";
 import { db, servers, users } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { jellyfinHeaders } from "./jellyfin-auth";
 import { getInternalUrl } from "./server-url";
 import { getSession, type SessionUser } from "./session";
 
@@ -54,10 +55,7 @@ export async function validateJellyfinToken(
   try {
     const response = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
-      headers: {
-        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${token}"`,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(token),
       signal: AbortSignal.timeout(5000),
     });
 
@@ -154,11 +152,7 @@ export async function validateApiKey({
     try {
       const response = await fetch(`${getInternalUrl(server)}/System/Info`, {
         method: "GET",
-        headers: {
-          Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${apiKey}"`,
-          "Content-Type": "application/json",
-        },
-        // Short timeout to avoid hanging requests
+        headers: jellyfinHeaders(apiKey),
         signal: AbortSignal.timeout(5000),
       });
 

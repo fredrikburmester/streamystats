@@ -1,4 +1,5 @@
 import { getServers } from "@/lib/db/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { createServer } from "@/lib/server";
 
 export async function GET() {
@@ -36,10 +37,7 @@ async function validateJellyfinAdmin(
   try {
     const response = await fetch(`${url}/Users/Me`, {
       method: "GET",
-      headers: {
-        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${apiKey}"`,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(apiKey),
       signal: AbortSignal.timeout(10000),
     });
 

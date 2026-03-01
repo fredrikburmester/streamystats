@@ -14,6 +14,7 @@ import {
   type RecommendationItem,
 } from "@/lib/db/similar-statistics";
 import { getMe, isUserAdmin } from "@/lib/db/users";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getToken } from "@/lib/token";
 import { CastSection } from "./CastSection";
 import { ItemHeader } from "./ItemHeader";
@@ -31,9 +32,7 @@ async function getItemPlayedStatus(
     const response = await fetch(
       `${serverUrl}/Users/${userId}/Items/${itemId}`,
       {
-        headers: {
-          Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${token}"`,
-        },
+        headers: jellyfinHeaders(token),
         signal: AbortSignal.timeout(5000),
         next: { revalidate: 60 },
       },

@@ -1,3 +1,16 @@
+const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
+
+/**
+ * Build the standard Jellyfin Authorization header.
+ * Uses MediaBrowser format required by Jellyfin 10.12+ (non-legacy auth).
+ */
+export function jellyfinHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${token}"`,
+    "Content-Type": "application/json",
+  };
+}
+
 type JellyfinUserMeResponse = {
   Id?: string;
   Name?: string;
@@ -47,10 +60,7 @@ export async function getUserFromEmbyToken(args: {
   try {
     const res = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
-      headers: {
-        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${token}"`,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(token),
       signal: AbortSignal.timeout(10_000),
     });
 
@@ -83,10 +93,7 @@ export async function getUserFromEmbyToken(args: {
         `${normalizeBaseUrl(args.serverUrl)}/System/Info`,
         {
           method: "GET",
-          headers: {
-            Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${args.token.trim()}"`,
-            "Content-Type": "application/json",
-          },
+          headers: jellyfinHeaders(args.token.trim()),
           signal: AbortSignal.timeout(5000),
         },
       );

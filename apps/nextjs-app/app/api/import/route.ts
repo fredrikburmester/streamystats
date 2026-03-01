@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
 import { getServerWithSecrets } from "@/lib/db/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 
 type JellyfinSystemInfo = { Id?: string };
 
@@ -28,10 +29,7 @@ async function tryFetchJellyfinSystemId({
   try {
     const res = await fetch(`${normalizeUrl(url)}/System/Info`, {
       method: "GET",
-      headers: {
-        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${apiKey}"`,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(apiKey),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;

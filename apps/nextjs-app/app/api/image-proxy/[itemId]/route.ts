@@ -1,6 +1,7 @@
 import { db, servers } from "@streamystats/database";
 import { ilike } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 
 async function getServerByName(name: string) {
@@ -41,7 +42,7 @@ export async function GET(
     const res = await fetch(jellyfinUrl, {
       method: "GET",
       headers: {
-        Authorization: `MediaBrowser Client="Streamystats", Version="${process.env.version}", Token="${server.apiKey}"`,
+        Authorization: jellyfinHeaders(server.apiKey).Authorization,
       },
     });
 
