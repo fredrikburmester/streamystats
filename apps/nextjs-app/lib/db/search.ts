@@ -106,13 +106,12 @@ async function searchItems(
           ELSE 0
         END,
         word_similarity(${query}, ${items.name}),
-        COALESCE(word_similarity(${query}, ${items.seriesName}), 0)
+        COALESCE(word_similarity(${query}, ${items.seriesName}), 0) * 0.6
       )
       * CASE ${items.type}
-          WHEN 'Movie' THEN 2.0
-          WHEN 'Series' THEN 2.0
-          WHEN 'Season' THEN 1.0
-          ELSE 0.8
+          WHEN 'Movie' THEN 1.2
+          WHEN 'Series' THEN 1.2
+          ELSE 1.0
         END
       as rank
     FROM ${items}
