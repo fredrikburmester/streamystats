@@ -2,6 +2,7 @@ import { eq, and, inArray, isNotNull, or, sql } from "drizzle-orm";
 import {
   db,
   items,
+  itemLibraries,
   libraries,
   sessions,
   hiddenRecommendations,
@@ -537,6 +538,12 @@ async function processItem(
         }),
       },
     });
+
+  // Track library membership in junction table
+  await db
+    .insert(itemLibraries)
+    .values({ itemId: jellyfinItem.Id, libraryId })
+    .onConflictDoNothing();
 
   // Sync media sources for this item and mark as synced
   await syncMediaSources(jellyfinItem, serverId);

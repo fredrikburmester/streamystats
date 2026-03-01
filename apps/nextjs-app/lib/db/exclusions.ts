@@ -2,13 +2,22 @@ import "server-only";
 
 import {
   db,
+  itemLibraries,
   items,
   libraries,
   servers,
   sessions,
   users,
 } from "@streamystats/database";
-import { and, eq, inArray, notInArray, type SQL } from "drizzle-orm";
+import {
+  and,
+  eq,
+  exists,
+  inArray,
+  notInArray,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 
 export interface ExclusionSettings {
   excludedUserIds: string[];
@@ -73,8 +82,20 @@ export async function getStatisticsExclusions(serverId: number | string) {
       : undefined,
 
     // For queries involving 'items' table (either direct or joined)
+    // Uses EXISTS to check if item has at least one library NOT in the excluded list.
+    // This correctly handles items that exist in multiple libraries.
     itemLibraryExclusion: hasLibraryExclusions
-      ? notInArray(items.libraryId, excludedLibraryIds)
+      ? exists(
+          db
+            .select({ one: sql`1` })
+            .from(itemLibraries)
+            .where(
+              and(
+                eq(itemLibraries.itemId, items.id),
+                notInArray(itemLibraries.libraryId, excludedLibraryIds),
+              ),
+            ),
+        )
       : undefined,
 
     // For 'users' table queries
@@ -104,7 +125,7 @@ export function buildUserExclusionCondition(
 
 /**
  * Build a SQL condition to exclude items from excluded libraries.
- * This should be used when joining sessions with items.
+ * Uses EXISTS subquery on item_libraries to handle items in multiple libraries.
  * Returns undefined if no libraries are excluded.
  */
 export function buildLibraryExclusionCondition(
@@ -113,12 +134,22 @@ export function buildLibraryExclusionCondition(
   if (excludedLibraryIds.length === 0) {
     return undefined;
   }
-  return notInArray(items.libraryId, excludedLibraryIds);
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(itemLibraries)
+      .where(
+        and(
+          eq(itemLibraries.itemId, items.id),
+          notInArray(itemLibraries.libraryId, excludedLibraryIds),
+        ),
+      ),
+  );
 }
 
 /**
- * Get item IDs that belong to excluded libraries.
- * Useful when you need to filter sessions without joining items table.
+ * Get item IDs that exist ONLY in excluded libraries.
+ * Items that also belong to a non-excluded library are kept.
  */
 export async function getExcludedItemIds(
   serverId: number,
@@ -128,13 +159,36 @@ export async function getExcludedItemIds(
     return [];
   }
 
+  // Find items that have at least one excluded library membership
+  // but NO non-excluded library membership
   const excludedItems = await db
     .select({ id: items.id })
     .from(items)
     .where(
       and(
         eq(items.serverId, serverId),
-        inArray(items.libraryId, excludedLibraryIds),
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(itemLibraries)
+            .where(
+              and(
+                eq(itemLibraries.itemId, items.id),
+                inArray(itemLibraries.libraryId, excludedLibraryIds),
+              ),
+            ),
+        ),
+        sql`NOT ${exists(
+          db
+            .select({ one: sql`1` })
+            .from(itemLibraries)
+            .where(
+              and(
+                eq(itemLibraries.itemId, items.id),
+                notInArray(itemLibraries.libraryId, excludedLibraryIds),
+              ),
+            ),
+        )}`,
       ),
     );
 

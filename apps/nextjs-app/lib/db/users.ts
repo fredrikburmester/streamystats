@@ -18,7 +18,7 @@ import {
 import { cookies } from "next/headers";
 import { getInternalUrl } from "../server-url";
 import { destroySession, getSession } from "../session";
-import { getExclusionSettings } from "./exclusions";
+import { getExclusionSettings, getStatisticsExclusions } from "./exclusions";
 import { isBetterDisplayName, normalizeGenre } from "./genres";
 import { getServer } from "./server";
 
@@ -287,8 +287,10 @@ interface UserWithWatchTime {
 
 export const getTotalWatchTimeForUsers = async ({
   userIds,
+  serverId,
 }: {
   userIds: string[] | number[];
+  serverId: string | number;
 }): Promise<UserWithWatchTime> => {
   if (userIds.length === 0) {
     return {};
@@ -296,14 +298,34 @@ export const getTotalWatchTimeForUsers = async ({
 
   const stringUserIds = userIds.map((id) => String(id));
 
-  const results = await db
-    .select({
-      userId: sessions.userId,
-      totalWatchTime: sum(sessions.playDuration),
-    })
-    .from(sessions)
-    .where(inArray(sessions.userId, stringUserIds))
-    .groupBy(sessions.userId);
+  const { userExclusion, itemLibraryExclusion, requiresItemsJoin } =
+    await getStatisticsExclusions(serverId);
+
+  const whereConditions: SQL[] = [inArray(sessions.userId, stringUserIds)];
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
+  }
+  if (requiresItemsJoin && itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
+
+  const selectFields = {
+    userId: sessions.userId,
+    totalWatchTime: sum(sessions.playDuration),
+  };
+
+  const results = requiresItemsJoin
+    ? await db
+        .select(selectFields)
+        .from(sessions)
+        .innerJoin(items, eq(sessions.itemId, items.id))
+        .where(and(...whereConditions))
+        .groupBy(sessions.userId)
+    : await db
+        .select(selectFields)
+        .from(sessions)
+        .where(and(...whereConditions))
+        .groupBy(sessions.userId);
 
   const watchTimeMap: UserWithWatchTime = {};
 
@@ -705,6 +727,21 @@ export const getUserGenreStats = async ({
   userId: string;
   serverId: string | number;
 }): Promise<GenreStat[]> => {
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
+
+  const whereConditions: SQL[] = [
+    eq(sessions.userId, userId),
+    eq(sessions.serverId, Number(serverId)),
+    inArray(items.type, ["Movie", "Episode", "Series"]),
+  ];
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
+  }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
+
   const sessionItems = await db
     .select({
       playDuration: sessions.playDuration,
@@ -712,13 +749,7 @@ export const getUserGenreStats = async ({
     })
     .from(sessions)
     .innerJoin(items, eq(sessions.itemId, items.id))
-    .where(
-      and(
-        eq(sessions.userId, userId),
-        eq(sessions.serverId, Number(serverId)),
-        inArray(items.type, ["Movie", "Episode", "Series"]),
-      ),
-    );
+    .where(and(...whereConditions));
 
   const genreMap: Record<
     string,
