@@ -22,11 +22,16 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId }) => {
   const [code, setCode] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearPolling = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
   }, []);
 
@@ -43,6 +48,13 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId }) => {
       const result = await initiateQuickConnectLogin({ serverId });
       setCode(result.code);
       setPhase("waiting");
+
+      const QC_TIMEOUT_MS = 5 * 60 * 1000;
+      timeoutRef.current = setTimeout(() => {
+        clearPolling();
+        setPhase("error");
+        setErrorMessage("QuickConnect code expired. Please try again.");
+      }, QC_TIMEOUT_MS);
 
       intervalRef.current = setInterval(async () => {
         try {
