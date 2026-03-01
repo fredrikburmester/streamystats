@@ -99,14 +99,25 @@ async function searchItems(
       ${items.primaryImageTag} as primary_image_tag,
       ${items.seriesPrimaryImageTag} as series_primary_image_tag,
       ${items.seriesId} as series_id,
-      GREATEST(
-        CASE
-          WHEN search_vector IS NOT NULL
-          THEN ts_rank_cd(search_vector, plainto_tsquery('english', ${searchQuery}))
-          ELSE 0
-        END,
-        word_similarity(${query}, ${items.name}),
-        COALESCE(word_similarity(${query}, ${items.seriesName}), 0)
+      (
+        GREATEST(
+          CASE
+            WHEN search_vector IS NOT NULL
+            THEN ts_rank_cd(search_vector, plainto_tsquery('english', ${searchQuery}))
+            ELSE 0
+          END,
+          word_similarity(${query}, ${items.name}),
+          CASE WHEN ${items.type} = 'Episode'
+            THEN COALESCE(word_similarity(${query}, ${items.seriesName}), 0) * 0.5
+            ELSE COALESCE(word_similarity(${query}, ${items.seriesName}), 0)
+          END
+        )
+        + CASE ${items.type}
+            WHEN 'Series' THEN 0.5
+            WHEN 'Movie' THEN 0.5
+            WHEN 'Season' THEN 0.2
+            ELSE 0.0
+          END
       ) as rank
     FROM ${items}
     WHERE ${items.serverId} = ${serverId}
