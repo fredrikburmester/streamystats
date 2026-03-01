@@ -46,9 +46,11 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId }) => {
 
       intervalRef.current = setInterval(async () => {
         try {
-          const res = await fetch(
-            `/api/quick-connect/status?serverId=${serverId}&secret=${encodeURIComponent(result.secret)}`,
-          );
+          const res = await fetch("/api/quick-connect/status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ serverId: String(serverId), secret: result.secret }),
+          });
           if (!res.ok) return;
           const data = (await res.json()) as { authenticated: boolean };
           if (data.authenticated) {
