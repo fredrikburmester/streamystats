@@ -130,6 +130,10 @@ export const loginWithQuickConnect = async ({
     throw new Error(result.error);
   }
 
+  if (!result.accessToken) {
+    throw new Error("Jellyfin did not return an access token");
+  }
+
   const secure = await shouldUseSecureCookies();
   const maxAge = 30 * 24 * 60 * 60;
 
@@ -140,14 +144,12 @@ export const loginWithQuickConnect = async ({
     isAdmin: result.user.isAdmin,
   });
 
-  if (result.accessToken) {
-    const c = await cookies();
-    c.set("streamystats-token", result.accessToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge,
-      secure,
-    });
-  }
+  const c = await cookies();
+  c.set("streamystats-token", result.accessToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge,
+    secure,
+  });
 };
