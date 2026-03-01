@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { getServersWithSecrets } from "@/lib/db/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET() {
@@ -39,11 +40,7 @@ export async function GET() {
           `${getInternalUrl(server)}/System/Ping`,
           {
             method: "GET",
-            headers: {
-              "X-Emby-Token": server.apiKey,
-              "Content-Type": "application/json",
-            },
-            // Short timeout to avoid hanging requests
+            headers: jellyfinHeaders(server.apiKey),
             signal: AbortSignal.timeout(3000),
           },
         );

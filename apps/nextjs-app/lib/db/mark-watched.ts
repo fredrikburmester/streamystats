@@ -13,6 +13,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 import { getSession } from "@/lib/session";
 
@@ -120,10 +121,7 @@ export async function markItemWatched(
       `${getInternalUrl(server)}/Users/${session.id}/PlayedItems/${itemId}`,
       {
         method,
-        headers: {
-          "X-Emby-Token": token,
-          "Content-Type": "application/json",
-        },
+        headers: jellyfinHeaders(token),
         signal: AbortSignal.timeout(10000),
       },
     );
