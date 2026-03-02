@@ -719,7 +719,10 @@ export const updateServerConnection = async ({
         `${normalizedUrl}/Users/AuthenticateByName`,
         {
           method: "POST",
-          headers: jellyfinHeaders(apiKey, crypto.randomUUID()),
+          headers: jellyfinHeaders(apiKey, {
+            id: crypto.randomUUID(),
+            name: "Streamystats Admin",
+          }),
           body: JSON.stringify({ Username: username, Pw: password }),
           signal: AbortSignal.timeout(5000),
         },

@@ -3,19 +3,13 @@ const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
 /**
  * Build the standard Jellyfin Authorization header.
  * Uses MediaBrowser format required by Jellyfin 10.12+ (non-legacy auth).
- *
- * @param token - Jellyfin API key or user access token
- * @param deviceId - Unique identifier per client/device. Jellyfin enforces one
- *   token per (UserId, DeviceId) pair — re-authenticating with the same DeviceId
- *   revokes the previous token. Pass a unique value per browser session to allow
- *   concurrent multi-device logins.
  */
 export function jellyfinHeaders(
   token: string,
-  deviceId?: string,
+  device?: { id: string; name: string },
 ): Record<string, string> {
-  const devicePart = deviceId
-    ? `, Device="Streamystats Web", DeviceId="${deviceId}"`
+  const devicePart = device
+    ? `, Device="${device.name}", DeviceId="${device.id}"`
     : "";
   return {
     Authorization: `MediaBrowser Client="Streamystats"${devicePart}, Version="${STREAMYSTATS_VERSION}", Token="${token}"`,
