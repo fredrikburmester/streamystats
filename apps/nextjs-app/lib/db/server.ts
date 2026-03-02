@@ -5,6 +5,7 @@ import "server-only";
 import { db, items, jobResults, servers } from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { and, count, desc, eq, sql } from "drizzle-orm";
+import { parseDeviceName } from "@/lib/device";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import type { ServerPublic } from "@/lib/types";
 
@@ -647,6 +648,7 @@ export const updateServerConnection = async ({
   apiKey,
   username,
   password,
+  userAgent,
 }: {
   serverId: number;
   url: string;
@@ -654,6 +656,7 @@ export const updateServerConnection = async ({
   apiKey: string;
   username: string;
   password?: string | null;
+  userAgent?: string;
 }): Promise<UpdateServerConnectionResult> => {
   try {
     // Validate URL format
@@ -721,7 +724,9 @@ export const updateServerConnection = async ({
           method: "POST",
           headers: jellyfinHeaders(apiKey, {
             id: crypto.randomUUID(),
-            name: "Streamystats Admin",
+            name: userAgent
+              ? parseDeviceName(userAgent)
+              : "Streamystats Web",
           }),
           body: JSON.stringify({ Username: username, Pw: password }),
           signal: AbortSignal.timeout(5000),
