@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getServer, getServers, getServerWithSecrets } from "@/lib/db/server";
+import { getServer, getServers } from "@/lib/db/server";
 import { checkQuickConnectEnabled } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 import { SignInForm } from "./SignInForm";
@@ -20,18 +20,17 @@ export default async function Page({
 
 async function LoginContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [serverWithSecrets, server, servers] = await Promise.all([
-    getServerWithSecrets({ serverId: id }),
+  const [server, servers] = await Promise.all([
     getServer({ serverId: id }),
     getServers(),
   ]);
 
-  if (!serverWithSecrets || !server) {
+  if (!server) {
     redirect("/not-found");
   }
 
   const quickConnectEnabled = await checkQuickConnectEnabled({
-    serverUrl: getInternalUrl(serverWithSecrets),
+    serverUrl: getInternalUrl(server),
   });
 
   return (
@@ -39,7 +38,7 @@ async function LoginContent({ params }: { params: Promise<{ id: string }> }) {
       server={server}
       servers={servers}
       quickConnectEnabled={quickConnectEnabled}
-      disablePasswordLogin={serverWithSecrets.disablePasswordLogin}
+      disablePasswordLogin={server.disablePasswordLogin}
     />
   );
 }
