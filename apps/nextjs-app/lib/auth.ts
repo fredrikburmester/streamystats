@@ -2,117 +2,36 @@
 
 import "server-only";
 
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
-import { getServerWithSecrets } from "./db/server";
+import { getServer, getServerWithSecrets } from "./db/server";
 import {
   authenticateWithQuickConnect,
   checkQuickConnectEnabled,
   initiateQuickConnect,
   jellyfinHeaders,
 } from "./jellyfin-auth";
+import { createRateLimiter, getClientIp } from "./rate-limit";
 import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";
 
-// Assumes a trusted reverse proxy strips and sets x-forwarded-for.
-// Without a trusted proxy, clients can spoof this header to bypass rate limiting.
-async function getClientIp(): Promise<string> {
-  const h = await headers();
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-}
+const qcInitLimiter = createRateLimiter({
+  limit: 5,
+  windowMs: 60_000,
+  message: "Too many QuickConnect attempts. Please try again later.",
+});
 
-// In-memory rate limiters — per-process only; does not synchronize across instances.
-const MAX_RATE_LIMIT_KEYS = 10_000;
+const qcCompleteLimiter = createRateLimiter({
+  limit: 5,
+  windowMs: 60_000,
+  message: "Too many QuickConnect attempts. Please try again later.",
+});
 
-function pruneExpiredEntries(map: Map<string, number[]>, windowMs: number) {
-  const now = Date.now();
-  for (const [key, timestamps] of map) {
-    const recent = timestamps.filter((t) => now - t < windowMs);
-    if (recent.length === 0) map.delete(key);
-    else map.set(key, recent);
-  }
-}
-
-const qcInitTimestamps = new Map<string, number[]>();
-const qcCompleteTimestamps = new Map<string, number[]>();
-const QC_RATE_LIMIT = 5;
-const QC_RATE_WINDOW_MS = 60_000;
-
-function enforceQuickConnectRateLimit(
-  serverId: number,
-  clientIp: string,
-): void {
-  const key = `${serverId}:${clientIp}`;
-  const now = Date.now();
-  const recent = (qcInitTimestamps.get(key) ?? []).filter(
-    (t) => now - t < QC_RATE_WINDOW_MS,
-  );
-  const effectiveLimit =
-    clientIp === "unknown"
-      ? Math.max(1, Math.floor(QC_RATE_LIMIT / 5))
-      : QC_RATE_LIMIT;
-  if (recent.length >= effectiveLimit) {
-    throw new Error("Too many QuickConnect attempts. Please try again later.");
-  }
-  if (!qcInitTimestamps.has(key) && qcInitTimestamps.size >= MAX_RATE_LIMIT_KEYS) {
-    throw new Error("Too many QuickConnect attempts. Please try again later.");
-  }
-  recent.push(now);
-  qcInitTimestamps.set(key, recent);
-}
-
-function enforceQuickConnectCompleteRateLimit(
-  serverId: number,
-  clientIp: string,
-): void {
-  const key = `${serverId}:${clientIp}`;
-  const now = Date.now();
-  const recent = (qcCompleteTimestamps.get(key) ?? []).filter(
-    (t) => now - t < QC_RATE_WINDOW_MS,
-  );
-  const effectiveLimit =
-    clientIp === "unknown"
-      ? Math.max(1, Math.floor(QC_RATE_LIMIT / 5))
-      : QC_RATE_LIMIT;
-  if (recent.length >= effectiveLimit) {
-    throw new Error("Too many QuickConnect attempts. Please try again later.");
-  }
-  if (!qcCompleteTimestamps.has(key) && qcCompleteTimestamps.size >= MAX_RATE_LIMIT_KEYS) {
-    throw new Error("Too many QuickConnect attempts. Please try again later.");
-  }
-  recent.push(now);
-  qcCompleteTimestamps.set(key, recent);
-}
-
-const loginTimestamps = new Map<string, number[]>();
-const LOGIN_RATE_LIMIT = 10;
-const LOGIN_RATE_WINDOW_MS = 60_000;
-
-function enforceLoginRateLimit(serverId: number, clientIp: string): void {
-  const key = `${serverId}:${clientIp}`;
-  const now = Date.now();
-  const recent = (loginTimestamps.get(key) ?? []).filter(
-    (t) => now - t < LOGIN_RATE_WINDOW_MS,
-  );
-  const effectiveLimit =
-    clientIp === "unknown"
-      ? Math.max(1, Math.floor(LOGIN_RATE_LIMIT / 5))
-      : LOGIN_RATE_LIMIT;
-  if (recent.length >= effectiveLimit) {
-    throw new Error("Too many login attempts. Please try again later.");
-  }
-  if (!loginTimestamps.has(key) && loginTimestamps.size >= MAX_RATE_LIMIT_KEYS) {
-    throw new Error("Too many login attempts. Please try again later.");
-  }
-  recent.push(now);
-  loginTimestamps.set(key, recent);
-}
-
-setInterval(() => {
-  pruneExpiredEntries(qcInitTimestamps, QC_RATE_WINDOW_MS);
-  pruneExpiredEntries(qcCompleteTimestamps, QC_RATE_WINDOW_MS);
-  pruneExpiredEntries(loginTimestamps, LOGIN_RATE_WINDOW_MS);
-}, 5 * 60_000).unref();
+const loginLimiter = createRateLimiter({
+  limit: 10,
+  windowMs: 60_000,
+  message: "Too many login attempts. Please try again later.",
+});
 
 export const login = async ({
   serverId,
@@ -124,7 +43,7 @@ export const login = async ({
   password?: string | null;
 }): Promise<void> => {
   const clientIp = await getClientIp();
-  enforceLoginRateLimit(serverId, clientIp);
+  loginLimiter.enforce(String(serverId), clientIp);
 
   const server = await getServerWithSecrets({ serverId: serverId.toString() });
 
@@ -191,7 +110,7 @@ export const initiateQuickConnectLogin = async ({
 > => {
   try {
     const clientIp = await getClientIp();
-    enforceQuickConnectRateLimit(serverId, clientIp);
+    qcInitLimiter.enforce(String(serverId), clientIp);
   } catch (e) {
     return {
       ok: false,
@@ -199,7 +118,7 @@ export const initiateQuickConnectLogin = async ({
     };
   }
 
-  const server = await getServerWithSecrets({ serverId: serverId.toString() });
+  const server = await getServer({ serverId });
   if (!server) {
     return { ok: false, error: "Server not found" };
   }
@@ -223,13 +142,13 @@ export const loginWithQuickConnect = async ({
   secret: string;
 }): Promise<void> => {
   const clientIp = await getClientIp();
-  enforceQuickConnectCompleteRateLimit(serverId, clientIp);
+  qcCompleteLimiter.enforce(String(serverId), clientIp);
 
   if (!/^[0-9a-f]{64}$/i.test(secret)) {
     throw new Error("Invalid QuickConnect secret");
   }
 
-  const server = await getServerWithSecrets({ serverId: serverId.toString() });
+  const server = await getServer({ serverId });
   if (!server) {
     throw new Error("Server not found");
   }
