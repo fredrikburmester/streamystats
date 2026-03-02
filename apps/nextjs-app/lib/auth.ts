@@ -46,7 +46,11 @@ function enforceQuickConnectRateLimit(
   const recent = (qcInitTimestamps.get(key) ?? []).filter(
     (t) => now - t < QC_RATE_WINDOW_MS,
   );
-  if (recent.length >= QC_RATE_LIMIT) {
+  const effectiveLimit =
+    clientIp === "unknown"
+      ? Math.max(1, Math.floor(QC_RATE_LIMIT / 5))
+      : QC_RATE_LIMIT;
+  if (recent.length >= effectiveLimit) {
     throw new Error("Too many QuickConnect attempts. Please try again later.");
   }
   if (!qcInitTimestamps.has(key) && qcInitTimestamps.size >= MAX_RATE_LIMIT_KEYS) {
@@ -66,7 +70,11 @@ function enforceLoginRateLimit(serverId: number, clientIp: string): void {
   const recent = (loginTimestamps.get(key) ?? []).filter(
     (t) => now - t < LOGIN_RATE_WINDOW_MS,
   );
-  if (recent.length >= LOGIN_RATE_LIMIT) {
+  const effectiveLimit =
+    clientIp === "unknown"
+      ? Math.max(1, Math.floor(LOGIN_RATE_LIMIT / 5))
+      : LOGIN_RATE_LIMIT;
+  if (recent.length >= effectiveLimit) {
     throw new Error("Too many login attempts. Please try again later.");
   }
   if (!loginTimestamps.has(key) && loginTimestamps.size >= MAX_RATE_LIMIT_KEYS) {

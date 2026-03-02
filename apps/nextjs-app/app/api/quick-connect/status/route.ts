@@ -31,7 +31,11 @@ function enforcePollRateLimit(ip: string): boolean {
   const recent = (pollTimestamps.get(ip) ?? []).filter(
     (t) => now - t < POLL_RATE_WINDOW_MS,
   );
-  if (recent.length >= POLL_RATE_LIMIT) return false;
+  const effectiveLimit =
+    ip === "unknown"
+      ? Math.max(1, Math.floor(POLL_RATE_LIMIT / 5))
+      : POLL_RATE_LIMIT;
+  if (recent.length >= effectiveLimit) return false;
   if (!pollTimestamps.has(ip) && pollTimestamps.size >= MAX_RATE_LIMIT_KEYS) return false;
   recent.push(now);
   pollTimestamps.set(ip, recent);
