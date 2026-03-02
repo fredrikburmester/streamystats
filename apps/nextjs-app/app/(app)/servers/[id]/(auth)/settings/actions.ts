@@ -4,9 +4,10 @@ import { db, servers } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod/v4";
-import { deleteServer as deleteServerFromDb } from "@/lib/db/server";
+import { deleteServer as deleteServerFromDb, getServer } from "@/lib/db/server";
 import { isUserAdmin } from "@/lib/db/users";
-import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { checkQuickConnectEnabled, jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 const deleteServerSchema = z.object({
   serverId: z.number().int().positive(),
@@ -317,6 +318,25 @@ export async function updatePasswordLoginAction(
       .where(eq(servers.id, parsed.data.serverId));
 
     revalidatePath(`/servers/${parsed.data.serverId}`);
+
+    if (parsed.data.disablePasswordLogin) {
+      const server = await getServer({
+        serverId: parsed.data.serverId.toString(),
+      });
+      if (server) {
+        const qcEnabled = await checkQuickConnectEnabled({
+          serverUrl: getInternalUrl(server),
+        });
+        if (!qcEnabled) {
+          return {
+            success: true,
+            warning: true,
+            message:
+              "Password login disabled, but QuickConnect is not enabled on your Jellyfin server. Password login will remain available as a fallback until QuickConnect is enabled.",
+          };
+        }
+      }
+    }
 
     return {
       success: true,

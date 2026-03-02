@@ -31,7 +31,9 @@ export function LoginMethodManager({
     setLoading(true);
     try {
       const result = await updatePasswordLoginAction(serverId, checked);
-      if (result.success) {
+      if (result.success && "warning" in result && result.warning) {
+        toast.warning(result.message);
+      } else if (result.success) {
         toast.success(result.message);
       } else {
         setDisabled(!checked);
