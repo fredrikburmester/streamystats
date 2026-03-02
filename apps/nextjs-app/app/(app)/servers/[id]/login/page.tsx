@@ -1,21 +1,10 @@
-import type { Server } from "@streamystats/database/schema";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getServers, getServerWithSecrets } from "@/lib/db/server";
+import { getServer, getServers, getServerWithSecrets } from "@/lib/db/server";
 import { checkQuickConnectEnabled } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
-import type { ServerPublic } from "@/lib/types";
 import { SignInForm } from "./SignInForm";
-
-function toPublic(s: Server): ServerPublic {
-  const { apiKey, embeddingApiKey, chatApiKey, ...rest } = s;
-  return {
-    ...rest,
-    hasEmbeddingApiKey: Boolean(embeddingApiKey),
-    hasChatApiKey: Boolean(chatApiKey),
-  };
-}
 
 export default async function Page({
   params,
@@ -31,12 +20,13 @@ export default async function Page({
 
 async function LoginContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [serverWithSecrets, servers] = await Promise.all([
+  const [serverWithSecrets, server, servers] = await Promise.all([
     getServerWithSecrets({ serverId: id }),
+    getServer({ serverId: id }),
     getServers(),
   ]);
 
-  if (!serverWithSecrets) {
+  if (!serverWithSecrets || !server) {
     redirect("/not-found");
   }
 
@@ -46,7 +36,7 @@ async function LoginContent({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <SignInForm
-      server={toPublic(serverWithSecrets)}
+      server={server}
       servers={servers}
       quickConnectEnabled={quickConnectEnabled}
       disablePasswordLogin={serverWithSecrets.disablePasswordLogin}
