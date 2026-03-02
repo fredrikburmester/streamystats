@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerWithSecrets } from "@/lib/db/server";
+import { getServer } from "@/lib/db/server";
 import { checkQuickConnectStatus } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const server = await getServerWithSecrets({ serverId });
+  const server = await getServer({ serverId });
   if (!server) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
