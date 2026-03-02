@@ -5,10 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/Spinner";
 import { Button } from "@/components/ui/button";
-import {
-  initiateQuickConnectLogin,
-  loginWithQuickConnect,
-} from "@/lib/auth";
+import { initiateQuickConnectLogin, loginWithQuickConnect } from "@/lib/auth";
 
 type Phase = "idle" | "initiating" | "waiting" | "authenticating" | "error";
 
@@ -74,7 +71,10 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
           const res = await fetch("/api/quick-connect/status", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ serverId: String(serverId), secret: result.secret }),
+            body: JSON.stringify({
+              serverId: String(serverId),
+              secret: result.secret,
+            }),
           });
           if (!res.ok) {
             consecutiveErrorsRef.current++;
@@ -106,7 +106,7 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
           consecutiveErrorsRef.current++;
           if (consecutiveErrorsRef.current >= 3) setPollWarning(true);
         }
-      }, 3000);
+      }, 5000);
     } catch (error) {
       setPhase("error");
       setErrorMessage(
@@ -156,9 +156,7 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
             </a>
             :
           </p>
-          <p className="text-4xl font-mono font-bold tracking-widest">
-            {code}
-          </p>
+          <p className="text-4xl font-mono font-bold tracking-widest">{code}</p>
         </div>
         <div className="flex flex-col items-center gap-1">
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
