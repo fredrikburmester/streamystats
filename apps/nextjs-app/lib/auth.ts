@@ -24,11 +24,16 @@ export const login = async ({
     throw new Error("Server not found");
   }
 
+  // Generate a unique device ID per browser session so Jellyfin tracks each
+  // login as a separate device. Without this, re-authenticating revokes the
+  // previous token and breaks multi-device sessions (#370).
+  const deviceId = crypto.randomUUID();
+
   const res = await fetch(
     `${getInternalUrl(server)}/Users/AuthenticateByName`,
     {
       method: "POST",
-      headers: jellyfinHeaders(server.apiKey),
+      headers: jellyfinHeaders(server.apiKey, deviceId),
       body: JSON.stringify({ Username: username, Pw: password }),
     },
   );

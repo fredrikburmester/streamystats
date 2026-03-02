@@ -713,12 +713,13 @@ export const updateServerConnection = async ({
         };
       }
 
-      // Authenticate user credentials against new server
+      // Authenticate user credentials against new server.
+      // Use a unique DeviceId so this doesn't revoke existing browser sessions.
       const authResponse = await fetch(
         `${normalizedUrl}/Users/AuthenticateByName`,
         {
           method: "POST",
-          headers: jellyfinHeaders(apiKey),
+          headers: jellyfinHeaders(apiKey, crypto.randomUUID()),
           body: JSON.stringify({ Username: username, Pw: password }),
           signal: AbortSignal.timeout(5000),
         },
