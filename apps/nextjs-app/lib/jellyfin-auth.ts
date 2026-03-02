@@ -165,7 +165,7 @@ export async function initiateQuickConnect(args: {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      return { ok: false, error: `Jellyfin returned ${res.status}` };
+      return { ok: false, error: "QuickConnect initiation failed" };
     }
     const json = (await res.json()) as QuickConnectInitiateResponse;
     const secret = asNonEmptyString(json.Secret);
@@ -206,7 +206,7 @@ export async function checkQuickConnectStatus(args: {
       },
     );
     if (!res.ok) {
-      return { ok: false, error: `Jellyfin returned ${res.status}` };
+      return { ok: false, error: "QuickConnect status check failed" };
     }
     const json = (await res.json()) as QuickConnectStatusResponse;
     return { ok: true, authenticated: json.Authenticated === true };
@@ -243,7 +243,7 @@ export async function authenticateWithQuickConnect(args: {
       if (res.status === 401) {
         return { ok: false, error: "QuickConnect authorization failed" };
       }
-      return { ok: false, error: `Jellyfin returned ${res.status}` };
+      return { ok: false, error: "QuickConnect authentication failed" };
     }
     const json = (await res.json()) as JellyfinAuthenticateByNameResponse;
     const id = asNonEmptyString(json.User?.Id);
