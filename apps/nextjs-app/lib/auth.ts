@@ -147,6 +147,8 @@ export const loginWithQuickConnect = async ({
   serverId: number;
   secret: string;
 }): Promise<void> => {
+  enforceQuickConnectRateLimit(serverId);
+
   const server = await getServerWithSecrets({ serverId: serverId.toString() });
   if (!server) {
     throw new Error("Server not found");
