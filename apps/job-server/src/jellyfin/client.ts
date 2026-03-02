@@ -366,16 +366,11 @@ export class JellyfinClient {
       ...config,
     };
 
-    // Use a stable DeviceId so the job-server always reuses the same Jellyfin
-    // device slot. This avoids creating a new device entry on every restart
-    // while keeping it distinct from browser sessions (#370).
-    const deviceId = `streamystats-job-server`;
-
     this.client = axios.create({
       baseURL: this.config.baseURL,
       timeout: this.config.timeout,
       headers: {
-        "Authorization": `MediaBrowser Client="Streamystats Job Server", Device="Streamystats Job Server", DeviceId="${deviceId}", Version="${STREAMYSTATS_VERSION}", Token="${this.config.apiKey}"`,
+        "Authorization": `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${this.config.apiKey}"`,
         "Content-Type": "application/json",
       },
     });
