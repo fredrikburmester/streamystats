@@ -1,53 +1,21 @@
 import { NextResponse } from "next/server";
 import { getServer } from "@/lib/db/server";
 import { checkQuickConnectStatus } from "@/lib/jellyfin-auth";
+import { createRateLimiter, getClientIpFromRequest } from "@/lib/rate-limit";
 import { getInternalUrl } from "@/lib/server-url";
 
-const pollTimestamps = new Map<string, number[]>();
-const MAX_RATE_LIMIT_KEYS = 10_000;
-const POLL_RATE_LIMIT = 30;
-const POLL_RATE_WINDOW_MS = 60_000;
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, timestamps] of pollTimestamps) {
-    const recent = timestamps.filter((t) => now - t < POLL_RATE_WINDOW_MS);
-    if (recent.length === 0) pollTimestamps.delete(key);
-    else pollTimestamps.set(key, recent);
-  }
-}, 5 * 60_000).unref();
-
-// Assumes a trusted reverse proxy (e.g. Docker Compose's nginx/traefik) strips
-// and sets x-forwarded-for. Without a trusted proxy, clients can spoof this header
-// to bypass rate limiting.
-function getClientIp(request: Request): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-  );
-}
-
-function enforcePollRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const recent = (pollTimestamps.get(ip) ?? []).filter(
-    (t) => now - t < POLL_RATE_WINDOW_MS,
-  );
-  const effectiveLimit =
-    ip === "unknown"
-      ? Math.max(1, Math.floor(POLL_RATE_LIMIT / 5))
-      : POLL_RATE_LIMIT;
-  if (recent.length >= effectiveLimit) return false;
-  if (!pollTimestamps.has(ip) && pollTimestamps.size >= MAX_RATE_LIMIT_KEYS) return false;
-  recent.push(now);
-  pollTimestamps.set(ip, recent);
-  return true;
-}
+const pollLimiter = createRateLimiter({
+  limit: 30,
+  windowMs: 60_000,
+  message: "Too many requests. Please try again later.",
+});
 
 export async function POST(request: Request) {
-  const clientIp = getClientIp(request);
-  if (!enforcePollRateLimit(clientIp)) {
+  const clientIp = getClientIpFromRequest(request);
+  if (!pollLimiter.check("poll", clientIp)) {
     return NextResponse.json(
       { error: "Too many requests. Please try again later." },
-      { status: 429 },
+      { status: 429, headers: { "Retry-After": "60" } },
     );
   }
 
@@ -66,10 +34,7 @@ export async function POST(request: Request) {
     !/^\d+$/.test(serverId) ||
     !/^[0-9a-f]{64}$/i.test(secret)
   ) {
-    return NextResponse.json(
-      { error: "Invalid request" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   const server = await getServer({ serverId });
@@ -83,10 +48,7 @@ export async function POST(request: Request) {
   });
 
   if (!result.ok) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: 502 },
-    );
+    return NextResponse.json({ error: result.error }, { status: 502 });
   }
 
   return NextResponse.json({ authenticated: result.authenticated });
