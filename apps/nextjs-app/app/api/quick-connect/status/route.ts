@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     !serverId ||
     !secret ||
     !/^\d+$/.test(serverId) ||
-    !/^[a-f0-9-]{20,50}$/i.test(secret)
+    !/^[0-9a-f]{64}$/i.test(secret)
   ) {
     return NextResponse.json(
       { error: "Invalid request" },
