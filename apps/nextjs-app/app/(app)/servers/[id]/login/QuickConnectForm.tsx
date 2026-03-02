@@ -24,6 +24,7 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [pollWarning, setPollWarning] = useState(false);
   const consecutiveErrorsRef = useRef(0);
+  const completingRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -43,6 +44,7 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
   }, [clearPolling]);
 
   const startQuickConnect = useCallback(async () => {
+    completingRef.current = false;
     setPhase("initiating");
     setErrorMessage("");
     clearPolling();
@@ -83,6 +85,8 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
           setPollWarning(false);
           const data = (await res.json()) as { authenticated: boolean };
           if (data.authenticated) {
+            if (completingRef.current) return;
+            completingRef.current = true;
             clearPolling();
             setPhase("authenticating");
             try {
@@ -93,6 +97,7 @@ export const QuickConnectForm: React.FC<Props> = ({ serverId, serverUrl }) => {
               toast.success("Logged in successfully");
               router.push(`/servers/${serverId}/dashboard`);
             } catch {
+              completingRef.current = false;
               setPhase("error");
               setErrorMessage("Failed to complete login");
             }
