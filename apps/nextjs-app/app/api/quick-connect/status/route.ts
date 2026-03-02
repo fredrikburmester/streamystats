@@ -54,7 +54,12 @@ export async function POST(request: Request) {
   const serverId = body.serverId;
   const secret = body.secret;
 
-  if (!serverId || !secret || !/^\d+$/.test(serverId)) {
+  if (
+    !serverId ||
+    !secret ||
+    !/^\d+$/.test(serverId) ||
+    !/^[a-f0-9-]{20,50}$/i.test(secret)
+  ) {
     return NextResponse.json(
       { error: "Invalid request" },
       { status: 400 },

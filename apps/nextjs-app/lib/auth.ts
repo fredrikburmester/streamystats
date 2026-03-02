@@ -184,6 +184,10 @@ export const loginWithQuickConnect = async ({
   const clientIp = await getClientIp();
   enforceQuickConnectRateLimit(serverId, clientIp);
 
+  if (!/^[a-f0-9-]{20,50}$/i.test(secret)) {
+    throw new Error("Invalid QuickConnect secret");
+  }
+
   const server = await getServerWithSecrets({ serverId: serverId.toString() });
   if (!server) {
     throw new Error("Server not found");
