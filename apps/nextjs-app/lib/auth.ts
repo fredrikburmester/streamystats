@@ -34,6 +34,7 @@ function pruneExpiredEntries(map: Map<string, number[]>, windowMs: number) {
 }
 
 const qcInitTimestamps = new Map<string, number[]>();
+const qcCompleteTimestamps = new Map<string, number[]>();
 const QC_RATE_LIMIT = 5;
 const QC_RATE_WINDOW_MS = 60_000;
 
@@ -58,6 +59,29 @@ function enforceQuickConnectRateLimit(
   }
   recent.push(now);
   qcInitTimestamps.set(key, recent);
+}
+
+function enforceQuickConnectCompleteRateLimit(
+  serverId: number,
+  clientIp: string,
+): void {
+  const key = `${serverId}:${clientIp}`;
+  const now = Date.now();
+  const recent = (qcCompleteTimestamps.get(key) ?? []).filter(
+    (t) => now - t < QC_RATE_WINDOW_MS,
+  );
+  const effectiveLimit =
+    clientIp === "unknown"
+      ? Math.max(1, Math.floor(QC_RATE_LIMIT / 5))
+      : QC_RATE_LIMIT;
+  if (recent.length >= effectiveLimit) {
+    throw new Error("Too many QuickConnect attempts. Please try again later.");
+  }
+  if (!qcCompleteTimestamps.has(key) && qcCompleteTimestamps.size >= MAX_RATE_LIMIT_KEYS) {
+    throw new Error("Too many QuickConnect attempts. Please try again later.");
+  }
+  recent.push(now);
+  qcCompleteTimestamps.set(key, recent);
 }
 
 const loginTimestamps = new Map<string, number[]>();
@@ -86,6 +110,7 @@ function enforceLoginRateLimit(serverId: number, clientIp: string): void {
 
 setInterval(() => {
   pruneExpiredEntries(qcInitTimestamps, QC_RATE_WINDOW_MS);
+  pruneExpiredEntries(qcCompleteTimestamps, QC_RATE_WINDOW_MS);
   pruneExpiredEntries(loginTimestamps, LOGIN_RATE_WINDOW_MS);
 }, 5 * 60_000).unref();
 
@@ -198,7 +223,7 @@ export const loginWithQuickConnect = async ({
   secret: string;
 }): Promise<void> => {
   const clientIp = await getClientIp();
-  enforceQuickConnectRateLimit(serverId, clientIp);
+  enforceQuickConnectCompleteRateLimit(serverId, clientIp);
 
   if (!/^[0-9a-f]{64}$/i.test(secret)) {
     throw new Error("Invalid QuickConnect secret");
