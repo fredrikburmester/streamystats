@@ -22,6 +22,8 @@ async function getClientIp(): Promise<string> {
 }
 
 // In-memory rate limiters — per-process only; does not synchronize across instances.
+const MAX_RATE_LIMIT_KEYS = 10_000;
+
 function pruneExpiredEntries(map: Map<string, number[]>, windowMs: number) {
   const now = Date.now();
   for (const [key, timestamps] of map) {
@@ -47,6 +49,9 @@ function enforceQuickConnectRateLimit(
   if (recent.length >= QC_RATE_LIMIT) {
     throw new Error("Too many QuickConnect attempts. Please try again later.");
   }
+  if (!qcInitTimestamps.has(key) && qcInitTimestamps.size >= MAX_RATE_LIMIT_KEYS) {
+    throw new Error("Too many QuickConnect attempts. Please try again later.");
+  }
   recent.push(now);
   qcInitTimestamps.set(key, recent);
 }
@@ -62,6 +67,9 @@ function enforceLoginRateLimit(serverId: number, clientIp: string): void {
     (t) => now - t < LOGIN_RATE_WINDOW_MS,
   );
   if (recent.length >= LOGIN_RATE_LIMIT) {
+    throw new Error("Too many login attempts. Please try again later.");
+  }
+  if (!loginTimestamps.has(key) && loginTimestamps.size >= MAX_RATE_LIMIT_KEYS) {
     throw new Error("Too many login attempts. Please try again later.");
   }
   recent.push(now);

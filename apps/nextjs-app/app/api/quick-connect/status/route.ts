@@ -4,6 +4,7 @@ import { checkQuickConnectStatus } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 
 const pollTimestamps = new Map<string, number[]>();
+const MAX_RATE_LIMIT_KEYS = 10_000;
 const POLL_RATE_LIMIT = 30;
 const POLL_RATE_WINDOW_MS = 60_000;
 
@@ -31,6 +32,7 @@ function enforcePollRateLimit(ip: string): boolean {
     (t) => now - t < POLL_RATE_WINDOW_MS,
   );
   if (recent.length >= POLL_RATE_LIMIT) return false;
+  if (!pollTimestamps.has(ip) && pollTimestamps.size >= MAX_RATE_LIMIT_KEYS) return false;
   recent.push(now);
   pollTimestamps.set(ip, recent);
   return true;
