@@ -19,6 +19,15 @@ async function getClientIp(): Promise<string> {
 }
 
 // In-memory rate limiters — per-process only; does not synchronize across instances.
+function pruneExpiredEntries(map: Map<string, number[]>, windowMs: number) {
+  const now = Date.now();
+  for (const [key, timestamps] of map) {
+    const recent = timestamps.filter((t) => now - t < windowMs);
+    if (recent.length === 0) map.delete(key);
+    else map.set(key, recent);
+  }
+}
+
 const qcInitTimestamps = new Map<string, number[]>();
 const QC_RATE_LIMIT = 5;
 const QC_RATE_WINDOW_MS = 60_000;
@@ -55,6 +64,11 @@ function enforceLoginRateLimit(serverId: number, clientIp: string): void {
   recent.push(now);
   loginTimestamps.set(key, recent);
 }
+
+setInterval(() => {
+  pruneExpiredEntries(qcInitTimestamps, QC_RATE_WINDOW_MS);
+  pruneExpiredEntries(loginTimestamps, LOGIN_RATE_WINDOW_MS);
+}, 5 * 60_000).unref();
 
 export const login = async ({
   serverId,

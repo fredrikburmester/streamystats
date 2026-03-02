@@ -7,6 +7,15 @@ const pollTimestamps = new Map<string, number[]>();
 const POLL_RATE_LIMIT = 30;
 const POLL_RATE_WINDOW_MS = 60_000;
 
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, timestamps] of pollTimestamps) {
+    const recent = timestamps.filter((t) => now - t < POLL_RATE_WINDOW_MS);
+    if (recent.length === 0) pollTimestamps.delete(key);
+    else pollTimestamps.set(key, recent);
+  }
+}, 5 * 60_000).unref();
+
 function getClientIp(request: Request): string {
   return (
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
