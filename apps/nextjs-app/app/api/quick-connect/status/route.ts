@@ -16,6 +16,9 @@ setInterval(() => {
   }
 }, 5 * 60_000).unref();
 
+// Assumes a trusted reverse proxy (e.g. Docker Compose's nginx/traefik) strips
+// and sets x-forwarded-for. Without a trusted proxy, clients can spoof this header
+// to bypass rate limiting.
 function getClientIp(request: Request): string {
   return (
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"

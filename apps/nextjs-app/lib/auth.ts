@@ -13,6 +13,8 @@ import {
 import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";
 
+// Assumes a trusted reverse proxy strips and sets x-forwarded-for.
+// Without a trusted proxy, clients can spoof this header to bypass rate limiting.
 async function getClientIp(): Promise<string> {
   const h = await headers();
   return h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
