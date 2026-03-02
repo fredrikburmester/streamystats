@@ -7,6 +7,7 @@ import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 import { getServerWithSecrets } from "./db/server";
 import {
   authenticateWithQuickConnect,
+  checkQuickConnectEnabled,
   initiateQuickConnect,
   jellyfinHeaders,
 } from "./jellyfin-auth";
@@ -91,7 +92,12 @@ export const login = async ({
   }
 
   if (server.disablePasswordLogin) {
-    throw new Error("Password login is disabled for this server");
+    const qcAvailable = await checkQuickConnectEnabled({
+      serverUrl: getInternalUrl(server),
+    });
+    if (qcAvailable) {
+      throw new Error("Password login is disabled for this server");
+    }
   }
 
   const res = await fetch(
