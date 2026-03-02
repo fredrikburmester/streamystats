@@ -325,7 +325,6 @@ export async function updatePasswordLoginAction(
         : "Password login enabled",
     };
   } catch (error) {
-    console.error("Server action - Error updating password login:", error);
     return {
       success: false,
       message:
