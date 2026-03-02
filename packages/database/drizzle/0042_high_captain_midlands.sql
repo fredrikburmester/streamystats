@@ -1,0 +1,1 @@
+ALTER TABLE "servers" ADD COLUMN "disable_password_login" boolean DEFAULT false NOT NULL;

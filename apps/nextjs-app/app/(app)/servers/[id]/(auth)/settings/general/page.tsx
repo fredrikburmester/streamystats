@@ -11,6 +11,7 @@ import { InferWatchtimeAdminManager } from "../InferWatchtimeAdminManager";
 import { MergeItemsManager } from "../MergeItemsManager";
 import { UpdateConnection } from "../UpdateConnection";
 import { VersionSection } from "../VersionSection";
+import { LoginMethodManager } from "./LoginMethodManager";
 import { TimezoneManager } from "./TimezoneManager";
 
 export default async function GeneralSettings(props: {
@@ -38,6 +39,12 @@ export default async function GeneralSettings(props: {
           serverId={server.id}
           currentTimezone={server.timezone}
         />
+        {isAdmin ? (
+          <LoginMethodManager
+            serverId={server.id}
+            disablePasswordLogin={server.disablePasswordLogin}
+          />
+        ) : null}
         <UpdateConnection
           serverId={server.id}
           url={server.url}
