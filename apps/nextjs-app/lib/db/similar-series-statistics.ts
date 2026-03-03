@@ -183,9 +183,7 @@ export const getSimilarSeriesForItem = async (
       item: result.item,
       similarity: Number(result.similarity),
       basedOn: [
-        stripEmbedding(
-          targetSeries as RecommendationCardItemWithEmbedding,
-        ),
+        stripEmbedding(targetSeries as RecommendationCardItemWithEmbedding),
       ],
     }));
   } catch (error) {
