@@ -16,46 +16,19 @@ import {
   sql,
 } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
-import { getProfileRecommendations } from "./recommendation-engine";
+import {
+  getProfileRecommendations,
+  type RecommendationCardItem,
+  type RecommendationResult,
+} from "./recommendation-engine";
 import { getMe } from "./users";
 
-const debugLog = (..._args: unknown[]) => {};
+export type SeriesRecommendationItem = RecommendationResult;
+export type SeriesRecommendationCardItem = RecommendationCardItem;
 
-export interface SeriesRecommendationItem {
-  item: SeriesRecommendationCardItem;
-  similarity: number;
-  basedOn: SeriesRecommendationCardItem[];
-}
-
-export interface SeriesRecommendationCardItem {
-  id: string;
-  name: string;
-  type: string | null;
-  productionYear: number | null;
-  runtimeTicks: number | null;
-  genres: string[] | null;
-  communityRating: number | null;
-
-  primaryImageTag: string | null;
-  primaryImageThumbTag: string | null;
-  primaryImageLogoTag: string | null;
-
-  backdropImageTags: string[] | null;
-
-  seriesId: string | null;
-  seriesPrimaryImageTag: string | null;
-
-  parentBackdropItemId: string | null;
-  parentBackdropImageTags: string[] | null;
-
-  parentThumbItemId: string | null;
-  parentThumbImageTag: string | null;
-}
-
-type SeriesRecommendationCardItemWithEmbedding =
-  SeriesRecommendationCardItem & {
-    embedding: Item["embedding"];
-  };
+type RecommendationCardItemWithEmbedding = RecommendationCardItem & {
+  embedding: Item["embedding"];
+};
 
 const itemCardSelect = {
   id: items.id,
@@ -99,8 +72,8 @@ const itemCardWithEmbeddingColumns = {
 } as const;
 
 const stripEmbedding = (
-  item: SeriesRecommendationCardItemWithEmbedding,
-): SeriesRecommendationCardItem => {
+  item: RecommendationCardItemWithEmbedding,
+): RecommendationCardItem => {
   const { embedding: _embedding, ...card } = item;
   return card;
 };
@@ -130,18 +103,15 @@ export async function getSimilarSeries(
   }
 
   try {
-    const results = await getProfileRecommendations(
+    return await getProfileRecommendations(
       serverIdNum,
       targetUserId,
       "Series",
       limit,
       offset,
     );
-
-    // Map to existing return type (basedOn is always [])
-    return results as SeriesRecommendationItem[];
   } catch (error) {
-    debugLog("❌ Error getting series recommendations:", error);
+    console.error("Error getting series recommendations:", error);
     return [];
   }
 }
@@ -214,12 +184,12 @@ export const getSimilarSeriesForItem = async (
       similarity: Number(result.similarity),
       basedOn: [
         stripEmbedding(
-          targetSeries as SeriesRecommendationCardItemWithEmbedding,
+          targetSeries as RecommendationCardItemWithEmbedding,
         ),
       ],
     }));
   } catch (error) {
-    debugLog("❌ Error getting similar series for item:", error);
+    console.error("Error getting similar series for item:", error);
     return [];
   }
 };
@@ -273,7 +243,7 @@ export const hideSeriesRecommendation = async (
       message: "Series recommendation hidden successfully",
     };
   } catch (error) {
-    debugLog("Error hiding series recommendation:", error);
+    console.error("Error hiding series recommendation:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

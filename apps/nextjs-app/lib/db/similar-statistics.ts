@@ -16,46 +16,14 @@ import {
   sql,
 } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
-import { getProfileRecommendations } from "./recommendation-engine";
+import {
+  getProfileRecommendations,
+  type RecommendationCardItem,
+  type RecommendationResult,
+} from "./recommendation-engine";
 import { getMe } from "./users";
 
-const debugLog = (..._args: unknown[]) => {};
-
-export type RecommendationTimeWindow = {
-  start?: Date;
-  end?: Date;
-};
-
-export interface RecommendationItem {
-  item: RecommendationCardItem;
-  similarity: number;
-  basedOn: RecommendationCardItem[];
-}
-
-export interface RecommendationCardItem {
-  id: string;
-  name: string;
-  type: string | null;
-  productionYear: number | null;
-  runtimeTicks: number | null;
-  genres: string[] | null;
-  communityRating: number | null;
-
-  primaryImageTag: string | null;
-  primaryImageThumbTag: string | null;
-  primaryImageLogoTag: string | null;
-
-  backdropImageTags: string[] | null;
-
-  seriesId: string | null;
-  seriesPrimaryImageTag: string | null;
-
-  parentBackdropItemId: string | null;
-  parentBackdropImageTags: string[] | null;
-
-  parentThumbItemId: string | null;
-  parentThumbImageTag: string | null;
-}
+export type RecommendationItem = RecommendationResult;
 
 type RecommendationCardItemWithEmbedding = RecommendationCardItem & {
   embedding: Item["embedding"];
@@ -120,7 +88,6 @@ export async function getSimilarStatistics(
   userId?: string,
   limit = 20,
   offset = 0,
-  _timeWindow?: RecommendationTimeWindow,
 ): Promise<RecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
@@ -135,18 +102,15 @@ export async function getSimilarStatistics(
   }
 
   try {
-    const results = await getProfileRecommendations(
+    return await getProfileRecommendations(
       serverIdNum,
       targetUserId,
       "Movie",
       limit,
       offset,
     );
-
-    // Map to existing return type (basedOn is always [])
-    return results as RecommendationItem[];
   } catch (error) {
-    debugLog("❌ Error getting movie recommendations:", error);
+    console.error("Error getting movie recommendations:", error);
     return [];
   }
 }
@@ -224,7 +188,7 @@ export const getSimilarItemsForItem = async (
       ],
     }));
   } catch (error) {
-    debugLog("❌ Error getting similar items for item:", error);
+    console.error("Error getting similar items for item:", error);
     return [];
   }
 };
@@ -278,7 +242,7 @@ export const hideRecommendation = async (
       message: "Recommendation hidden successfully",
     };
   } catch (error) {
-    debugLog("Error hiding recommendation:", error);
+    console.error("Error hiding recommendation:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

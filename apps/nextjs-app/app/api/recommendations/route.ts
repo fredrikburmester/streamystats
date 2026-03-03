@@ -288,10 +288,6 @@ async function buildRecommendationsResponse(args: {
       user.id,
       fetchLimit,
       0,
-      {
-        start: timeWindow.start,
-        end: timeWindow.end,
-      },
     );
   }
 

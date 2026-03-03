@@ -18,8 +18,6 @@ import {
   sql,
 } from "drizzle-orm";
 
-// ─── Shared select shapes ────────────────────────────────────────────────────
-
 const recommendationItemCardSelect = {
   id: items.id,
   name: items.name,
@@ -39,8 +37,6 @@ const recommendationItemCardSelect = {
   parentThumbItemId: items.parentThumbItemId,
   parentThumbImageTag: items.parentThumbImageTag,
 } as const;
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface RecommendationCardItem {
   id: string;
@@ -68,8 +64,6 @@ export interface RecommendationResult {
   basedOn: RecommendationCardItem[]; // Always [] for profile-based, kept for API compat
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 /** Boost factor for items added in the last 14 days */
 const FRESHNESS_BOOST = 1.1;
 const FRESHNESS_WINDOW_DAYS = 14;
@@ -86,8 +80,6 @@ const MIN_SIMILARITY = 0.05;
  * beyond that, consider a temp table or NOT EXISTS subquery.
  */
 const MAX_EXCLUSION_LIST_SIZE = 5000;
-
-// ─── Core engine ─────────────────────────────────────────────────────────────
 
 /**
  * Get recommendations using the pre-computed user taste profile.

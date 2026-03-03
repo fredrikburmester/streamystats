@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import { TIMEOUT_CONFIG } from "./config";
 import { logJobResult } from "./job-logger";
 import { sleep } from "../utils/sleep";
-import { toPgVectorLiteral } from "../utils/vector";
+import { toPgVectorLiteral } from "@streamystats/database/vector";
 import type { PgBossJob } from "../types/job-status";
 
 // Embedding configuration passed from job data

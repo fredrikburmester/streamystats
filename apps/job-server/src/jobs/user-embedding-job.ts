@@ -8,9 +8,7 @@ import {
 } from "@streamystats/database";
 import { and, eq, sql, isNotNull, gte } from "drizzle-orm";
 import type { PgBossJob } from "../types/job-status";
-import { normalizeVector, toPgVectorLiteral } from "../utils/vector";
-
-// ─── Constants ───────────────────────────────────────────────────────────────
+import { normalizeVector, toPgVectorLiteral } from "@streamystats/database/vector";
 
 export const USER_EMBEDDING_JOB_NAME = "calculate-user-embeddings";
 
@@ -40,13 +38,9 @@ const MOVIES_BOUNCE_THRESHOLD = 0.10;
 // Track if user embedding HNSW index has been ensured this session (per dimension)
 const userIndexEnsuredForDimension = new Set<number>();
 
-// ─── Job data ────────────────────────────────────────────────────────────────
-
 interface CalculateUserEmbeddingsJobData {
   serverId: number;
 }
-
-// ─── HNSW index helper ───────────────────────────────────────────────────────
 
 /**
  * Ensure an HNSW index exists on user_embeddings.embedding for the given
@@ -79,7 +73,7 @@ async function ensureUserEmbeddingIndex(dimensions: number): Promise<void> {
     if (existing.length > 0) {
       const def = existing[0].indexdef;
       const m = def.match(/vector\((\d+)\)/);
-      if (m && parseInt(m[1]) === dimensions) {
+      if (m && Number.parseInt(m[1], 10) === dimensions) {
         userIndexEnsuredForDimension.add(dimensions);
         return;
       }
@@ -105,8 +99,6 @@ async function ensureUserEmbeddingIndex(dimensions: number): Promise<void> {
   }
 }
 
-
-// ─── Per-user profile computation ────────────────────────────────────────────
 
 interface WatchedItemForProfile {
   itemId: string;
@@ -288,8 +280,6 @@ async function computeUserProfile(
     itemCount: watched.length,
   };
 }
-
-// ─── Main job handler ────────────────────────────────────────────────────────
 
 export async function calculateUserEmbeddingsJob(
   job: PgBossJob<CalculateUserEmbeddingsJobData>

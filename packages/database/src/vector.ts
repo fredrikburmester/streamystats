@@ -1,8 +1,4 @@
 /**
- * Shared vector math utilities for the recommendation/similarity layer.
- */
-
-/**
  * Normalize a vector to unit length.
  * Returns the original vector if the norm is near-zero (< 1e-10).
  */
