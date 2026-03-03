@@ -297,7 +297,12 @@ async function buildRecommendationsResponse(args: {
   }
 
   if (params.type === "Series" || params.type === "all") {
-    const seriesResponse = await getSimilarSeries(server.id, user.id, fetchLimit, 0);
+    const seriesResponse = await getSimilarSeries(
+      server.id,
+      user.id,
+      fetchLimit,
+      0,
+    );
     seriesResults = seriesResponse.results;
     seriesSource = seriesResponse.source;
   }

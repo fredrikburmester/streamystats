@@ -32,7 +32,12 @@ export const SimilarMovieStatistics = ({ data, source, server }: Props) => {
   };
 
   const fetchNextPage = async (offset: number) => {
-    const response = await getSimilarStatistics(server.id, undefined, 20, offset);
+    const response = await getSimilarStatistics(
+      server.id,
+      undefined,
+      20,
+      offset,
+    );
     return response.results;
   };
 

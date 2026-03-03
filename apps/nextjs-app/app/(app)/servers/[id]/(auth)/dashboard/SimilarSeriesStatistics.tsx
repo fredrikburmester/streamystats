@@ -4,8 +4,8 @@ import { Monitor } from "lucide-react";
 import {
   getSimilarSeries,
   hideSeriesRecommendation,
-  type SeriesRecommendationItem,
   type RecommendationSource,
+  type SeriesRecommendationItem,
 } from "@/lib/db/similar-series-statistics";
 import type { ServerPublic } from "@/lib/types";
 import { RecommendationsSection } from "./RecommendationsSection";

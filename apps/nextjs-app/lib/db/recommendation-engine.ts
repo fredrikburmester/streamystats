@@ -133,9 +133,7 @@ export async function getProfileRecommendations(
       })
       .from(userEmbeddings)
       .where(eq(userEmbeddings.serverId, serverId))
-      .having(
-        sql`COUNT(*) >= ${MIN_USERS_FOR_SERVER_FALLBACK}`,
-      );
+      .having(sql`COUNT(*) >= ${MIN_USERS_FOR_SERVER_FALLBACK}`);
 
     if (serverAvg.length === 0 || !serverAvg[0].embedding) {
       return { source: "none", results: [] };
@@ -146,8 +144,6 @@ export async function getProfileRecommendations(
   } else {
     profileVector = userProfile[0].embedding;
   }
-
-
 
   // ── 2. Get hidden + watched item IDs for exclusion ───────────────────────
   const [hiddenRows, watchedRows] = await Promise.all([

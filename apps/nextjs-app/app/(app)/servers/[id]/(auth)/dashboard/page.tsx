@@ -105,10 +105,18 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
         />
       )}
       {similarData.results.length > 0 && (
-        <SimilarMovieStatistics data={similarData.results} source={similarData.source} server={server} />
+        <SimilarMovieStatistics
+          data={similarData.results}
+          source={similarData.source}
+          server={server}
+        />
       )}
       {similarSeriesData.results.length > 0 && (
-        <SimilarSeriesStatistics data={similarSeriesData.results} source={similarSeriesData.source} server={server} />
+        <SimilarSeriesStatistics
+          data={similarSeriesData.results}
+          source={similarSeriesData.source}
+          server={server}
+        />
       )}
       <MostWatchedItems data={data} server={server} />
       {isAdmin ? <UserLeaderboard server={server} /> : null}
