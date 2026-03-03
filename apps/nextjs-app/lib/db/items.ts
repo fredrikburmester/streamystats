@@ -16,6 +16,7 @@ import {
   eq,
   inArray,
   isNotNull,
+  isNull,
   type SQL,
   sql,
   sum,
@@ -848,6 +849,7 @@ export const getAlmostDoneSeries = async ({
         eq(sessions.userId, userId),
         eq(items.type, "Episode"),
         isNotNull(items.seriesId),
+        isNull(items.deletedAt),
         isNotNull(sessions.playDuration),
         ...(itemLibraryExclusion ? [itemLibraryExclusion] : []),
       ),
@@ -873,7 +875,9 @@ export const getAlmostDoneSeries = async ({
     .from(items)
     .where(
       and(
+        eq(items.serverId, serverIdNum),
         eq(items.type, "Episode"),
+        isNull(items.deletedAt),
         inArray(items.seriesId, watchedSeriesIds),
         isNotNull(items.parentIndexNumber),
         isNotNull(items.indexNumber),

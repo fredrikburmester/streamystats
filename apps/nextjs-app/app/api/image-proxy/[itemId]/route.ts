@@ -1,6 +1,8 @@
 import { db, servers } from "@streamystats/database";
 import { ilike } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 async function getServerByName(name: string) {
   const result = await db
@@ -31,7 +33,7 @@ export async function GET(
 
   // Construct Jellyfin Image URL
   // Default to Primary image
-  let jellyfinUrl = `${server.url}/Items/${itemId}/Images/Primary`;
+  let jellyfinUrl = `${getInternalUrl(server)}/Items/${itemId}/Images/Primary`;
   if (tag) {
     jellyfinUrl += `?tag=${tag}`;
   }
@@ -39,12 +41,8 @@ export async function GET(
   try {
     const res = await fetch(jellyfinUrl, {
       method: "GET",
-      // Forward headers if needed, but usually image requests are public if they have the tag?
-      // Actually, Jellyfin images with ?tag= usually don't require auth if they are cached/public,
-      // BUT generally API access requires token.
-      // We should use the Server API Key to fetch the image.
       headers: {
-        "X-Emby-Token": server.apiKey,
+        Authorization: jellyfinHeaders(server.apiKey).Authorization,
       },
     });
 

@@ -22,7 +22,20 @@ export type Holiday = {
 };
 
 function getChineseZodiacAnimal(year: number): string {
-  const animals = ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig"];
+  const animals = [
+    "Rat",
+    "Ox",
+    "Tiger",
+    "Rabbit",
+    "Dragon",
+    "Snake",
+    "Horse",
+    "Goat",
+    "Monkey",
+    "Rooster",
+    "Dog",
+    "Pig",
+  ];
   return animals[(year - 4) % 12];
 }
 

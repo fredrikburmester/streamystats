@@ -24,6 +24,7 @@ export default async function ReconnectPage(props: {
           serverId={server.id}
           serverName={server.name}
           currentUrl={server.url}
+          currentInternalUrl={server.internalUrl}
           showUnreachableAlert={showUnreachableAlert}
         />
       </div>

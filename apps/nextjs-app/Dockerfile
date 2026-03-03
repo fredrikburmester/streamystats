@@ -50,7 +50,7 @@ RUN --mount=type=cache,target=/app/apps/nextjs-app/.next/cache \
     bun --bun next build --experimental-build-mode compile
 
 # Production runtime stage
-FROM node:24-alpine AS runner
+FROM node:22-alpine AS runner
 
 RUN apk add --no-cache libc6-compat vips curl
 

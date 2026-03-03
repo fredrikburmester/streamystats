@@ -112,6 +112,7 @@ export const servers = pgTable(
       .notNull()
       .default(0),
     localAddress: text("local_address"),
+    internalUrl: text("internal_url"),
     version: text("version"),
     productName: text("product_name"),
     operatingSystem: text("operating_system"),

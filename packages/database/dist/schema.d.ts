@@ -156,6 +156,23 @@ export declare const servers: import("drizzle-orm/pg-core").PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        internalUrl: import("drizzle-orm/pg-core").PgColumn<{
+            name: "internal_url";
+            tableName: "servers";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         version: import("drizzle-orm/pg-core").PgColumn<{
             name: "version";
             tableName: "servers";

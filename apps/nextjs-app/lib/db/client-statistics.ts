@@ -1,3 +1,5 @@
+import "server-only";
+
 import { db, sessions, users } from "@streamystats/database";
 import {
   and,

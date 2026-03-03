@@ -201,7 +201,7 @@ export function ActiveSessions({ server }: { server: ServerPublic }) {
                           >
                             <JellyfinAvatar
                               user={session.user}
-                              serverUrl={server.url}
+                              server={server}
                               className="h-6 w-6 rounded-lg transition-transform duration-200"
                             />
                             <span className="text-sm font-medium transition-colors duration-200 group-hover:text-primary">

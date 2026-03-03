@@ -21,8 +21,12 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-streamystats}
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@localhost:5432/${POSTGRES_DB:-streamystats}
       - SESSION_SECRET=${SESSION_SECRET}
+      # Stable encryption key for server action closures (prevents session breakage on redeploy)
+      - NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
       - NODE_ENV=production
       # Job server cron configuration (optional)
       - SESSION_POLL_INTERVAL_MS=${SESSION_POLL_INTERVAL_MS:-5000}

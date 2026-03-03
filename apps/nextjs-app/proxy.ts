@@ -3,6 +3,35 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { basePath } from "@/lib/utils";
 import { getServer, getServers } from "./lib/db/server";
+import { jellyfinHeaders } from "./lib/jellyfin-auth";
+import { getInternalUrl } from "./lib/server-url";
+
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy":
+    "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+};
+
+function applySecurityHeaders(
+  request: NextRequest,
+  response: NextResponse,
+): NextResponse {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(key, value);
+  }
+  const isHttps =
+    request.nextUrl.protocol === "https:" ||
+    request.headers.get("x-forwarded-proto") === "https";
+  if (isHttps) {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains",
+    );
+  }
+  return response;
+}
 
 /**
  * Middleware with Signed Session Authentication
@@ -20,9 +49,20 @@ import { getServer, getServers } from "./lib/db/server";
  * 4. Clear cookies and redirect to login if validation fails
  */
 
-const SESSION_SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || "fallback-dev-secret-change-in-production",
-);
+function getSessionSecret(): Uint8Array {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "SESSION_SECRET environment variable is required in production",
+      );
+    }
+    return new TextEncoder().encode("fallback-dev-secret-change-in-production");
+  }
+  return new TextEncoder().encode(secret);
+}
+
+const SESSION_SECRET = getSessionSecret();
 
 interface SessionUser {
   id: string;
@@ -75,7 +115,7 @@ const ADMIN_ONLY_SUB_PATHS: Record<string, string[]> = {
   dashboard: ["security"],
 };
 const ADMIN_ONLY_USER_SUB_PATHS = ["security"];
-const PUBLIC_PATHS = ["login", "reconnect"];
+const PUBLIC_PATHS = ["login", "reconnect", "setup"];
 
 const BASE_PATH_REGEX = basePath.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 
@@ -203,12 +243,9 @@ const validateJellyfinToken = async (
   }
 
   try {
-    const jellyfinResponse = await fetch(`${server.url}/Users/Me`, {
+    const jellyfinResponse = await fetch(`${getInternalUrl(server)}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": tokenCookie.value,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(tokenCookie.value),
       signal: AbortSignal.timeout(5000),
     });
 
@@ -266,6 +303,10 @@ const validateJellyfinToken = async (
 };
 
 export async function proxy(request: NextRequest) {
+  return applySecurityHeaders(request, await handleProxy(request));
+}
+
+async function handleProxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const { id, page, subPage, name, userSubPage } = parsePathname(pathname);
 

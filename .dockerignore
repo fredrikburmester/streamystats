@@ -9,3 +9,11 @@
 **/.cache
 
 npm-debug.log
+
+# Environment files (may contain secrets)
+.env
+.env.*
+.env.local
+.env.production
+.env.development
+!.env.example
