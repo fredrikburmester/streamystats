@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type {
   RecommendationItem,
   RecommendationSource,
-} from "@/lib/db/similar-statistics";
+} from "@/lib/db/recommendation-types";
 import type { ServerPublic } from "@/lib/types";
 
 const SimilarStatistics = dynamic(
