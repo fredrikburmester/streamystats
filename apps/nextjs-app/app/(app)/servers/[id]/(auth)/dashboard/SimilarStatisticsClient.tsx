@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { RecommendationItem } from "@/lib/db/similar-statistics";
+import type { RecommendationItem, RecommendationSource } from "@/lib/db/similar-statistics";
 import type { ServerPublic } from "@/lib/types";
 
 const SimilarStatistics = dynamic(
@@ -20,9 +20,10 @@ const SimilarStatistics = dynamic(
 
 interface Props {
   data: RecommendationItem[];
+  source: RecommendationSource;
   server: ServerPublic;
 }
 
-export function SimilarStatisticsClient({ data, server }: Props) {
-  return <SimilarStatistics data={data} server={server} />;
+export function SimilarStatisticsClient({ data, source, server }: Props) {
+  return <SimilarStatistics data={data} source={source} server={server} />;
 }

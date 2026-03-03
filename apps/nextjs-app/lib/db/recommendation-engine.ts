@@ -64,6 +64,13 @@ export interface RecommendationResult {
   basedOn: RecommendationCardItem[]; // Always [] for profile-based, kept for API compat
 }
 
+export type RecommendationSource = "user" | "server" | "none";
+
+export interface ProfileRecommendationsResponse {
+  source: RecommendationSource;
+  results: RecommendationResult[];
+}
+
 /** Boost factor for items added in the last 14 days */
 const FRESHNESS_BOOST = 1.1;
 const FRESHNESS_WINDOW_DAYS = 14;
@@ -73,6 +80,13 @@ const FRESHNESS_WINDOW_DAYS = 14;
  * Filters out noise from items with near-zero or negative cosine similarity.
  */
 const MIN_SIMILARITY = 0.05;
+
+/**
+ * Minimum number of users with embeddings required on the server
+ * before the server-average fallback is used. Prevents leaking
+ * individual preferences on very small servers.
+ */
+const MIN_USERS_FOR_SERVER_FALLBACK = 3;
 
 /**
  * Maximum number of item IDs to pass in the exclusion list.
@@ -95,7 +109,7 @@ export async function getProfileRecommendations(
   targetType: "Movie" | "Series",
   limit: number,
   offset: number = 0,
-): Promise<RecommendationResult[]> {
+): Promise<ProfileRecommendationsResponse> {
   // ── 1. Fetch pre-computed user profile ───────────────────────────────────
   const userProfile = await db
     .select({ embedding: userEmbeddings.embedding })
@@ -108,12 +122,32 @@ export async function getProfileRecommendations(
     )
     .limit(1);
 
+  let source: RecommendationSource = "user";
+  let profileVector: number[];
+
   if (userProfile.length === 0 || !userProfile[0].embedding) {
-    // No profile yet — return empty. The old logic can be used as fallback by callers.
-    return [];
+    // No user profile — try server-wide average as fallback
+    const serverAvg = await db
+      .select({
+        embedding: sql<number[]>`AVG(${userEmbeddings.embedding})`,
+      })
+      .from(userEmbeddings)
+      .where(eq(userEmbeddings.serverId, serverId))
+      .having(
+        sql`COUNT(*) >= ${MIN_USERS_FOR_SERVER_FALLBACK}`,
+      );
+
+    if (serverAvg.length === 0 || !serverAvg[0].embedding) {
+      return { source: "none", results: [] };
+    }
+
+    profileVector = serverAvg[0].embedding;
+    source = "server";
+  } else {
+    profileVector = userProfile[0].embedding;
   }
 
-  const profileVector = userProfile[0].embedding;
+
 
   // ── 2. Get hidden + watched item IDs for exclusion ───────────────────────
   const [hiddenRows, watchedRows] = await Promise.all([
@@ -207,9 +241,12 @@ export async function getProfileRecommendations(
     .offset(offset);
 
   // ── 4. Map to result shape ────────────────────────────────────────────────
-  return candidates.map((row) => ({
-    item: row.item,
-    similarity: Number(row.similarity),
-    basedOn: [], // Profile-based — no individual attribution
-  }));
+  return {
+    source,
+    results: candidates.map((row) => ({
+      item: row.item,
+      similarity: Number(row.similarity),
+      basedOn: [], // Profile-based — no individual attribution
+    })),
+  };
 }

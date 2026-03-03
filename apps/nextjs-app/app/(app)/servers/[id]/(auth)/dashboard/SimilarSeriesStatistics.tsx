@@ -5,24 +5,36 @@ import {
   getSimilarSeries,
   hideSeriesRecommendation,
   type SeriesRecommendationItem,
+  type RecommendationSource,
 } from "@/lib/db/similar-series-statistics";
 import type { ServerPublic } from "@/lib/types";
 import { RecommendationsSection } from "./RecommendationsSection";
 
 interface Props {
   data: SeriesRecommendationItem[];
+  source: RecommendationSource;
   server: ServerPublic;
 }
 
-export const SimilarSeriesStatistics = ({ data, server }: Props) => {
+export const SimilarSeriesStatistics = ({ data, source, server }: Props) => {
   const fetchNextPage = async (offset: number) => {
-    return getSimilarSeries(server.id, undefined, 20, offset);
+    const response = await getSimilarSeries(server.id, undefined, 20, offset);
+    return response.results;
   };
+
+  const title =
+    source === "server"
+      ? "Popular Series on This Server"
+      : "Recommended Series for You";
+  const description =
+    source === "server"
+      ? "Series that are popular among users on this server"
+      : "Personalized recommendations based on your viewing history";
 
   return (
     <RecommendationsSection
-      title="Recommended Series for You"
-      description="Personalized recommendations based on your viewing history"
+      title={title}
+      description={description}
       icon={Monitor}
       recommendations={data}
       server={server}
