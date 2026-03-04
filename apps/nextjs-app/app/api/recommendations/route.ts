@@ -17,7 +17,6 @@ import {
 import {
   getSimilarStatistics,
   type RecommendationItem,
-  type RecommendationSource,
 } from "@/lib/db/similar-statistics";
 import { authenticateByName } from "@/lib/jellyfin-auth";
 
@@ -282,35 +281,18 @@ async function buildRecommendationsResponse(args: {
   // Fetch from appropriate sources based on type
   let movieResults: RecommendationItem[] = [];
   let seriesResults: SeriesRecommendationItem[] = [];
-  let movieSource: RecommendationSource = "none";
-  let seriesSource: RecommendationSource = "none";
 
   if (params.type === "Movie" || params.type === "all") {
-    const movieResponse = await getSimilarStatistics(
+    movieResults = await getSimilarStatistics(
       server.id,
       user.id,
       fetchLimit,
       0,
     );
-    movieResults = movieResponse.results;
-    movieSource = movieResponse.source;
   }
 
   if (params.type === "Series" || params.type === "all") {
-    const seriesResponse = await getSimilarSeries(server.id, user.id, fetchLimit, 0);
-    seriesResults = seriesResponse.results;
-    seriesSource = seriesResponse.source;
-  }
-
-  // Derive overall source: if any is "server", overall is "server";
-  // if both "none", overall is "none"; otherwise "user"
-  let source: RecommendationSource;
-  if (movieSource === "none" && seriesSource === "none") {
-    source = "none";
-  } else if (movieSource === "server" || seriesSource === "server") {
-    source = "server";
-  } else {
-    source = "user";
+    seriesResults = await getSimilarSeries(server.id, user.id, fetchLimit, 0);
   }
 
   // Combine and sort by similarity (both types have compatible structure)
@@ -339,7 +321,7 @@ async function buildRecommendationsResponse(args: {
       total: movies.length + series.length,
     };
 
-    return { source, data: idsResponse };
+    return { data: idsResponse };
   }
 
   // Full format (default)
@@ -372,7 +354,6 @@ async function buildRecommendationsResponse(args: {
   });
 
   return {
-    source,
     server: { id: server.id, name: server.name },
     user: { id: user.id, name: user.name },
     params: {

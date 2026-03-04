@@ -5,18 +5,16 @@ import {
   getSimilarStatistics,
   hideRecommendation,
   type RecommendationItem,
-  type RecommendationSource,
 } from "@/lib/db/similar-statistics";
 import type { ServerPublic } from "@/lib/types";
 import { RecommendationsSection } from "./RecommendationsSection";
 
 interface Props {
   data: RecommendationItem[];
-  source: RecommendationSource;
   server: ServerPublic;
 }
 
-export const SimilarMovieStatistics = ({ data, source, server }: Props) => {
+export const SimilarMovieStatistics = ({ data, server }: Props) => {
   const formatRuntime = (ticks: number | null) => {
     if (!ticks) {
       return null;
@@ -32,23 +30,13 @@ export const SimilarMovieStatistics = ({ data, source, server }: Props) => {
   };
 
   const fetchNextPage = async (offset: number) => {
-    const response = await getSimilarStatistics(server.id, undefined, 20, offset);
-    return response.results;
+    return getSimilarStatistics(server.id, undefined, 20, offset);
   };
-
-  const title =
-    source === "server"
-      ? "Popular Movies on This Server"
-      : "Recommended Movies for You";
-  const description =
-    source === "server"
-      ? "Movies that are popular among users on this server"
-      : "Personalized recommendations based on your viewing history";
 
   return (
     <RecommendationsSection
-      title={title}
-      description={description}
+      title="Recommended Movies for You"
+      description="Personalized recommendations based on your viewing history"
       icon={Film}
       recommendations={data}
       server={server}

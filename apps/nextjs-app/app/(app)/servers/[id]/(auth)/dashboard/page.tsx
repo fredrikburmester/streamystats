@@ -104,11 +104,11 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
           userId={me.id}
         />
       )}
-      {similarData.results.length > 0 && (
-        <SimilarMovieStatistics data={similarData.results} source={similarData.source} server={server} />
+      {similarData.length > 0 && (
+        <SimilarMovieStatistics data={similarData} server={server} />
       )}
-      {similarSeriesData.results.length > 0 && (
-        <SimilarSeriesStatistics data={similarSeriesData.results} source={similarSeriesData.source} server={server} />
+      {similarSeriesData.length > 0 && (
+        <SimilarSeriesStatistics data={similarSeriesData} server={server} />
       )}
       <MostWatchedItems data={data} server={server} />
       {isAdmin ? <UserLeaderboard server={server} /> : null}

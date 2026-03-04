@@ -306,7 +306,7 @@ export function createChatTools(serverId: number, userId: string) {
         "Get personalized movie and series recommendations based on user's taste profile computed from their watch history using AI embeddings. Recommendations include a similarity score and a reason field. Use this data when presenting recommendations to explain relevance.",
       inputSchema: limitTypeSchema,
       execute: async ({ limit, type }: z.infer<typeof limitTypeSchema>) => {
-        const { source, results: recommendations } = await getSimilarStatistics(
+        const recommendations = await getSimilarStatistics(
           serverId,
           userId,
           limit * 2,
@@ -327,9 +327,7 @@ export function createChatTools(serverId: number, userId: string) {
           const uniqueSharedGenres = [...new Set(sharedGenres)];
 
           let reason = "";
-          if (source === "server") {
-            reason = "Popular on this server";
-          } else if (basedOnItems.length > 0) {
+          if (basedOnItems.length > 0) {
             const baseNames = basedOnItems.map((b) => b.name);
             if (basedOnItems.length === 1) {
               reason = `Because you watched "${baseNames[0]}"`;
@@ -361,13 +359,10 @@ export function createChatTools(serverId: number, userId: string) {
         });
 
         return {
-          source,
           recommendations: enrichedRecs,
           message:
             enrichedRecs.length > 0
-              ? source === "server"
-                ? `Found ${enrichedRecs.length} popular recommendations on this server`
-                : `Found ${enrichedRecs.length} personalized recommendations with reasoning`
+              ? `Found ${enrichedRecs.length} personalized recommendations with reasoning`
               : "Unable to generate recommendations. Make sure embeddings are configured and you have watch history.",
         };
       },
@@ -680,12 +675,10 @@ export function createChatTools(serverId: number, userId: string) {
           };
         }
 
-        const [currentUserRecsResponse, otherUserRecsResponse] = await Promise.all([
+        const [currentUserRecs, otherUserRecs] = await Promise.all([
           getSimilarStatistics(serverId, userId, 50),
           getSimilarStatistics(serverId, otherUser.id, 50),
         ]);
-        const currentUserRecs = currentUserRecsResponse.results;
-        const otherUserRecs = otherUserRecsResponse.results;
 
         const currentUserRecIds = new Set(
           currentUserRecs.map((r) => r.item.id),

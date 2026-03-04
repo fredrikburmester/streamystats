@@ -20,16 +20,13 @@ import {
 import { revalidateTag } from "next/cache";
 import {
   getProfileRecommendations,
-  type ProfileRecommendationsResponse,
   type RecommendationCardItem,
   type RecommendationResult,
-  type RecommendationSource,
 } from "./recommendation-engine";
 import { getMe } from "./users";
 
 export type SeriesRecommendationItem = RecommendationResult;
 export type SeriesRecommendationCardItem = RecommendationCardItem;
-export type { ProfileRecommendationsResponse, RecommendationSource };
 
 type RecommendationCardItemWithEmbedding = RecommendationCardItem & {
   embedding: Item["embedding"];
@@ -94,7 +91,7 @@ export async function getSimilarSeries(
   userId?: string,
   limit = 20,
   offset = 0,
-): Promise<ProfileRecommendationsResponse> {
+): Promise<SeriesRecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
   let targetUserId = userId;
@@ -103,7 +100,7 @@ export async function getSimilarSeries(
     if (currentUser && currentUser.serverId === serverIdNum) {
       targetUserId = currentUser.id;
     } else {
-      return { source: "none", results: [] };
+      return [];
     }
   }
 
@@ -117,7 +114,7 @@ export async function getSimilarSeries(
     );
   } catch (error) {
     console.error("Error getting series recommendations:", error);
-    return { source: "none", results: [] };
+    return [];
   }
 }
 
