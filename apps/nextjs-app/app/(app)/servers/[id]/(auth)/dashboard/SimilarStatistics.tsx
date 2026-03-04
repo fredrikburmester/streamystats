@@ -1,13 +1,11 @@
 "use client";
 
 import { Film } from "lucide-react";
-import type {
-  RecommendationItem,
-  RecommendationSource,
-} from "@/lib/db/recommendation-types";
 import {
   getSimilarStatistics,
   hideRecommendation,
+  type RecommendationItem,
+  type RecommendationSource,
 } from "@/lib/db/similar-statistics";
 import type { ServerPublic } from "@/lib/types";
 import { RecommendationsSection } from "./RecommendationsSection";
@@ -34,12 +32,7 @@ export const SimilarMovieStatistics = ({ data, source, server }: Props) => {
   };
 
   const fetchNextPage = async (offset: number) => {
-    const response = await getSimilarStatistics(
-      server.id,
-      undefined,
-      20,
-      offset,
-    );
+    const response = await getSimilarStatistics(server.id, undefined, 20, offset);
     return response.results;
   };
 

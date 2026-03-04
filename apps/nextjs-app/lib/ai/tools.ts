@@ -680,11 +680,10 @@ export function createChatTools(serverId: number, userId: string) {
           };
         }
 
-        const [currentUserRecsResponse, otherUserRecsResponse] =
-          await Promise.all([
-            getSimilarStatistics(serverId, userId, 50),
-            getSimilarStatistics(serverId, otherUser.id, 50),
-          ]);
+        const [currentUserRecsResponse, otherUserRecsResponse] = await Promise.all([
+          getSimilarStatistics(serverId, userId, 50),
+          getSimilarStatistics(serverId, otherUser.id, 50),
+        ]);
         const currentUserRecs = currentUserRecsResponse.results;
         const otherUserRecs = otherUserRecsResponse.results;
 

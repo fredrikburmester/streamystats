@@ -4,19 +4,21 @@ import {
   authenticateMediaBrowser,
   validateJellyfinToken,
 } from "@/lib/api-auth";
-import type {
-  RecommendationItem,
-  RecommendationSource,
-  SeriesRecommendationItem,
-} from "@/lib/db/recommendation-types";
 import {
   hasServerIdentifier,
   parseServerIdentifier,
   resolveServer,
   type ServerIdentifier,
 } from "@/lib/db/server-resolver";
-import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
-import { getSimilarStatistics } from "@/lib/db/similar-statistics";
+import {
+  getSimilarSeries,
+  type SeriesRecommendationItem,
+} from "@/lib/db/similar-series-statistics";
+import {
+  getSimilarStatistics,
+  type RecommendationItem,
+  type RecommendationSource,
+} from "@/lib/db/similar-statistics";
 import { authenticateByName } from "@/lib/jellyfin-auth";
 
 type RecommendationType = "Movie" | "Series" | "all";
@@ -295,12 +297,7 @@ async function buildRecommendationsResponse(args: {
   }
 
   if (params.type === "Series" || params.type === "all") {
-    const seriesResponse = await getSimilarSeries(
-      server.id,
-      user.id,
-      fetchLimit,
-      0,
-    );
+    const seriesResponse = await getSimilarSeries(server.id, user.id, fetchLimit, 0);
     seriesResults = seriesResponse.results;
     seriesSource = seriesResponse.source;
   }

@@ -38,10 +38,38 @@ const recommendationItemCardSelect = {
   parentThumbImageTag: items.parentThumbImageTag,
 } as const;
 
-import type {
-  ProfileRecommendationsResponse,
-  RecommendationSource,
-} from "./recommendation-types";
+export interface RecommendationCardItem {
+  id: string;
+  name: string;
+  type: string | null;
+  productionYear: number | null;
+  runtimeTicks: number | null;
+  genres: string[] | null;
+  communityRating: number | null;
+  primaryImageTag: string | null;
+  primaryImageThumbTag: string | null;
+  primaryImageLogoTag: string | null;
+  backdropImageTags: string[] | null;
+  seriesId: string | null;
+  seriesPrimaryImageTag: string | null;
+  parentBackdropItemId: string | null;
+  parentBackdropImageTags: string[] | null;
+  parentThumbItemId: string | null;
+  parentThumbImageTag: string | null;
+}
+
+export interface RecommendationResult {
+  item: RecommendationCardItem;
+  similarity: number;
+  basedOn: RecommendationCardItem[]; // Always [] for profile-based, kept for API compat
+}
+
+export type RecommendationSource = "user" | "server" | "none";
+
+export interface ProfileRecommendationsResponse {
+  source: RecommendationSource;
+  results: RecommendationResult[];
+}
 
 /** Boost factor for items added in the last 14 days */
 const FRESHNESS_BOOST = 1.1;
@@ -105,7 +133,9 @@ export async function getProfileRecommendations(
       })
       .from(userEmbeddings)
       .where(eq(userEmbeddings.serverId, serverId))
-      .having(sql`COUNT(*) >= ${MIN_USERS_FOR_SERVER_FALLBACK}`);
+      .having(
+        sql`COUNT(*) >= ${MIN_USERS_FOR_SERVER_FALLBACK}`,
+      );
 
     if (serverAvg.length === 0 || !serverAvg[0].embedding) {
       return { source: "none", results: [] };
@@ -116,6 +146,8 @@ export async function getProfileRecommendations(
   } else {
     profileVector = userProfile[0].embedding;
   }
+
+
 
   // ── 2. Get hidden + watched item IDs for exclusion ───────────────────────
   const [hiddenRows, watchedRows] = await Promise.all([

@@ -18,15 +18,17 @@ import {
   sql,
 } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
-import { getProfileRecommendations } from "./recommendation-engine";
-import type {
-  ProfileRecommendationsResponse,
-  RecommendationCardItem,
-  RecommendationResult,
-} from "./recommendation-types";
+import {
+  getProfileRecommendations,
+  type ProfileRecommendationsResponse,
+  type RecommendationCardItem,
+  type RecommendationResult,
+  type RecommendationSource,
+} from "./recommendation-engine";
 import { getMe } from "./users";
 
 export type RecommendationItem = RecommendationResult;
+export type { ProfileRecommendationsResponse, RecommendationSource };
 
 type RecommendationCardItemWithEmbedding = RecommendationCardItem & {
   embedding: Item["embedding"];

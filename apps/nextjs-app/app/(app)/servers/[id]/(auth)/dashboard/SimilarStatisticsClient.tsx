@@ -2,10 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
-import type {
-  RecommendationItem,
-  RecommendationSource,
-} from "@/lib/db/recommendation-types";
+import type { RecommendationItem, RecommendationSource } from "@/lib/db/similar-statistics";
 import type { ServerPublic } from "@/lib/types";
 
 const SimilarStatistics = dynamic(

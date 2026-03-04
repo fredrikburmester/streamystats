@@ -1,13 +1,11 @@
 "use client";
 
 import { Monitor } from "lucide-react";
-import type {
-  RecommendationSource,
-  SeriesRecommendationItem,
-} from "@/lib/db/recommendation-types";
 import {
   getSimilarSeries,
   hideSeriesRecommendation,
+  type SeriesRecommendationItem,
+  type RecommendationSource,
 } from "@/lib/db/similar-series-statistics";
 import type { ServerPublic } from "@/lib/types";
 import { RecommendationsSection } from "./RecommendationsSection";
