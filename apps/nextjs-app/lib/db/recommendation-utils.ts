@@ -46,16 +46,6 @@ const RAW_AVG_SIMILARITY_WEIGHT = 0.3;
 const RAW_SIMILARITY_WEIGHT_TOTAL =
   RAW_MAX_SIMILARITY_WEIGHT + RAW_AVG_SIMILARITY_WEIGHT;
 
-if (process.env.NODE_ENV !== "production") {
-  if (RAW_SIMILARITY_WEIGHT_TOTAL <= 0) {
-    throw new Error(
-      "Similarity weights must sum to a positive value: " +
-        `RAW_MAX_SIMILARITY_WEIGHT=${RAW_MAX_SIMILARITY_WEIGHT}, ` +
-        `RAW_AVG_SIMILARITY_WEIGHT=${RAW_AVG_SIMILARITY_WEIGHT}`,
-    );
-  }
-}
-
 /**
  * Normalized weight for the maximum score component. Guaranteed to sum to 1
  * with AVG_SIMILARITY_WEIGHT regardless of the raw values above.
@@ -69,6 +59,10 @@ export const MAX_SIMILARITY_WEIGHT =
  */
 export const AVG_SIMILARITY_WEIGHT =
   RAW_AVG_SIMILARITY_WEIGHT / RAW_SIMILARITY_WEIGHT_TOTAL;
+
+// Validated lazily on first call so that importing this module never throws
+// during build, tests, or scripts — even if weights are misconfigured.
+let weightsValidated = false;
 
 /**
  * Compute a weighted similarity score from multiple per-base-item scores.
@@ -88,8 +82,22 @@ export const AVG_SIMILARITY_WEIGHT =
  * candidates regardless of how many base items they matched.
  */
 export function weightedSimilarity(similarities: number[]): number {
+  if (!weightsValidated) {
+    weightsValidated = true;
+    if (
+      process.env.NODE_ENV !== "production" &&
+      RAW_SIMILARITY_WEIGHT_TOTAL <= 0
+    ) {
+      console.warn(
+        "[recommendation-utils] Similarity weights must sum to a positive value: " +
+          `RAW_MAX_SIMILARITY_WEIGHT=${RAW_MAX_SIMILARITY_WEIGHT}, ` +
+          `RAW_AVG_SIMILARITY_WEIGHT=${RAW_AVG_SIMILARITY_WEIGHT}`,
+      );
+    }
+  }
   if (similarities.length === 0) return 0;
   const max = Math.max(...similarities);
-  const avg = similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
+  const avg =
+    similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
   return max * MAX_SIMILARITY_WEIGHT + avg * AVG_SIMILARITY_WEIGHT;
 }
