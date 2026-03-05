@@ -122,6 +122,31 @@ const stripEmbedding = (
 
 const RECOMMENDATION_POOL_SIZE = 500;
 
+/**
+ * Compute a weighted similarity score from multiple per-base-item scores.
+ *
+ * Plain averaging penalises niche content: a movie that is a great match for
+ * one of your watched titles will have its score dragged down by low similarity
+ * to other movies in your history that belong to completely different genres.
+ *
+ * Max-weighted pooling preserves the strongest signal (the best individual
+ * match) while giving a small bonus to candidates that appear across many of
+ * your watched items (breadth bonus).
+ *
+ *   score = 0.7 × max + 0.3 × mean
+ *
+ * This keeps niche recommendations visible while still surfacing cross-genre
+ * hits when they genuinely overlap with multiple parts of your history.
+ */
+function weightedSimilarity(similarities: number[]): number {
+  if (similarities.length === 0) return 0;
+  if (similarities.length === 1) return similarities[0];
+  const max = Math.max(...similarities);
+  const avg =
+    similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
+  return max * 0.7 + avg * 0.3;
+}
+
 async function getRecommendations(
   serverIdNum: number,
   userId: string,
@@ -369,7 +394,7 @@ async function getUserSpecificRecommendations(
       watchedItem.embedding,
     )})`;
 
-    // Get a large pool of similar items with low threshold, sorted by similarity
+    // Get a large pool of similar items, sorted by similarity
     const allSimilarItems = await db
       .select({
         item: itemCardSelect,
@@ -400,14 +425,15 @@ async function getUserSpecificRecommendations(
       );
     });
 
-    // Filter with low threshold to ensure we have enough candidates
-    // Results are already sorted by similarity, so best matches come first
+    // Use a meaningful minimum threshold to reduce noise in the candidate pool.
+    // The previous threshold of 0.1 was too permissive and caused unrelated
+    // content to dilute scores during aggregation.
     const similarItems = allSimilarItems.filter(
-      (result) => Number(result.similarity) > 0.1,
+      (result) => Number(result.similarity) > 0.3,
     );
 
     debugLog(
-      `  Found ${similarItems.length} similar items (similarity > 0.1):`,
+      `  Found ${similarItems.length} similar items (similarity > 0.3):`,
     );
     similarItems.slice(0, 5).forEach((result, index) => {
       debugLog(
@@ -490,14 +516,20 @@ async function getUserSpecificRecommendations(
   // Sort guaranteed recommendations by similarity
   guaranteedRecommendations.sort((a, b) => b.similarity - a.similarity);
 
-  // Get multi-movie matches for remaining slots
+  // Get multi-movie matches using max-weighted similarity pooling.
+  //
+  // Plain averaging penalises niche content: a movie that is a great match
+  // for one watched title gets its score dragged down by low similarity to
+  // the other movies in your history that belong to completely different genres.
+  //
+  // weightedSimilarity() uses: score = 0.7 × max + 0.3 × mean
+  // This preserves the strongest individual signal while giving a small
+  // bonus to candidates that appear across multiple base movies.
   const multiMovieMatches = Array.from(candidateItems.values())
     .filter((candidate) => candidate.similarities.length >= 2)
     .map((candidate) => ({
       item: candidate.item,
-      similarity:
-        candidate.similarities.reduce((sum, sim) => sum + sim, 0) /
-        candidate.similarities.length,
+      similarity: weightedSimilarity(candidate.similarities),
       basedOn: candidate.basedOn.slice(0, 3).map(stripEmbedding),
     }))
     .sort((a, b) => b.similarity - a.similarity);

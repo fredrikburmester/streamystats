@@ -129,6 +129,31 @@ const stripEmbedding = (
 
 const RECOMMENDATION_POOL_SIZE = 500;
 
+/**
+ * Compute a weighted similarity score from multiple per-base-series scores.
+ *
+ * Plain averaging penalises niche content: a series that is a great match for
+ * one of your watched anime titles will have its score dragged down by low
+ * similarity to the crime dramas or medical shows also in your history.
+ *
+ * Max-weighted pooling preserves the strongest signal (the best individual
+ * match) while giving a small bonus to candidates that appear across many of
+ * your watched series (breadth bonus).
+ *
+ *   score = 0.7 × max + 0.3 × mean
+ *
+ * This keeps niche recommendations visible while still surfacing cross-genre
+ * hits when they genuinely overlap with multiple parts of your history.
+ */
+function weightedSimilarity(similarities: number[]): number {
+  if (similarities.length === 0) return 0;
+  if (similarities.length === 1) return similarities[0];
+  const max = Math.max(...similarities);
+  const avg =
+    similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
+  return max * 0.7 + avg * 0.3;
+}
+
 async function getSeriesRecommendations(
   serverIdNum: number,
   userId: string,
@@ -403,7 +428,7 @@ async function getUserSpecificSeriesRecommendations(
       watchedSeries.embedding,
     )})`;
 
-    // Get a large pool of similar series with low threshold, sorted by similarity
+    // Get a large pool of similar series, sorted by similarity
     const similarSeries = await db
       .select({
         item: itemCardSelect,
@@ -434,13 +459,14 @@ async function getUserSpecificSeriesRecommendations(
       );
     });
 
-    // Filter with low threshold to ensure we have enough candidates
-    // Results are already sorted by similarity, so best matches come first
+    // Use a meaningful minimum threshold to reduce noise in the candidate pool.
+    // The previous threshold of 0.1 was too permissive and caused unrelated
+    // content to dilute scores during aggregation.
     const qualifiedSimilarSeries = similarSeries.filter(
-      (result) => Number(result.similarity) > 0.1,
+      (result) => Number(result.similarity) > 0.3,
     );
 
-    debugLog(`  ${qualifiedSimilarSeries.length} series with similarity > 0.1`);
+    debugLog(`  ${qualifiedSimilarSeries.length} series with similarity > 0.3`);
 
     // Add similarities to candidate series
     for (const result of qualifiedSimilarSeries) {
@@ -465,13 +491,19 @@ async function getUserSpecificSeriesRecommendations(
 
   debugLog(`\n📋 Total unique candidate series: ${candidateSeries.size}`);
 
-  // Calculate final recommendations with weighted similarities
+  // Calculate final recommendations using max-weighted similarity pooling.
+  //
+  // Plain averaging penalises niche content: a series that is a great match
+  // for one watched anime gets its score dragged down by low similarity to
+  // the crime dramas or medical shows also in the base list.
+  //
+  // weightedSimilarity() uses: score = 0.7 × max + 0.3 × mean
+  // This preserves the strongest individual signal while giving a small
+  // bonus to candidates that appear across multiple base series.
   const finalRecommendations = Array.from(candidateSeries.values())
     .map((candidate) => ({
       item: candidate.item,
-      similarity:
-        candidate.similarities.reduce((sum, sim) => sum + sim, 0) /
-        candidate.similarities.length,
+      similarity: weightedSimilarity(candidate.similarities),
       basedOn: candidate.basedOn.slice(0, 3).map(stripEmbedding), // Limit to 3 base series for clarity
     }))
     .sort((a, b) => b.similarity - a.similarity)
