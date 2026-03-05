@@ -97,7 +97,6 @@ export function weightedSimilarity(similarities: number[]): number {
   }
   if (similarities.length === 0) return 0;
   const max = Math.max(...similarities);
-  const avg =
-    similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
+  const avg = similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
   return max * MAX_SIMILARITY_WEIGHT + avg * AVG_SIMILARITY_WEIGHT;
 }
