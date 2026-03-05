@@ -23,6 +23,10 @@ import {
 import { revalidateTag } from "next/cache";
 
 import { getMe } from "./users";
+import {
+  MIN_SIMILARITY_THRESHOLD,
+  weightedSimilarity,
+} from "./recommendation-utils";
 
 const enableDebug = false;
 
@@ -128,31 +132,6 @@ const stripEmbedding = (
 };
 
 const RECOMMENDATION_POOL_SIZE = 500;
-
-/**
- * Compute a weighted similarity score from multiple per-base-series scores.
- *
- * Plain averaging penalises niche content: a series that is a great match for
- * one of your watched anime titles will have its score dragged down by low
- * similarity to the crime dramas or medical shows also in your history.
- *
- * Max-weighted pooling preserves the strongest signal (the best individual
- * match) while giving a small bonus to candidates that appear across many of
- * your watched series (breadth bonus).
- *
- *   score = 0.7 × max + 0.3 × mean
- *
- * This keeps niche recommendations visible while still surfacing cross-genre
- * hits when they genuinely overlap with multiple parts of your history.
- */
-function weightedSimilarity(similarities: number[]): number {
-  if (similarities.length === 0) return 0;
-  if (similarities.length === 1) return similarities[0];
-  const max = Math.max(...similarities);
-  const avg =
-    similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
-  return max * 0.7 + avg * 0.3;
-}
 
 async function getSeriesRecommendations(
   serverIdNum: number,
@@ -358,8 +337,6 @@ async function getUserSpecificSeriesRecommendations(
   const watchedSeriesIds = watchedSeriesWithStats.map((w) => w.series.id);
   debugLog(`🙈 Found ${hiddenItemIds.length} hidden items`);
 
-  // Use top watched series to create recommendations
-
   // Prioritize recent watches but include some highly watched series
   const recentWatches = watchedSeriesWithStats.slice(0, 5);
   debugLog(`⏰ Recent series watches (${recentWatches.length}):`);
@@ -441,14 +418,14 @@ async function getUserSpecificSeriesRecommendations(
           isNull(items.deletedAt),
           eq(items.type, "Series"),
           isNotNull(items.embedding),
-          notInArray(items.id, watchedSeriesIds), // Exclude already watched series
+          notInArray(items.id, watchedSeriesIds),
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
-            : sql`true`, // Exclude hidden items
+            : sql`true`,
         ),
       )
       .orderBy(desc(similarity))
-      .limit(200); // Get a large pool for each base series
+      .limit(200);
 
     debugLog(`  Found ${similarSeries.length} similar series (top 5):`);
     similarSeries.slice(0, 5).forEach((result, index) => {
@@ -459,14 +436,15 @@ async function getUserSpecificSeriesRecommendations(
       );
     });
 
-    // Use a meaningful minimum threshold to reduce noise in the candidate pool.
-    // The previous threshold of 0.1 was too permissive and caused unrelated
-    // content to dilute scores during aggregation.
+    // Filter using the shared threshold to reduce noise in the candidate pool.
+    // See MIN_SIMILARITY_THRESHOLD in recommendation-utils.ts for rationale.
     const qualifiedSimilarSeries = similarSeries.filter(
-      (result) => Number(result.similarity) > 0.3,
+      (result) => Number(result.similarity) > MIN_SIMILARITY_THRESHOLD,
     );
 
-    debugLog(`  ${qualifiedSimilarSeries.length} series with similarity > 0.3`);
+    debugLog(
+      `  ${qualifiedSimilarSeries.length} series with similarity > ${MIN_SIMILARITY_THRESHOLD}`,
+    );
 
     // Add similarities to candidate series
     for (const result of qualifiedSimilarSeries) {
@@ -492,19 +470,12 @@ async function getUserSpecificSeriesRecommendations(
   debugLog(`\n📋 Total unique candidate series: ${candidateSeries.size}`);
 
   // Calculate final recommendations using max-weighted similarity pooling.
-  //
-  // Plain averaging penalises niche content: a series that is a great match
-  // for one watched anime gets its score dragged down by low similarity to
-  // the crime dramas or medical shows also in the base list.
-  //
-  // weightedSimilarity() uses: score = 0.7 × max + 0.3 × mean
-  // This preserves the strongest individual signal while giving a small
-  // bonus to candidates that appear across multiple base series.
+  // See weightedSimilarity() in recommendation-utils.ts for full rationale.
   const finalRecommendations = Array.from(candidateSeries.values())
     .map((candidate) => ({
       item: candidate.item,
       similarity: weightedSimilarity(candidate.similarities),
-      basedOn: candidate.basedOn.slice(0, 3).map(stripEmbedding), // Limit to 3 base series for clarity
+      basedOn: candidate.basedOn.slice(0, 3).map(stripEmbedding),
     }))
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, limit);
@@ -574,11 +545,11 @@ export const getSimilarSeriesForItem = async (
           isNull(items.deletedAt),
           eq(items.type, "Series"),
           isNotNull(items.embedding),
-          sql`${items.id} != ${itemId}`, // Exclude the target series itself
+          sql`${items.id} != ${itemId}`,
         ),
       )
       .orderBy(desc(similarity))
-      .limit(limit * 2); // Get more to filter for quality
+      .limit(limit * 2);
 
     debugLog(`📊 Found ${similarSeries.length} potential similar series`);
 
@@ -610,7 +581,7 @@ export const getSimilarSeriesForItem = async (
           stripEmbedding(
             targetSeries as SeriesRecommendationCardItemWithEmbedding,
           ),
-        ], // Based on the target series
+        ],
       }));
 
     debugLog(`\n🎉 Returning ${recommendations.length} similar series`);

@@ -24,6 +24,10 @@ import {
 import { revalidateTag } from "next/cache";
 
 import { getMe } from "./users";
+import {
+  MIN_SIMILARITY_THRESHOLD,
+  weightedSimilarity,
+} from "./recommendation-utils";
 
 const debugLog = (..._args: unknown[]) => {};
 
@@ -121,31 +125,6 @@ const stripEmbedding = (
 };
 
 const RECOMMENDATION_POOL_SIZE = 500;
-
-/**
- * Compute a weighted similarity score from multiple per-base-item scores.
- *
- * Plain averaging penalises niche content: a movie that is a great match for
- * one of your watched titles will have its score dragged down by low similarity
- * to other movies in your history that belong to completely different genres.
- *
- * Max-weighted pooling preserves the strongest signal (the best individual
- * match) while giving a small bonus to candidates that appear across many of
- * your watched items (breadth bonus).
- *
- *   score = 0.7 × max + 0.3 × mean
- *
- * This keeps niche recommendations visible while still surfacing cross-genre
- * hits when they genuinely overlap with multiple parts of your history.
- */
-function weightedSimilarity(similarities: number[]): number {
-  if (similarities.length === 0) return 0;
-  if (similarities.length === 1) return similarities[0];
-  const max = Math.max(...similarities);
-  const avg =
-    similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
-  return max * 0.7 + avg * 0.3;
-}
 
 async function getRecommendations(
   serverIdNum: number,
@@ -301,13 +280,12 @@ async function getUserSpecificRecommendations(
   const hiddenItemIds = hiddenItems.map((h) => h.itemId).filter(Boolean);
   debugLog(`🙈 Found ${hiddenItemIds.length} hidden items`);
 
-  // Use multiple movies to create recommendations
   const recommendations: RecommendationItem[] = [];
   const _usedRecommendationIds = new Set<string>();
 
   // Hybrid approach: prioritize recent watches but include some highly watched items
   // Take recent watches (first 5) and mix with some top watched items
-  const recentWatches = watchedItems.slice(0, 5); // Most recent 5
+  const recentWatches = watchedItems.slice(0, 5);
   debugLog(`⏰ Recent watches (${recentWatches.length}):`);
   recentWatches.forEach((item, index) => {
     debugLog(`  ${index + 1}. "${item.name}"`);
@@ -407,14 +385,14 @@ async function getUserSpecificRecommendations(
           isNull(items.deletedAt),
           eq(items.type, "Movie"),
           isNotNull(items.embedding),
-          notInArray(items.id, watchedItemIds), // Exclude already watched items
+          notInArray(items.id, watchedItemIds),
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
-            : sql`true`, // Exclude hidden items
+            : sql`true`,
         ),
       )
       .orderBy(desc(similarity))
-      .limit(200); // Get a large pool for each base movie
+      .limit(200);
 
     debugLog("  📊 Similarity score distribution (top 10):");
     allSimilarItems.slice(0, 10).forEach((result, index) => {
@@ -425,15 +403,14 @@ async function getUserSpecificRecommendations(
       );
     });
 
-    // Use a meaningful minimum threshold to reduce noise in the candidate pool.
-    // The previous threshold of 0.1 was too permissive and caused unrelated
-    // content to dilute scores during aggregation.
+    // Filter using the shared threshold to reduce noise in the candidate pool.
+    // See MIN_SIMILARITY_THRESHOLD in recommendation-utils.ts for rationale.
     const similarItems = allSimilarItems.filter(
-      (result) => Number(result.similarity) > 0.3,
+      (result) => Number(result.similarity) > MIN_SIMILARITY_THRESHOLD,
     );
 
     debugLog(
-      `  Found ${similarItems.length} similar items (similarity > 0.3):`,
+      `  Found ${similarItems.length} similar items (similarity > ${MIN_SIMILARITY_THRESHOLD}):`,
     );
     similarItems.slice(0, 5).forEach((result, index) => {
       debugLog(
@@ -497,7 +474,6 @@ async function getUserSpecificRecommendations(
   debugLog("\n🎯 Guaranteed recommendations (one per base movie):");
   for (const [baseMovieId, recs] of recommendationsPerBaseMovie) {
     if (recs.length > 0) {
-      // Sort by similarity and find the best one that hasn't been added yet
       const sortedRecs = recs.sort((a, b) => b.similarity - a.similarity);
       const bestRec = sortedRecs.find((r) => !guaranteedItemIds.has(r.item.id));
       if (bestRec) {
@@ -517,14 +493,7 @@ async function getUserSpecificRecommendations(
   guaranteedRecommendations.sort((a, b) => b.similarity - a.similarity);
 
   // Get multi-movie matches using max-weighted similarity pooling.
-  //
-  // Plain averaging penalises niche content: a movie that is a great match
-  // for one watched title gets its score dragged down by low similarity to
-  // the other movies in your history that belong to completely different genres.
-  //
-  // weightedSimilarity() uses: score = 0.7 × max + 0.3 × mean
-  // This preserves the strongest individual signal while giving a small
-  // bonus to candidates that appear across multiple base movies.
+  // See weightedSimilarity() in recommendation-utils.ts for full rationale.
   const multiMovieMatches = Array.from(candidateItems.values())
     .filter((candidate) => candidate.similarities.length >= 2)
     .map((candidate) => ({
@@ -542,7 +511,7 @@ async function getUserSpecificRecommendations(
     debugLog(
       `  ${index + 1}. "${
         match.item.name
-      }" (avg similarity: ${match.similarity.toFixed(
+      }" (weighted similarity: ${match.similarity.toFixed(
         3,
       )}) <- based on ${baseMovieNames}`,
     );
@@ -559,7 +528,6 @@ async function getUserSpecificRecommendations(
     ...additionalMultiMovieMatches,
   ];
 
-  // Take the top recommendations
   const finalRecommendations = qualifiedCandidates.slice(0, limit);
   recommendations.push(...finalRecommendations);
 
@@ -625,13 +593,13 @@ export const getSimilarItemsForItem = async (
         and(
           eq(items.serverId, serverIdNum),
           isNull(items.deletedAt),
-          eq(items.type, targetItem.type), // Same type (Movie, Series, etc.)
+          eq(items.type, targetItem.type),
           isNotNull(items.embedding),
-          sql`${items.id} != ${itemId}`, // Exclude the target item itself
+          sql`${items.id} != ${itemId}`,
         ),
       )
       .orderBy(desc(similarity))
-      .limit(limit * 2); // Get more to filter for quality
+      .limit(limit * 2);
 
     debugLog(`📊 Found ${similarItems.length} potential similar items`);
 
@@ -659,7 +627,7 @@ export const getSimilarItemsForItem = async (
         similarity: Number(result.similarity),
         basedOn: [
           stripEmbedding(targetItem as RecommendationCardItemWithEmbedding),
-        ], // Based on the target item
+        ],
       }));
 
     debugLog(`\n🎉 Returning ${recommendations.length} similar items`);
