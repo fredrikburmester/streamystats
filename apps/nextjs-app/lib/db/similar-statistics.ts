@@ -23,11 +23,11 @@ import {
 } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 
-import { getMe } from "./users";
 import {
   MIN_SIMILARITY_THRESHOLD,
   weightedSimilarity,
 } from "./recommendation-utils";
+import { getMe } from "./users";
 
 const debugLog = (..._args: unknown[]) => {};
 
