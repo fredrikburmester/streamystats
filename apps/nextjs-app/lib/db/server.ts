@@ -2,7 +2,13 @@
 
 import "server-only";
 
-import { db, items, jobResults, servers, userEmbeddings } from "@streamystats/database";
+import {
+  db,
+  items,
+  jobResults,
+  servers,
+  userEmbeddings,
+} from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
@@ -612,6 +618,48 @@ export const stopEmbedding = async ({ serverId }: { serverId: number }) => {
       error instanceof Error
         ? error.message
         : "Failed to stop embedding process",
+    );
+  }
+};
+
+export const triggerUserEmbeddingsSync = async ({
+  serverId,
+}: {
+  serverId: number;
+}) => {
+  try {
+    // Construct job server URL with proper fallback
+    const jobServerUrl =
+      process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
+        ? process.env.JOB_SERVER_URL
+        : "http://localhost:3005";
+
+    const response = await fetch(
+      `${jobServerUrl}/api/jobs/scheduler/trigger-user-embeddings-sync`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ serverId }),
+      },
+    );
+
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.error || "Failed to trigger user embeddings sync");
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error(
+      `Error triggering user embeddings sync for server ${serverId}:`,
+      error,
+    );
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Failed to trigger user embeddings sync",
     );
   }
 };
