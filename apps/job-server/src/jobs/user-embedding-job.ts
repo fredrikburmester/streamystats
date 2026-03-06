@@ -258,7 +258,8 @@ async function computeUserProfile(
       if (avgCompletionPerEpisode < SERIES_BOUNCE_THRESHOLD) {
         weight = BOUNCE_WEIGHT; // Bounced from the series
       } else {
-        weight = engagement * recencyDecay;
+        const rewatchBoost = Math.max(avgCompletionPerEpisode, 1.0);
+        weight = engagement * rewatchBoost * recencyDecay;
       }
     }
 
