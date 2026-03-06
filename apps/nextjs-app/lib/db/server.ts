@@ -2,7 +2,7 @@
 
 import "server-only";
 
-import { db, items, jobResults, servers } from "@streamystats/database";
+import { db, items, jobResults, servers, userEmbeddings } from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
@@ -268,6 +268,12 @@ export const clearEmbeddings = async ({ serverId }: { serverId: number }) => {
       .update(items)
       .set({ embedding: null, processed: false })
       .where(eq(items.serverId, serverId));
+
+    // Clear user embeddings too – they derive from item embeddings,
+    // so they'd be in a stale / mismatched dimensional space until recalculated.
+    await db
+      .delete(userEmbeddings)
+      .where(eq(userEmbeddings.serverId, serverId));
 
     // Check if any other servers still have embeddings
     const otherEmbeddings = await db
