@@ -9,7 +9,6 @@ import {
 } from "@/lib/db/recently-added";
 import { getSeasonalRecommendations } from "@/lib/db/seasonal-recommendations";
 import { getServer } from "@/lib/db/server";
-import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
 import { getMe, isUserAdmin } from "@/lib/db/users";
@@ -72,8 +71,8 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
     recentlyAddedMovies,
     recentlyAddedSeries,
   ] = await Promise.all([
-    getSimilarStatistics(server.id),
-    getSimilarSeries(server.id),
+    getSimilarStatistics({ serverId: server.id, type: "Movie" }),
+    getSimilarStatistics({ serverId: server.id, type: "Series" }),
     getMostWatchedItems({
       serverId: server.id,
       userId: isAdmin ? undefined : me?.id,

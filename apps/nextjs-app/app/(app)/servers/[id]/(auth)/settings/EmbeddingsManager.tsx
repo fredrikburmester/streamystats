@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Loader, Play, Square } from "lucide-react";
+import { Loader, Play, Square, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -43,6 +43,7 @@ import {
   startEmbedding,
   stopEmbedding,
   toggleAutoEmbeddings,
+  triggerUserEmbeddingsSync,
 } from "@/lib/db/server";
 import type { ServerPublic } from "@/lib/types";
 
@@ -160,6 +161,8 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
     server.autoGenerateEmbeddings || false,
   );
   const [isUpdatingAutoEmbed, setIsUpdatingAutoEmbed] = useState(false);
+  const [isTriggeringUserEmbeddings, setIsTriggeringUserEmbeddings] =
+    useState(false);
 
   const {
     data: progress,
@@ -331,6 +334,22 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
       setAutoEmbeddings(!checked);
     } finally {
       setIsUpdatingAutoEmbed(false);
+    }
+  };
+
+  const handleTriggerUserEmbeddings = async () => {
+    setIsTriggeringUserEmbeddings(true);
+    try {
+      await triggerUserEmbeddingsSync({ serverId: server.id });
+      toast.success("User taste embeddings sync triggered");
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to trigger user embeddings sync",
+      );
+    } finally {
+      setIsTriggeringUserEmbeddings(false);
     }
   };
 
@@ -518,7 +537,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
           <Separator />
 
           <div className="space-y-4">
-            <h3 className="text-sm font-medium">Movie Embeddings</h3>
+            <h3 className="text-sm font-medium">Item Embeddings</h3>
             <div className="flex justify-between mb-2">
               <span className="text-sm font-medium">
                 Status: {getStatusText(progress?.status ?? "idle")}
@@ -581,6 +600,33 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
                 Error fetching progress. Retrying...
               </div>
             )}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium">User Taste Embeddings</h3>
+            <p className="text-sm text-gray-400">
+              Manually trigger the job to generate user taste profiles based on
+              their watch history and item embeddings. These profiles power
+              personalized recommendations.
+            </p>
+            <Button
+              type="button"
+              onClick={handleTriggerUserEmbeddings}
+              disabled={isTriggeringUserEmbeddings || !hasValidConfig()}
+              className="flex items-center gap-1"
+            >
+              {isTriggeringUserEmbeddings ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" /> Triggering...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4" /> Generate User Embeddings
+                </>
+              )}
+            </Button>
           </div>
 
           <Separator />

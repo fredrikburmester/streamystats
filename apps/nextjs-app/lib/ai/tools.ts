@@ -303,21 +303,17 @@ export function createChatTools(serverId: number, userId: string) {
 
     getPersonalizedRecommendations: tool({
       description:
-        "Get personalized movie and series recommendations based on user's watch history using AI embeddings. Each recommendation includes a 'reason' field (e.g. 'Because you watched X and Y') and a 'basedOn' array with the watched items that led to this recommendation. Always use this data when presenting recommendations to explain what they're based on.",
+        "Get personalized movie and series recommendations based on user's taste profile computed from their watch history using AI embeddings. Recommendations include a similarity score and a reason field. Use this data when presenting recommendations to explain relevance.",
       inputSchema: limitTypeSchema,
       execute: async ({ limit, type }: z.infer<typeof limitTypeSchema>) => {
-        const recommendations = await getSimilarStatistics(
+        const recommendations = await getSimilarStatistics({
           serverId,
           userId,
-          limit * 2,
-        );
+          limit,
+          type,
+        });
 
-        const filtered =
-          type === "all"
-            ? recommendations
-            : recommendations.filter((r) => r.item.type === type);
-
-        const enrichedRecs = filtered.slice(0, limit).map((r) => {
+        const enrichedRecs = recommendations.slice(0, limit).map((r) => {
           const recGenres = new Set(r.item.genres || []);
           const basedOnItems = r.basedOn.slice(0, 3);
 
@@ -676,8 +672,8 @@ export function createChatTools(serverId: number, userId: string) {
         }
 
         const [currentUserRecs, otherUserRecs] = await Promise.all([
-          getSimilarStatistics(serverId, userId, 50),
-          getSimilarStatistics(serverId, otherUser.id, 50),
+          getSimilarStatistics({ serverId, userId, limit: 50 }),
+          getSimilarStatistics({ serverId, userId: otherUser.id, limit: 50 }),
         ]);
 
         const currentUserRecIds = new Set(

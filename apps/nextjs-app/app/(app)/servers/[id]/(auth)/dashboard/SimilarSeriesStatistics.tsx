@@ -2,10 +2,10 @@
 
 import { Monitor } from "lucide-react";
 import {
-  getSimilarSeries,
   hideSeriesRecommendation,
   type SeriesRecommendationItem,
 } from "@/lib/db/similar-series-statistics";
+import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import type { ServerPublic } from "@/lib/types";
 import { RecommendationsSection } from "./RecommendationsSection";
 
@@ -16,7 +16,12 @@ interface Props {
 
 export const SimilarSeriesStatistics = ({ data, server }: Props) => {
   const fetchNextPage = async (offset: number) => {
-    return getSimilarSeries(server.id, undefined, 20, offset);
+    return getSimilarStatistics({
+      serverId: server.id,
+      limit: 20,
+      offset,
+      type: "Series",
+    });
   };
 
   return (

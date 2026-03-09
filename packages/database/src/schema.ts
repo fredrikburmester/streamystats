@@ -910,6 +910,35 @@ export const watchlistItems = pgTable(
   ]
 );
 
+// User embeddings table - pre-computed taste profile vectors for fast recommendations
+export const userEmbeddings = pgTable(
+  "user_embeddings",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    serverId: integer("server_id")
+      .notNull()
+      .references(() => servers.id, { onDelete: "cascade" }),
+
+    // Pre-computed unified taste profile vector (same dimension as item embeddings)
+    // Combines watch history for both Movies and Series into a single vector
+    embedding: vector("embedding").notNull(),
+
+    // Metadata about the computation
+    itemCount: integer("item_count").notNull().default(0), // How many items contributed
+    lastCalculatedAt: timestamp("last_calculated_at", { withTimezone: true }).notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("user_embeddings_user_server_unique").on(table.userId, table.serverId),
+    index("user_embeddings_server_id_idx").on(table.serverId),
+  ]
+);
+
 // Define relationships
 export const serversRelations = relations(servers, ({ many }) => ({
   libraries: many(libraries),
@@ -924,6 +953,7 @@ export const serversRelations = relations(servers, ({ many }) => ({
   people: many(people),
   itemPeople: many(itemPeople),
   jobConfigurations: many(serverJobConfigurations),
+  userEmbeddings: many(userEmbeddings),
 }));
 
 export const serverJobConfigurationsRelations = relations(
@@ -953,6 +983,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   sessions: many(sessions),
   fingerprints: many(userFingerprints),
   anomalyEvents: many(anomalyEvents),
+  embeddings: many(userEmbeddings),
 }));
 
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
@@ -1055,6 +1086,20 @@ export const hiddenRecommendationsRelations = relations(
   })
 );
 
+export const userEmbeddingsRelations = relations(
+  userEmbeddings,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [userEmbeddings.userId],
+      references: [users.id],
+    }),
+    server: one(servers, {
+      fields: [userEmbeddings.serverId],
+      references: [servers.id],
+    }),
+  })
+);
+
 export const watchlistsRelations = relations(watchlists, ({ one, many }) => ({
   server: one(servers, {
     fields: [watchlists.serverId],
@@ -1151,3 +1196,6 @@ export type NewPerson = typeof people.$inferInsert;
 
 export type ItemPerson = typeof itemPeople.$inferSelect;
 export type NewItemPerson = typeof itemPeople.$inferInsert;
+
+export type UserEmbedding = typeof userEmbeddings.$inferSelect;
+export type NewUserEmbedding = typeof userEmbeddings.$inferInsert;

@@ -29,5 +29,5 @@ export type RecommendationCardItem = {
 export type RecommendationListItem = {
   item: RecommendationCardItem;
   similarity: number;
-  basedOn: RecommendationCardItem[];
+  basedOn?: RecommendationCardItem[];
 };

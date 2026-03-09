@@ -6098,6 +6098,151 @@ export declare const watchlistItems: import("drizzle-orm/pg-core").PgTableWithCo
     };
     dialect: "pg";
 }>;
+export declare const userEmbeddings: import("drizzle-orm/pg-core").PgTableWithColumns<{
+    name: "user_embeddings";
+    schema: undefined;
+    columns: {
+        id: import("drizzle-orm/pg-core").PgColumn<{
+            name: "id";
+            tableName: "user_embeddings";
+            dataType: "number";
+            columnType: "PgSerial";
+            data: number;
+            driverParam: number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: true;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        userId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "user_id";
+            tableName: "user_embeddings";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        serverId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "server_id";
+            tableName: "user_embeddings";
+            dataType: "number";
+            columnType: "PgInteger";
+            data: number;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        embedding: import("drizzle-orm/pg-core").PgColumn<{
+            name: "embedding";
+            tableName: "user_embeddings";
+            dataType: "custom";
+            columnType: "PgCustomColumn";
+            data: number[];
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            pgColumnBuilderBrand: "PgCustomColumnBuilderBrand";
+        }>;
+        itemCount: import("drizzle-orm/pg-core").PgColumn<{
+            name: "item_count";
+            tableName: "user_embeddings";
+            dataType: "number";
+            columnType: "PgInteger";
+            data: number;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        lastCalculatedAt: import("drizzle-orm/pg-core").PgColumn<{
+            name: "last_calculated_at";
+            tableName: "user_embeddings";
+            dataType: "date";
+            columnType: "PgTimestamp";
+            data: Date;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        createdAt: import("drizzle-orm/pg-core").PgColumn<{
+            name: "created_at";
+            tableName: "user_embeddings";
+            dataType: "date";
+            columnType: "PgTimestamp";
+            data: Date;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        updatedAt: import("drizzle-orm/pg-core").PgColumn<{
+            name: "updated_at";
+            tableName: "user_embeddings";
+            dataType: "date";
+            columnType: "PgTimestamp";
+            data: Date;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+    };
+    dialect: "pg";
+}>;
 export declare const serversRelations: import("drizzle-orm").Relations<"servers", {
     libraries: import("drizzle-orm").Many<"libraries">;
     users: import("drizzle-orm").Many<"users">;
@@ -6111,6 +6256,7 @@ export declare const serversRelations: import("drizzle-orm").Relations<"servers"
     people: import("drizzle-orm").Many<"people">;
     itemPeople: import("drizzle-orm").Many<"item_people">;
     jobConfigurations: import("drizzle-orm").Many<"server_job_configurations">;
+    userEmbeddings: import("drizzle-orm").Many<"user_embeddings">;
 }>;
 export declare const serverJobConfigurationsRelations: import("drizzle-orm").Relations<"server_job_configurations", {
     server: import("drizzle-orm").One<"servers", true>;
@@ -6125,6 +6271,7 @@ export declare const usersRelations: import("drizzle-orm").Relations<"users", {
     sessions: import("drizzle-orm").Many<"sessions">;
     fingerprints: import("drizzle-orm").Many<"user_fingerprints">;
     anomalyEvents: import("drizzle-orm").Many<"anomaly_events">;
+    embeddings: import("drizzle-orm").Many<"user_embeddings">;
 }>;
 export declare const activitiesRelations: import("drizzle-orm").Relations<"activities", {
     server: import("drizzle-orm").One<"servers", true>;
@@ -6161,6 +6308,10 @@ export declare const anomalyEventsRelations: import("drizzle-orm").Relations<"an
 export declare const hiddenRecommendationsRelations: import("drizzle-orm").Relations<"hidden_recommendations", {
     server: import("drizzle-orm").One<"servers", true>;
     item: import("drizzle-orm").One<"items", true>;
+}>;
+export declare const userEmbeddingsRelations: import("drizzle-orm").Relations<"user_embeddings", {
+    user: import("drizzle-orm").One<"users", true>;
+    server: import("drizzle-orm").One<"servers", true>;
 }>;
 export declare const watchlistsRelations: import("drizzle-orm").Relations<"watchlists", {
     server: import("drizzle-orm").One<"servers", true>;
@@ -6215,4 +6366,6 @@ export type Person = typeof people.$inferSelect;
 export type NewPerson = typeof people.$inferInsert;
 export type ItemPerson = typeof itemPeople.$inferSelect;
 export type NewItemPerson = typeof itemPeople.$inferInsert;
+export type UserEmbedding = typeof userEmbeddings.$inferSelect;
+export type NewUserEmbedding = typeof userEmbeddings.$inferInsert;
 //# sourceMappingURL=schema.d.ts.map

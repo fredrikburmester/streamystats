@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { TIMEOUT_CONFIG } from "./config";
 import { logJobResult } from "./job-logger";
 import { sleep } from "../utils/sleep";
+import { toPgVectorLiteral } from "@streamystats/database/vector";
 import type { PgBossJob } from "../types/job-status";
 
 // Embedding configuration passed from job data
@@ -146,9 +147,6 @@ function getOpenAIErrorInfo(error: unknown): {
   };
 }
 
-function toPgVectorLiteral(value: number[]): string {
-  return `[${value.join(",")}]`;
-}
 
 /**
  * Check if stop has been requested for a server.

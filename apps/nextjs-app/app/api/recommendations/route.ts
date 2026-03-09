@@ -11,10 +11,6 @@ import {
   type ServerIdentifier,
 } from "@/lib/db/server-resolver";
 import {
-  getSimilarSeries,
-  type SeriesRecommendationItem,
-} from "@/lib/db/similar-series-statistics";
-import {
   getSimilarStatistics,
   type RecommendationItem,
 } from "@/lib/db/similar-statistics";
@@ -280,23 +276,24 @@ async function buildRecommendationsResponse(args: {
 
   // Fetch from appropriate sources based on type
   let movieResults: RecommendationItem[] = [];
-  let seriesResults: SeriesRecommendationItem[] = [];
+  let seriesResults: RecommendationItem[] = [];
 
   if (params.type === "Movie" || params.type === "all") {
-    movieResults = await getSimilarStatistics(
-      server.id,
-      user.id,
-      fetchLimit,
-      0,
-      {
-        start: timeWindow.start,
-        end: timeWindow.end,
-      },
-    );
+    movieResults = await getSimilarStatistics({
+      serverId: server.id,
+      userId: user.id,
+      limit: fetchLimit,
+      type: "Movie",
+    });
   }
 
   if (params.type === "Series" || params.type === "all") {
-    seriesResults = await getSimilarSeries(server.id, user.id, fetchLimit, 0);
+    seriesResults = (await getSimilarStatistics({
+      serverId: server.id,
+      userId: user.id,
+      limit: fetchLimit,
+      type: "Series",
+    })) as RecommendationItem[];
   }
 
   // Combine and sort by similarity (both types have compatible structure)
@@ -333,7 +330,7 @@ async function buildRecommendationsResponse(args: {
     const base = {
       item: r.item,
       similarity: r.similarity,
-      basedOn: params.includeBasedOn ? r.basedOn : [],
+      basedOn: params.includeBasedOn ? (r.basedOn ?? []) : [],
     };
 
     if (!params.includeReasons) return base;
@@ -346,10 +343,12 @@ async function buildRecommendationsResponse(args: {
             name: r.item.name,
             genres: r.item.genres ?? null,
           },
-          basedOn: (params.includeBasedOn ? r.basedOn : []).map((b) => ({
-            name: b.name,
-            genres: b.genres ?? null,
-          })),
+          basedOn: (params.includeBasedOn ? (r.basedOn ?? []) : []).map(
+            (b) => ({
+              name: b.name,
+              genres: b.genres ?? null,
+            }),
+          ),
         },
       }),
     };
