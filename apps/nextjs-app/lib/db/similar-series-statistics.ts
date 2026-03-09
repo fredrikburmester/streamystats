@@ -18,10 +18,9 @@ import {
   sql,
 } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
-import {
-  getProfileRecommendations,
-  type RecommendationCardItem,
-  type RecommendationResult,
+import type {
+  RecommendationCardItem,
+  RecommendationResult,
 } from "./recommendation-engine";
 import { getMe } from "./users";
 
@@ -79,44 +78,6 @@ const stripEmbedding = (
   const { embedding: _embedding, ...card } = item;
   return card;
 };
-
-/**
- * Get series recommendations for a user.
- *
- * Uses the pre-computed user taste profile from user_embeddings for a single
- * fast HNSW-indexed vector search. Returns empty if no profile exists yet.
- */
-export async function getSimilarSeries(
-  serverId: string | number,
-  userId?: string,
-  limit = 20,
-  offset = 0,
-): Promise<SeriesRecommendationItem[]> {
-  const serverIdNum = Number(serverId);
-
-  let targetUserId = userId;
-  if (!targetUserId) {
-    const currentUser = await getMe();
-    if (currentUser && currentUser.serverId === serverIdNum) {
-      targetUserId = currentUser.id;
-    } else {
-      return [];
-    }
-  }
-
-  try {
-    return await getProfileRecommendations(
-      serverIdNum,
-      targetUserId,
-      "Series",
-      limit,
-      offset,
-    );
-  } catch (error) {
-    console.error("Error getting series recommendations:", error);
-    return [];
-  }
-}
 
 export const revalidateSeriesRecommendations = async (
   serverId: number,

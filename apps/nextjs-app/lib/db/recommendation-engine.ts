@@ -141,7 +141,7 @@ export async function getProfileRecommendations(
             ),
           )
       : Promise.resolve([]),
-      
+
     targetType === "Series" || targetType === "all"
       ? db
           .selectDistinct({ itemId: sessions.seriesId })
@@ -184,7 +184,9 @@ export async function getProfileRecommendations(
 
   const conditions = [
     eq(items.serverId, serverId),
-    targetType === "all" ? inArray(items.type, ["Movie", "Series"]) : eq(items.type, targetType),
+    targetType === "all"
+      ? inArray(items.type, ["Movie", "Series"])
+      : eq(items.type, targetType),
     isNull(items.deletedAt),
     isNotNull(items.embedding),
     sql`(1 - (${cosineDistance(items.embedding, profileVector)})) > ${MIN_SIMILARITY}`,

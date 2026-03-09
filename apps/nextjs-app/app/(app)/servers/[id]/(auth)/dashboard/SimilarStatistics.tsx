@@ -30,7 +30,12 @@ export const SimilarMovieStatistics = ({ data, server }: Props) => {
   };
 
   const fetchNextPage = async (offset: number) => {
-    return getSimilarStatistics(server.id, undefined, 20, offset);
+    return getSimilarStatistics({
+      serverId: server.id,
+      limit: 20,
+      offset,
+      type: "Movie",
+    });
   };
 
   return (

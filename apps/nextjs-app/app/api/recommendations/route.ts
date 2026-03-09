@@ -11,10 +11,6 @@ import {
   type ServerIdentifier,
 } from "@/lib/db/server-resolver";
 import {
-  getSimilarSeries,
-  type SeriesRecommendationItem,
-} from "@/lib/db/similar-series-statistics";
-import {
   getSimilarStatistics,
   type RecommendationItem,
 } from "@/lib/db/similar-statistics";
@@ -280,19 +276,24 @@ async function buildRecommendationsResponse(args: {
 
   // Fetch from appropriate sources based on type
   let movieResults: RecommendationItem[] = [];
-  let seriesResults: SeriesRecommendationItem[] = [];
+  let seriesResults: RecommendationItem[] = [];
 
   if (params.type === "Movie" || params.type === "all") {
-    movieResults = await getSimilarStatistics(
-      server.id,
-      user.id,
-      fetchLimit,
-      0,
-    );
+    movieResults = await getSimilarStatistics({
+      serverId: server.id,
+      userId: user.id,
+      limit: fetchLimit,
+      type: "Movie",
+    });
   }
 
   if (params.type === "Series" || params.type === "all") {
-    seriesResults = await getSimilarSeries(server.id, user.id, fetchLimit, 0);
+    seriesResults = (await getSimilarStatistics({
+      serverId: server.id,
+      userId: user.id,
+      limit: fetchLimit,
+      type: "Series",
+    })) as RecommendationItem[];
   }
 
   // Combine and sort by similarity (both types have compatible structure)

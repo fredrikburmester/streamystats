@@ -85,13 +85,19 @@ const stripEmbedding = (
  * Uses the pre-computed user taste profile from user_embeddings for a single
  * fast HNSW-indexed vector search. Returns empty if no profile exists yet.
  */
-export async function getSimilarStatistics(
-  serverId: string | number,
-  userId?: string,
+export async function getSimilarStatistics({
+  serverId,
+  userId,
   limit = 20,
   offset = 0,
-  type: "Movie" | "Series" | "all" = "Movie",
-): Promise<RecommendationItem[]> {
+  type = "all",
+}: {
+  serverId: string | number;
+  userId?: string;
+  limit?: number;
+  offset?: number;
+  type?: "Movie" | "Series" | "all";
+}): Promise<RecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
   let targetUserId = userId;

@@ -306,14 +306,12 @@ export function createChatTools(serverId: number, userId: string) {
         "Get personalized movie and series recommendations based on user's taste profile computed from their watch history using AI embeddings. Recommendations include a similarity score and a reason field. Use this data when presenting recommendations to explain relevance.",
       inputSchema: limitTypeSchema,
       execute: async ({ limit, type }: z.infer<typeof limitTypeSchema>) => {
-        const offset = 0;
-        const recommendations = await getSimilarStatistics(
+        const recommendations = await getSimilarStatistics({
           serverId,
           userId,
           limit,
-          offset,
-          type
-        );
+          type,
+        });
 
         const enrichedRecs = recommendations.slice(0, limit).map((r) => {
           const recGenres = new Set(r.item.genres || []);
@@ -674,8 +672,8 @@ export function createChatTools(serverId: number, userId: string) {
         }
 
         const [currentUserRecs, otherUserRecs] = await Promise.all([
-          getSimilarStatistics(serverId, userId, 50),
-          getSimilarStatistics(serverId, otherUser.id, 50),
+          getSimilarStatistics({ serverId, userId, limit: 50 }),
+          getSimilarStatistics({ serverId, userId: otherUser.id, limit: 50 }),
         ]);
 
         const currentUserRecIds = new Set(
