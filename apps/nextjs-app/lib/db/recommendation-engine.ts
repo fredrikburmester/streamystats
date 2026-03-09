@@ -12,6 +12,7 @@ import {
   cosineDistance,
   desc,
   eq,
+  inArray,
   isNotNull,
   isNull,
   notInArray,
@@ -92,7 +93,7 @@ const MAX_EXCLUSION_LIST_SIZE = 5000;
 export async function getProfileRecommendations(
   serverId: number,
   userId: string,
-  targetType: "Movie" | "Series",
+  targetType: "Movie" | "Series" | "all",
   limit: number,
   offset: number = 0,
 ): Promise<RecommendationResult[]> {
@@ -116,7 +117,7 @@ export async function getProfileRecommendations(
   const profileVector = userProfile[0].embedding;
 
   // ── 2. Get hidden + watched item IDs for exclusion ───────────────────────
-  const [hiddenRows, watchedRows] = await Promise.all([
+  const [hiddenRows, watchedMovieRows, watchedSeriesRows] = await Promise.all([
     db
       .select({ itemId: hiddenRecommendations.itemId })
       .from(hiddenRecommendations)
@@ -128,7 +129,7 @@ export async function getProfileRecommendations(
       )
       .catch(() => [] as { itemId: string }[]),
 
-    targetType === "Movie"
+    targetType === "Movie" || targetType === "all"
       ? db
           .selectDistinct({ itemId: sessions.itemId })
           .from(sessions)
@@ -139,8 +140,10 @@ export async function getProfileRecommendations(
               isNotNull(sessions.itemId),
             ),
           )
-      : // For series: exclude series the user has already watched episodes of
-        db
+      : Promise.resolve([]),
+      
+    targetType === "Series" || targetType === "all"
+      ? db
           .selectDistinct({ itemId: sessions.seriesId })
           .from(sessions)
           .where(
@@ -149,14 +152,18 @@ export async function getProfileRecommendations(
               eq(sessions.userId, userId),
               isNotNull(sessions.seriesId),
             ),
-          ),
+          )
+      : Promise.resolve([]),
   ]);
 
   const excludeIds = new Set<string>();
   for (const row of hiddenRows) {
     if (row.itemId) excludeIds.add(row.itemId);
   }
-  for (const row of watchedRows) {
+  for (const row of watchedMovieRows) {
+    if (row.itemId) excludeIds.add(row.itemId);
+  }
+  for (const row of watchedSeriesRows) {
     if (row.itemId) excludeIds.add(row.itemId);
   }
 
@@ -177,7 +184,7 @@ export async function getProfileRecommendations(
 
   const conditions = [
     eq(items.serverId, serverId),
-    eq(items.type, targetType),
+    targetType === "all" ? inArray(items.type, ["Movie", "Series"]) : eq(items.type, targetType),
     isNull(items.deletedAt),
     isNotNull(items.embedding),
     sql`(1 - (${cosineDistance(items.embedding, profileVector)})) > ${MIN_SIMILARITY}`,

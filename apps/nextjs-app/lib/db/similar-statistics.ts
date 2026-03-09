@@ -90,6 +90,7 @@ export async function getSimilarStatistics(
   userId?: string,
   limit = 20,
   offset = 0,
+  type: "Movie" | "Series" | "all" = "Movie",
 ): Promise<RecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
@@ -107,7 +108,7 @@ export async function getSimilarStatistics(
     return await getProfileRecommendations(
       serverIdNum,
       targetUserId,
-      "Movie",
+      type,
       limit,
       offset,
     );
