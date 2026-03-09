@@ -91,7 +91,6 @@ export const revalidateSeriesRecommendations = async (
 
 /**
  * Get series similar to a specific series (not user-based).
- * Unchanged — uses direct cosine distance against a specific series' embedding.
  */
 export const getSimilarSeriesForItem = async (
   serverId: string | number,

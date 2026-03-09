@@ -135,9 +135,7 @@ export const revalidateRecommendations = async (
 };
 
 /**
- * Get items similar to a specific item (not user-based).
- * This function is unchanged — it uses direct cosine distance against
- * a specific item's embedding, not the user profile.
+ * Get items similar to a specific item (not user-based)
  */
 export const getSimilarItemsForItem = async (
   serverId: string | number,
