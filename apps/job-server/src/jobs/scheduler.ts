@@ -207,19 +207,21 @@ class SyncScheduler {
       const typedJobKey = jobKey as JobKey;
       if (!isCronJob(typedJobKey)) continue;
 
-      const scheduleKey = `server-${serverId}`;
+      const scheduleKey = `server-${serverId}-${jobKey}`;
       const cronExpression = this.getEffectiveCron(serverId, typedJobKey);
       const isEnabled = this.isJobEnabledForServer(serverId, typedJobKey);
 
       try {
         if (isEnabled) {
           // Create or update the schedule
+          // Use singletonKey to prevent duplicate job executions across instances
           await boss.schedule(
             config.pgBossName,
             cronExpression,
             config.buildData(serverId),
             {
               key: scheduleKey,
+              singletonKey: scheduleKey,
               ...config.sendOptions,
             }
           );
