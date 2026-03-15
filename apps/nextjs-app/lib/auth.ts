@@ -4,8 +4,8 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
-import { parseDeviceName } from "./device";
 import { getServerWithSecrets } from "./db/server";
+import { parseDeviceName } from "./device";
 import { jellyfinHeaders } from "./jellyfin-auth";
 import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";

@@ -724,9 +724,7 @@ export const updateServerConnection = async ({
           method: "POST",
           headers: jellyfinHeaders(apiKey, {
             id: crypto.randomUUID(),
-            name: userAgent
-              ? parseDeviceName(userAgent)
-              : "Streamystats Web",
+            name: userAgent ? parseDeviceName(userAgent) : "Streamystats Web",
           }),
           body: JSON.stringify({ Username: username, Pw: password }),
           signal: AbortSignal.timeout(5000),
