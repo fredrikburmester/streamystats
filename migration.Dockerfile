@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1.3.5 AS builder
+FROM oven/bun:1.3.10 AS builder
 WORKDIR /app
 
 # Copy configuration files
