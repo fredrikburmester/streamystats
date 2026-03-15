@@ -49,6 +49,13 @@ export const CHAT_PROVIDER_PRESETS = {
     requiresApiKey: true,
     provider: "openai-compatible" as ChatProvider,
   },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    defaultModel: "openai/gpt-4o-mini",
+    requiresApiKey: true,
+    provider: "openai-compatible" as ChatProvider,
+  },
   ollama: {
     name: "Ollama",
     baseUrl: "http://localhost:11434/v1",

@@ -122,10 +122,10 @@ async function embedTextForServer({
 
   try {
     if (provider === "ollama") {
-      const res = await fetch(`${normalizeBaseUrl(baseUrl)}/api/embeddings`, {
+      const res = await fetch(`${normalizeBaseUrl(baseUrl)}/api/embed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt: text }),
+        body: JSON.stringify({ model, input: text }),
       });
 
       if (!res.ok) {
@@ -137,10 +137,9 @@ async function embedTextForServer({
       }
 
       const json = (await res.json()) as {
-        embedding?: number[];
-        embeddings?: number[];
+        embeddings?: number[][];
       };
-      const embedding = json.embedding ?? json.embeddings;
+      const embedding = json.embeddings?.[0];
       if (!Array.isArray(embedding) || embedding.length === 0) {
         return {
           ok: false,
@@ -163,7 +162,11 @@ async function embedTextForServer({
       body.dimensions = dimensions;
     }
 
-    const res = await fetch(`${normalizeBaseUrl(baseUrl)}/v1/embeddings`, {
+    const normalized = normalizeBaseUrl(baseUrl);
+    const embeddingsUrl = normalized.endsWith("/v1")
+      ? `${normalized}/embeddings`
+      : `${normalized}/v1/embeddings`;
+    const res = await fetch(embeddingsUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
