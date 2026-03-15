@@ -21,10 +21,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import {
-  getStatisticsExclusions,
-  getUserAllowedLibraryIds,
-} from "./exclusions";
+import { getStatisticsExclusions } from "./exclusions";
 
 export interface ItemStats {
   totalViews: number;
@@ -106,10 +103,16 @@ export const getItemDetails = async ({
     return null;
   }
 
-  // Check library access for restricted users
+  // Check library access for restricted users (respects both server and user exclusions)
   if (viewerUserId && item.libraryId) {
-    const allowed = await getUserAllowedLibraryIds(item.serverId, viewerUserId);
-    if (allowed !== null && !allowed.includes(item.libraryId)) {
+    const { allowedLibraryIds } = await getStatisticsExclusions(
+      item.serverId,
+      viewerUserId,
+    );
+    if (
+      allowedLibraryIds !== null &&
+      !allowedLibraryIds.includes(item.libraryId)
+    ) {
       return null;
     }
   }

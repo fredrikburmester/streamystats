@@ -9,7 +9,7 @@ import {
   getPerLibraryStatistics,
 } from "@/lib/db/library-statistics";
 import { getServer } from "@/lib/db/server";
-import { getMe, isUserAdmin } from "@/lib/db/users";
+import { getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
 import { LibraryStatisticsCards } from "./LibraryStatisticsCards";
 
@@ -43,26 +43,24 @@ export default async function DashboardPage({
     redirect("/not-found");
   }
 
-  const [isAdmin, me] = await Promise.all([isUserAdmin(), getMe()]);
-  const viewerUserId = isAdmin ? undefined : me?.id;
-  const libraries = await getLibraries({
-    serverId: server.id,
-    userId: viewerUserId,
-  });
-  const perLibraryStats = await getPerLibraryStatistics({
-    serverId: server.id,
-    userId: viewerUserId,
-  });
-  const items = await getLibraryItemsWithStats({
-    serverId: server.id,
-    userId: viewerUserId,
-    page,
-    sortOrder: sort_order,
-    sortBy: sort_by,
-    type,
-    search,
-    libraryIds,
-  });
+  const [isAdmin, viewerUserId] = await Promise.all([
+    isUserAdmin(),
+    getViewerUserId(),
+  ]);
+  const [libraries, perLibraryStats, items] = await Promise.all([
+    getLibraries({ serverId: server.id, userId: viewerUserId }),
+    getPerLibraryStatistics({ serverId: server.id, userId: viewerUserId }),
+    getLibraryItemsWithStats({
+      serverId: server.id,
+      userId: viewerUserId,
+      page,
+      sortOrder: sort_order,
+      sortBy: sort_by,
+      type,
+      search,
+      libraryIds,
+    }),
+  ]);
 
   return (
     <Container>

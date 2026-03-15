@@ -99,7 +99,7 @@ async function getSeasonalRecommendationsCached(
   ]);
 
   const disabledHolidays = server?.disabledHolidays || [];
-  const { excludedLibraryIds, itemLibraryExclusion } = exclusions;
+  const { itemLibraryExclusion } = exclusions;
 
   // Get all active holidays and filter out disabled ones
   const activeHolidays = getActiveHolidays();

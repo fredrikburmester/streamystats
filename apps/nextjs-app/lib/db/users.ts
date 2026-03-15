@@ -424,6 +424,16 @@ export const isUserAdmin = async (): Promise<boolean> => {
 };
 
 /**
+ * Get the viewer user ID for library access filtering.
+ * Returns undefined for admins (no restrictions), or the user's ID for non-admins.
+ */
+export const getViewerUserId = async (): Promise<string | undefined> => {
+  const session = await getSession();
+  if (!session) return undefined;
+  return session.isAdmin ? undefined : session.id;
+};
+
+/**
  * Validates admin status against the live Jellyfin server.
  * Use this for security-critical operations where you need real-time verification.
  */

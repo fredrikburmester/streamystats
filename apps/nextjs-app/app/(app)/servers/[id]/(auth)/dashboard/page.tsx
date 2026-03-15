@@ -12,7 +12,7 @@ import { getServer } from "@/lib/db/server";
 import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
-import { getMe, isUserAdmin } from "@/lib/db/users";
+import { getMe, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { ActiveSessions } from "./ActiveSessions";
 import { MostWatchedItems } from "./MostWatchedItems";
@@ -62,8 +62,11 @@ async function DashboardContent({ serverId }: { serverId: string }) {
 }
 
 async function GeneralStats({ server }: { server: ServerPublic }) {
-  const [me, isAdmin] = await Promise.all([getMe(), isUserAdmin()]);
-  const viewerUserId = isAdmin ? undefined : me?.id;
+  const [me, isAdmin, viewerUserId] = await Promise.all([
+    getMe(),
+    isUserAdmin(),
+    getViewerUserId(),
+  ]);
 
   const [
     similarData,
@@ -78,6 +81,7 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
     getMostWatchedItems({
       serverId: server.id,
       userId: isAdmin ? undefined : me?.id,
+      viewerUserId,
     }),
     getSeasonalRecommendations(server.id, 15, 0, viewerUserId),
     getRecentlyAddedItems(server.id, "Movie", 20, 0, viewerUserId),

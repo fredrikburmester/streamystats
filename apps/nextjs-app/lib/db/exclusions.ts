@@ -8,7 +8,8 @@ import {
   sessions,
   users,
 } from "@streamystats/database";
-import { and, eq, inArray, notInArray, type SQL } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
+import type { AnyColumn } from "drizzle-orm";
 
 export interface ExclusionSettings {
   excludedUserIds: string[];
@@ -74,48 +75,34 @@ export async function getStatisticsExclusions(
   serverId: number | string,
   userId?: string,
 ) {
-  const settings = await getExclusionSettings(serverId);
+  const [settings, allowedLibraryIds] = await Promise.all([
+    getExclusionSettings(serverId),
+    userId ? getUserAllowedLibraryIds(serverId, userId) : Promise.resolve(null),
+  ]);
   const { excludedUserIds, excludedLibraryIds } = settings;
 
   const hasUserExclusions = excludedUserIds.length > 0;
 
-  // Determine effective library filtering mode
-  let allowedLibraryIds: string[] | null = null;
-  if (userId) {
-    allowedLibraryIds = await getUserAllowedLibraryIds(serverId, userId);
-    if (allowedLibraryIds !== null && excludedLibraryIds.length > 0) {
-      // Remove server-excluded libraries from user's allowed set
-      const excludedSet = new Set(excludedLibraryIds);
-      allowedLibraryIds = allowedLibraryIds.filter(
-        (id) => !excludedSet.has(id),
-      );
-    }
+  // Remove server-excluded libraries from user's allowed set
+  let effectiveAllowedIds: string[] | null = allowedLibraryIds;
+  if (effectiveAllowedIds !== null && excludedLibraryIds.length > 0) {
+    const excludedSet = new Set(excludedLibraryIds);
+    effectiveAllowedIds = effectiveAllowedIds.filter(
+      (id) => !excludedSet.has(id),
+    );
   }
 
-  const useAllowlist = allowedLibraryIds !== null;
-  const effectiveAllowedIds = allowedLibraryIds ?? [];
+  const useAllowlist = effectiveAllowedIds !== null;
   const hasLibraryExclusions = useAllowlist || excludedLibraryIds.length > 0;
 
-  // Build library conditions based on mode
-  const buildItemLibraryCondition = (): SQL | undefined => {
+  // Build library condition for a given column, handling allowlist vs blocklist
+  const buildLibraryCondition = (column: AnyColumn): SQL | undefined => {
     if (useAllowlist) {
-      return effectiveAllowedIds.length > 0
-        ? inArray(items.libraryId, effectiveAllowedIds)
-        : eq(items.libraryId, "__none__");
+      const ids = effectiveAllowedIds as string[];
+      return ids.length > 0 ? inArray(column, ids) : sql`false`;
     }
     return excludedLibraryIds.length > 0
-      ? notInArray(items.libraryId, excludedLibraryIds)
-      : undefined;
-  };
-
-  const buildLibrariesTableCondition = (): SQL | undefined => {
-    if (useAllowlist) {
-      return effectiveAllowedIds.length > 0
-        ? inArray(libraries.id, effectiveAllowedIds)
-        : eq(libraries.id, "__none__");
-    }
-    return excludedLibraryIds.length > 0
-      ? notInArray(libraries.id, excludedLibraryIds)
+      ? notInArray(column, excludedLibraryIds)
       : undefined;
   };
 
@@ -123,7 +110,7 @@ export async function getStatisticsExclusions(
     ...settings,
 
     // The effective allowed library IDs (null = no user restriction)
-    allowedLibraryIds,
+    allowedLibraryIds: effectiveAllowedIds,
 
     // Boolean flags for easy checking
     hasUserExclusions,
@@ -138,7 +125,7 @@ export async function getStatisticsExclusions(
       : undefined,
 
     // For queries involving 'items' table (either direct or joined)
-    itemLibraryExclusion: buildItemLibraryCondition(),
+    itemLibraryExclusion: buildLibraryCondition(items.libraryId),
 
     // For 'users' table queries
     usersTableExclusion: hasUserExclusions
@@ -146,7 +133,7 @@ export async function getStatisticsExclusions(
       : undefined,
 
     // For 'libraries' table queries
-    librariesTableExclusion: buildLibrariesTableCondition(),
+    librariesTableExclusion: buildLibraryCondition(libraries.id),
   };
 }
 

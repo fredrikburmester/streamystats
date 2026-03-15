@@ -39,9 +39,11 @@ interface MostWatchedItems {
 export async function getMostWatchedItems({
   serverId,
   userId,
+  viewerUserId,
 }: {
   serverId: string | number;
   userId?: string | number;
+  viewerUserId?: string;
 }): Promise<MostWatchedItems> {
   "use cache";
   cacheLife("hours");
@@ -49,7 +51,7 @@ export async function getMostWatchedItems({
   // Get exclusion settings
   const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     serverId,
-    userId ? String(userId) : undefined,
+    viewerUserId,
   );
 
   // First get the aggregated session data for Movies and Episodes
