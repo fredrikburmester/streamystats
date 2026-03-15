@@ -13,9 +13,12 @@ on:
         type: boolean
         default: true
 
+permissions:
+  packages: write
+
 env:
-  REGISTRY: docker.io
-  IMAGE_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ghcr.io/${{ github.repository_owner }}
 
 jobs:
   build-and-push:
@@ -24,13 +27,13 @@ jobs:
       fail-fast: false
       matrix:
         part:
-          - streamystats-v2-nextjs
-          - streamystats-v2-job-server
+          - streamystats-nextjs
+          - streamystats-job-server
         include:
-          - part: streamystats-v2-nextjs
+          - part: streamystats-nextjs
             folder: .
             dockerfile: apps/nextjs-app/Dockerfile
-          - part: streamystats-v2-job-server
+          - part: streamystats-job-server
             folder: .
             dockerfile: apps/job-server/Dockerfile
 
@@ -44,13 +47,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         if: ${{ inputs.push_to_registry }}
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -95,8 +98,8 @@ jobs:
           echo "**Push to Registry:** \`${{ inputs.push_to_registry }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Built Images:" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-nextjs:${{ inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-job-server:${{ inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-nextjs:${{ inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-job-server:${{ inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Usage:" >> $GITHUB_STEP_SUMMARY
           echo "Update your \`docker-compose.yml\` with:" >> $GITHUB_STEP_SUMMARY

@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  packages: write
 
 jobs:
   release-please:
@@ -33,23 +34,23 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
     env:
-      REGISTRY: docker.io
-      IMAGE_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
+      REGISTRY: ghcr.io
+      IMAGE_NAMESPACE: ghcr.io/${{ github.repository_owner }}
     strategy:
       fail-fast: false
       matrix:
         part:
-          - streamystats-v2-nextjs
-          - streamystats-v2-job-server
-          - streamystats-v2-aio
+          - streamystats-nextjs
+          - streamystats-job-server
+          - streamystats-aio
         include:
-          - part: streamystats-v2-nextjs
+          - part: streamystats-nextjs
             folder: .
             dockerfile: apps/nextjs-app/Dockerfile
-          - part: streamystats-v2-job-server
+          - part: streamystats-job-server
             folder: .
             dockerfile: apps/job-server/Dockerfile
-          - part: streamystats-v2-aio
+          - part: streamystats-aio
             folder: .
             dockerfile: Dockerfile.aio
     steps:
@@ -62,12 +63,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
