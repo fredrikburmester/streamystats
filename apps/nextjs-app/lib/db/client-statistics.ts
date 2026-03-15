@@ -1,6 +1,6 @@
 import "server-only";
 
-import { db, sessions, users } from "@streamystats/database";
+import { db, items, sessions, users } from "@streamystats/database";
 import {
   and,
   count,
@@ -67,13 +67,15 @@ export async function getClientStatistics(
   startDate?: string,
   endDate?: string,
   userId?: string,
+  viewerUserId?: string,
 ): Promise<ClientStatisticsResponse> {
   "use cache";
   cacheLife("days");
   cacheTag(`client-statistics-${serverId}`);
 
   // Get exclusion settings
-  const { userExclusion } = await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion, requiresItemsJoin } =
+    await getStatisticsExclusions(serverId, viewerUserId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
@@ -94,9 +96,14 @@ export async function getClientStatistics(
   if (userExclusion) {
     whereConditions.push(userExclusion);
   }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
+
+  const itemsJoinCondition = eq(sessions.itemId, items.id);
 
   // Get all client statistics
-  const clientStats = await db
+  const clientStatsQuery = db
     .select({
       clientName: sessions.clientName,
       sessionCount: count(sessions.id),
@@ -107,12 +114,15 @@ export async function getClientStatistics(
       directPlaySessions: sql<number>`COUNT(CASE WHEN ${sessions.isTranscoded} IS FALSE OR ${sessions.playMethod} = 'DirectPlay' THEN 1 END)`,
     })
     .from(sessions)
+    .$dynamic();
+  if (requiresItemsJoin) clientStatsQuery.innerJoin(items, itemsJoinCondition);
+  const clientStats = await clientStatsQuery
     .where(and(...whereConditions))
     .groupBy(sessions.clientName)
     .orderBy(sql`COUNT(${sessions.id}) DESC`);
 
   // Get clients per user
-  const clientsPerUser = await db
+  const clientsPerUserQuery = db
     .select({
       userId: sessions.userId,
       userName: users.name,
@@ -122,12 +132,16 @@ export async function getClientStatistics(
     })
     .from(sessions)
     .leftJoin(users, eq(sessions.userId, users.id))
+    .$dynamic();
+  if (requiresItemsJoin)
+    clientsPerUserQuery.innerJoin(items, itemsJoinCondition);
+  const clientsPerUser = await clientsPerUserQuery
     .where(and(...whereConditions))
     .groupBy(sessions.userId, users.name, sessions.clientName)
     .orderBy(sql`COUNT(${sessions.id}) DESC`);
 
   // Get clients per device
-  const clientsPerDevice = await db
+  const clientsPerDeviceQuery = db
     .select({
       deviceName: sessions.deviceName,
       deviceId: sessions.deviceId,
@@ -136,12 +150,16 @@ export async function getClientStatistics(
       totalWatchTime: sum(sessions.playDuration),
     })
     .from(sessions)
+    .$dynamic();
+  if (requiresItemsJoin)
+    clientsPerDeviceQuery.innerJoin(items, itemsJoinCondition);
+  const clientsPerDevice = await clientsPerDeviceQuery
     .where(and(...whereConditions))
     .groupBy(sessions.deviceName, sessions.deviceId, sessions.clientName)
     .orderBy(sql`COUNT(${sessions.id}) DESC`);
 
   // Get transcoding stats by client
-  const transcodingByClient = await db
+  const transcodingQuery = db
     .select({
       clientName: sessions.clientName,
       totalSessions: count(sessions.id),
@@ -149,12 +167,15 @@ export async function getClientStatistics(
       directPlaySessions: sql<number>`COUNT(CASE WHEN ${sessions.isTranscoded} IS FALSE OR ${sessions.playMethod} = 'DirectPlay' THEN 1 END)`,
     })
     .from(sessions)
+    .$dynamic();
+  if (requiresItemsJoin) transcodingQuery.innerJoin(items, itemsJoinCondition);
+  const transcodingByClient = await transcodingQuery
     .where(and(...whereConditions))
     .groupBy(sessions.clientName)
     .orderBy(sql`COUNT(${sessions.id}) DESC`);
 
   // Get total counts
-  const totalSessionsResult = await db
+  const totalCountsQuery = db
     .select({
       total: count(sessions.id),
       uniqueClients: sql<number>`COUNT(DISTINCT ${sessions.clientName})`,
@@ -162,7 +183,11 @@ export async function getClientStatistics(
       uniqueDevices: sql<number>`COUNT(DISTINCT ${sessions.deviceId})`,
     })
     .from(sessions)
-    .where(and(...whereConditions));
+    .$dynamic();
+  if (requiresItemsJoin) totalCountsQuery.innerJoin(items, itemsJoinCondition);
+  const totalSessionsResult = await totalCountsQuery.where(
+    and(...whereConditions),
+  );
 
   const totalSessions = Number(totalSessionsResult[0]?.total || 0);
   const uniqueClients = Number(totalSessionsResult[0]?.uniqueClients || 0);

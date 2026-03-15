@@ -44,7 +44,7 @@ export async function getExclusionSettings(
  * Returns null when the user has EnableAllFolders=true or is an admin.
  * Returns the intersection of user's enabledFolders minus server exclusions otherwise.
  */
-export async function getUserAllowedLibraryIds(
+async function getUserAllowedLibraryIds(
   serverId: number | string,
   userId: string,
 ): Promise<string[] | null> {

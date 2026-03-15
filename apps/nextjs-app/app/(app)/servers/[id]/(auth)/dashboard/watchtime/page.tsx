@@ -10,6 +10,7 @@ import { getMostActiveUsersDay, getMostWatchedDay } from "@/lib/db/statistics";
 import {
   getMe,
   getUserStatsSummaryForServer,
+  getViewerUserId,
   getWatchTimePerHour,
   getWatchTimePerWeekDay,
   isUserAdmin,
@@ -78,7 +79,11 @@ async function WatchtimeStats({
   startDate: string;
   endDate: string;
 }) {
-  const [me, isAdmin] = await Promise.all([getMe(), isUserAdmin()]);
+  const [me, isAdmin, viewerUserId] = await Promise.all([
+    getMe(),
+    isUserAdmin(),
+    getViewerUserId(),
+  ]);
 
   if (!me) {
     redirect("/not-found");
@@ -93,24 +98,28 @@ async function WatchtimeStats({
         userId: isAdmin ? undefined : me.id,
         startDate,
         endDate,
+        viewerUserId,
       }),
       getWatchTimePerHour({
         serverId: server.id,
         userId: isAdmin ? undefined : me.id,
         startDate,
         endDate,
+        viewerUserId,
       }),
       getMostWatchedDay({
         serverId: server.id,
         userId: scopedUserId,
         startDate,
         endDate,
+        viewerUserId,
       }),
       isAdmin
         ? getMostActiveUsersDay({
             serverId: server.id,
             startDate,
             endDate,
+            viewerUserId,
           })
         : Promise.resolve(null),
       isAdmin

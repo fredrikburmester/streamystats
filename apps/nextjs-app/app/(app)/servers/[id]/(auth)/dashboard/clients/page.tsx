@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { setEndDateToEndOfDay } from "@/dates";
 import { getClientStatistics } from "@/lib/db/client-statistics";
 import { getServer } from "@/lib/db/server";
-import { getMe, getUsers, isUserAdmin } from "@/lib/db/users";
+import { getMe, getUsers, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { ClientStatistics } from "../ClientStatistics";
 import { ClientFilters } from "./ClientFilters";
@@ -66,7 +66,11 @@ async function ClientStats({
   endDate?: string;
   userId?: string;
 }) {
-  const [isAdmin, me] = await Promise.all([isUserAdmin(), getMe()]);
+  const [isAdmin, me, viewerUserId] = await Promise.all([
+    isUserAdmin(),
+    getMe(),
+    getViewerUserId(),
+  ]);
 
   // Determine which userId to use:
   // 1. If userId is provided in query params, use it
@@ -79,6 +83,7 @@ async function ClientStats({
     startDate,
     endDate,
     effectiveUserId,
+    viewerUserId,
   );
 
   return (
