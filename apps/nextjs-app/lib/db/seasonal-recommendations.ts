@@ -24,7 +24,7 @@ import {
 } from "drizzle-orm";
 import { cacheLife } from "next/cache";
 import { getActiveHolidays, type Holiday } from "../holidays";
-import { getExclusionSettings } from "./exclusions";
+import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
 
 export interface SeasonalRecommendationItem {
@@ -84,6 +84,7 @@ async function getSeasonalRecommendationsCached(
   serverIdNum: number,
   userId: string | null,
   poolSize: number,
+  viewerUserId?: string,
 ): Promise<SeasonalRecommendationResult | null> {
   "use cache";
   cacheLife("days");
@@ -94,11 +95,11 @@ async function getSeasonalRecommendationsCached(
       where: eq(servers.id, serverIdNum),
       columns: { disabledHolidays: true },
     }),
-    getExclusionSettings(serverIdNum),
+    getStatisticsExclusions(serverIdNum, viewerUserId),
   ]);
 
   const disabledHolidays = server?.disabledHolidays || [];
-  const { excludedLibraryIds } = exclusions;
+  const { excludedLibraryIds, itemLibraryExclusion } = exclusions;
 
   // Get all active holidays and filter out disabled ones
   const activeHolidays = getActiveHolidays();
@@ -181,10 +182,8 @@ async function getSeasonalRecommendationsCached(
           isNull(items.deletedAt),
           inArray(items.type, ["Movie", "Series"]),
           or(...searchConditions),
-          // Exclude items from excluded libraries
-          excludedLibraryIds.length > 0
-            ? notInArray(items.libraryId, excludedLibraryIds)
-            : sql`true`,
+          // Exclude items from excluded/disallowed libraries
+          itemLibraryExclusion ?? sql`true`,
           excludeIds.length > 0 ? notInArray(items.id, excludeIds) : sql`true`,
         ),
       )
@@ -311,6 +310,7 @@ async function getSeasonalRecommendationsCached(
               allExcludeIds.length > 0
                 ? notInArray(items.id, allExcludeIds)
                 : sql`true`,
+              itemLibraryExclusion ?? sql`true`,
             ),
           )
           .orderBy(desc(similarity))
@@ -372,6 +372,7 @@ export async function getSeasonalRecommendations(
   serverId: string | number,
   limit = 15,
   offset = 0,
+  viewerUserId?: string,
 ): Promise<SeasonalRecommendationResult | null> {
   const serverIdNum = Number(serverId);
 
@@ -383,6 +384,7 @@ export async function getSeasonalRecommendations(
     serverIdNum,
     userId,
     SEASONAL_POOL_SIZE,
+    viewerUserId,
   );
 
   if (!result) {

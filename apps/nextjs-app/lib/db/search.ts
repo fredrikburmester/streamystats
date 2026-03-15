@@ -10,7 +10,8 @@ import {
   users,
   watchlists,
 } from "@streamystats/database";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { getStatisticsExclusions } from "./exclusions";
 
 /**
  * Generic search result type that can represent any searchable entity
@@ -65,9 +66,20 @@ async function searchItems(
   serverId: number,
   query: string,
   limit: number = 10,
+  viewerUserId?: string,
 ): Promise<SearchResult[]> {
   const searchQuery = buildTsQuery(query);
   if (!searchQuery) return [];
+
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
+
+  // Build library filter as raw SQL for use in the template literal query
+  const libraryFilter: SQL = itemLibraryExclusion
+    ? sql`AND ${itemLibraryExclusion}`
+    : sql``;
 
   // Use a CTE to set similarity threshold, then search with multiple strategies:
   // 1. Full-text search (uses GiST index on search_vector)
@@ -117,6 +129,7 @@ async function searchItems(
     FROM ${items}
     WHERE ${items.serverId} = ${serverId}
       AND ${items.deletedAt} IS NULL
+      ${libraryFilter}
       AND (
         search_vector @@ plainto_tsquery('english', ${searchQuery})
         OR ${items.name} ILIKE ${`%${query}%`}
@@ -446,6 +459,7 @@ export async function globalSearch(
     sessionLimit?: number;
     actorLimit?: number;
   } = {},
+  viewerUserId?: string,
 ): Promise<SearchResults> {
   const {
     itemLimit = 10,
@@ -477,7 +491,7 @@ export async function globalSearch(
     sessionResults,
     actorResults,
   ] = await Promise.all([
-    searchItems(serverId, query, itemLimit),
+    searchItems(serverId, query, itemLimit, viewerUserId),
     searchUsers(serverId, query, userLimit),
     searchWatchlists(serverId, query, userId, watchlistLimit),
     searchActivities(serverId, query, activityLimit),

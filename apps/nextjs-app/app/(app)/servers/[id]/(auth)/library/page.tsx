@@ -9,7 +9,7 @@ import {
   getPerLibraryStatistics,
 } from "@/lib/db/library-statistics";
 import { getServer } from "@/lib/db/server";
-import { isUserAdmin } from "@/lib/db/users";
+import { getMe, isUserAdmin } from "@/lib/db/users";
 import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
 import { LibraryStatisticsCards } from "./LibraryStatisticsCards";
 
@@ -43,13 +43,19 @@ export default async function DashboardPage({
     redirect("/not-found");
   }
 
-  const isAdmin = await isUserAdmin();
-  const libraries = await getLibraries({ serverId: server.id });
+  const [isAdmin, me] = await Promise.all([isUserAdmin(), getMe()]);
+  const viewerUserId = isAdmin ? undefined : me?.id;
+  const libraries = await getLibraries({
+    serverId: server.id,
+    userId: viewerUserId,
+  });
   const perLibraryStats = await getPerLibraryStatistics({
     serverId: server.id,
+    userId: viewerUserId,
   });
   const items = await getLibraryItemsWithStats({
     serverId: server.id,
+    userId: viewerUserId,
     page,
     sortOrder: sort_order,
     sortBy: sort_by,

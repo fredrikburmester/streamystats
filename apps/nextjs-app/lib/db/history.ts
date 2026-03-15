@@ -72,10 +72,13 @@ export const getHistory = async (
     clientName?: string;
     playMethod?: string;
   },
+  viewerUserId?: string,
 ): Promise<HistoryResponse> => {
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const offset = (page - 1) * perPage;
 
@@ -377,9 +380,13 @@ export const getItemHistory = async (
   itemId: string,
   page = 1,
   perPage = 50,
+  viewerUserId?: string,
 ): Promise<HistoryResponse> => {
   // Get exclusion settings
-  const { userExclusion } = await getStatisticsExclusions(serverId);
+  const { userExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const offset = (page - 1) * perPage;
 
@@ -435,6 +442,7 @@ export const getHistoryByFilters = async ({
   startDate,
   endDate,
   limit = 50,
+  viewerUserId,
 }: {
   serverId: number;
   userId?: string;
@@ -442,10 +450,13 @@ export const getHistoryByFilters = async ({
   startDate?: string;
   endDate?: string;
   limit?: number;
+  viewerUserId?: string;
 }): Promise<HistoryItem[]> => {
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const conditions: SQL[] = [
     eq(sessions.serverId, serverId),

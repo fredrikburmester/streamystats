@@ -84,6 +84,7 @@ export default async function User({
 
   // Check if current user is viewing their own page
   const isCurrentUser = currentSession?.id === user.id;
+  const viewerUserId = isAdmin ? undefined : currentSession?.id;
 
   // Get additional user statistics and history
   const currentPage = Number.parseInt(page, 10);
@@ -105,6 +106,7 @@ export default async function User({
     getWatchTimePerWeekDay({
       serverId: server.id,
       userId: user.id,
+      viewerUserId,
     }),
     getUserHistory(server.id, user.id, {
       page: currentPage,
@@ -121,7 +123,7 @@ export default async function User({
     }),
     getUserGenreStats({ userId: user.id, serverId: server.id }),
     getMostWatchedItems({ serverId: server.id, userId: user.id }),
-    getAlmostDoneSeries({ serverId: server.id, userId: user.id }),
+    getAlmostDoneSeries({ serverId: server.id, userId: user.id, viewerUserId }),
     getUserAnomalies(server.id, user.id, { resolved: false, limit: 1 }),
     getUsers({ serverId: server.id }),
     getUniqueDeviceNames(server.id),

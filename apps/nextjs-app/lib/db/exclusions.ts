@@ -39,26 +39,91 @@ export async function getExclusionSettings(
 }
 
 /**
- * Unified helper to get all exclusion filters for statistics queries.
- * This should be the preferred way to handle exclusions in new code.
- *
- * @example
- * const { userExclusion, itemLibraryExclusion, requiresItemsJoin } = await getStatisticsExclusions(serverId);
- * const conditions = [eq(sessions.serverId, serverId), userExclusion];
- * if (requiresItemsJoin) {
- *   query.innerJoin(items, eq(sessions.itemId, items.id));
- *   conditions.push(itemLibraryExclusion);
- * }
+ * Get the library IDs a user is allowed to access, or null if unrestricted.
+ * Returns null when the user has EnableAllFolders=true or is an admin.
+ * Returns the intersection of user's enabledFolders minus server exclusions otherwise.
  */
-export async function getStatisticsExclusions(serverId: number | string) {
+export async function getUserAllowedLibraryIds(
+  serverId: number | string,
+  userId: string,
+): Promise<string[] | null> {
+  const id = Number(serverId);
+
+  const user = await db.query.users.findFirst({
+    where: and(eq(users.id, userId), eq(users.serverId, id)),
+    columns: {
+      enableAllFolders: true,
+      enabledFolders: true,
+      isAdministrator: true,
+    },
+  });
+
+  if (!user || user.isAdministrator || user.enableAllFolders) {
+    return null;
+  }
+
+  return user.enabledFolders ?? [];
+}
+
+/**
+ * Unified helper to get all exclusion filters for statistics queries.
+ * When userId is provided and the user has folder restrictions, library filters
+ * switch from blocklist (notInArray) to allowlist (inArray) mode.
+ */
+export async function getStatisticsExclusions(
+  serverId: number | string,
+  userId?: string,
+) {
   const settings = await getExclusionSettings(serverId);
   const { excludedUserIds, excludedLibraryIds } = settings;
 
   const hasUserExclusions = excludedUserIds.length > 0;
-  const hasLibraryExclusions = excludedLibraryIds.length > 0;
+
+  // Determine effective library filtering mode
+  let allowedLibraryIds: string[] | null = null;
+  if (userId) {
+    allowedLibraryIds = await getUserAllowedLibraryIds(serverId, userId);
+    if (allowedLibraryIds !== null && excludedLibraryIds.length > 0) {
+      // Remove server-excluded libraries from user's allowed set
+      const excludedSet = new Set(excludedLibraryIds);
+      allowedLibraryIds = allowedLibraryIds.filter(
+        (id) => !excludedSet.has(id),
+      );
+    }
+  }
+
+  const useAllowlist = allowedLibraryIds !== null;
+  const effectiveAllowedIds = allowedLibraryIds ?? [];
+  const hasLibraryExclusions = useAllowlist || excludedLibraryIds.length > 0;
+
+  // Build library conditions based on mode
+  const buildItemLibraryCondition = (): SQL | undefined => {
+    if (useAllowlist) {
+      return effectiveAllowedIds.length > 0
+        ? inArray(items.libraryId, effectiveAllowedIds)
+        : eq(items.libraryId, "__none__");
+    }
+    return excludedLibraryIds.length > 0
+      ? notInArray(items.libraryId, excludedLibraryIds)
+      : undefined;
+  };
+
+  const buildLibrariesTableCondition = (): SQL | undefined => {
+    if (useAllowlist) {
+      return effectiveAllowedIds.length > 0
+        ? inArray(libraries.id, effectiveAllowedIds)
+        : eq(libraries.id, "__none__");
+    }
+    return excludedLibraryIds.length > 0
+      ? notInArray(libraries.id, excludedLibraryIds)
+      : undefined;
+  };
 
   return {
     ...settings,
+
+    // The effective allowed library IDs (null = no user restriction)
+    allowedLibraryIds,
 
     // Boolean flags for easy checking
     hasUserExclusions,
@@ -73,9 +138,7 @@ export async function getStatisticsExclusions(serverId: number | string) {
       : undefined,
 
     // For queries involving 'items' table (either direct or joined)
-    itemLibraryExclusion: hasLibraryExclusions
-      ? notInArray(items.libraryId, excludedLibraryIds)
-      : undefined,
+    itemLibraryExclusion: buildItemLibraryCondition(),
 
     // For 'users' table queries
     usersTableExclusion: hasUserExclusions
@@ -83,9 +146,7 @@ export async function getStatisticsExclusions(serverId: number | string) {
       : undefined,
 
     // For 'libraries' table queries
-    librariesTableExclusion: hasLibraryExclusions
-      ? notInArray(libraries.id, excludedLibraryIds)
-      : undefined,
+    librariesTableExclusion: buildLibrariesTableCondition(),
   };
 }
 

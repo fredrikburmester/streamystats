@@ -63,6 +63,7 @@ async function DashboardContent({ serverId }: { serverId: string }) {
 
 async function GeneralStats({ server }: { server: ServerPublic }) {
   const [me, isAdmin] = await Promise.all([getMe(), isUserAdmin()]);
+  const viewerUserId = isAdmin ? undefined : me?.id;
 
   const [
     similarData,
@@ -72,15 +73,15 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
     recentlyAddedMovies,
     recentlyAddedSeries,
   ] = await Promise.all([
-    getSimilarStatistics(server.id),
-    getSimilarSeries(server.id),
+    getSimilarStatistics(server.id, undefined, 20, 0, undefined, viewerUserId),
+    getSimilarSeries(server.id, undefined, 20, 0, viewerUserId),
     getMostWatchedItems({
       serverId: server.id,
       userId: isAdmin ? undefined : me?.id,
     }),
-    getSeasonalRecommendations(server.id),
-    getRecentlyAddedItems(server.id, "Movie"),
-    getRecentlyAddedSeriesWithEpisodes(server.id),
+    getSeasonalRecommendations(server.id, 15, 0, viewerUserId),
+    getRecentlyAddedItems(server.id, "Movie", 20, 0, viewerUserId),
+    getRecentlyAddedSeriesWithEpisodes(server.id, 7, 20, 0, viewerUserId),
   ]);
 
   return (

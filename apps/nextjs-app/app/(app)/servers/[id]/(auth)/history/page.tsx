@@ -9,7 +9,7 @@ import {
   type HistoryResponse,
 } from "@/lib/db/history";
 import { getServer } from "@/lib/db/server";
-import { getUsers } from "@/lib/db/users";
+import { getMe, getUsers, isUserAdmin } from "@/lib/db/users";
 import { HistoryTable } from "./HistoryTable";
 
 export default async function HistoryPage({
@@ -51,6 +51,9 @@ export default async function HistoryPage({
     redirect("/setup");
   }
 
+  const [isAdmin, me] = await Promise.all([isUserAdmin(), getMe()]);
+  const viewerUserId = isAdmin ? undefined : me?.id;
+
   const [data, users, deviceNames, clientNames, playMethods] =
     await Promise.all([
       getHistory(
@@ -69,6 +72,7 @@ export default async function HistoryPage({
           clientName,
           playMethod,
         },
+        viewerUserId,
       ),
       getUsers({ serverId: server.id }),
       getUniqueDeviceNames(server.id),

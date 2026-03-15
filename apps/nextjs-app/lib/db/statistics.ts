@@ -47,8 +47,10 @@ export async function getMostWatchedItems({
   cacheLife("hours");
 
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    userId ? String(userId) : undefined,
+  );
 
   // First get the aggregated session data for Movies and Episodes
   const whereConditions: SQL[] = [
@@ -216,15 +218,19 @@ export async function getWatchTimePerType({
   startDate,
   endDate,
   userId,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
   userId?: string | number;
+  viewerUserId?: string;
 }): Promise<WatchTimePerType> {
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -353,14 +359,16 @@ export async function getWatchTimeByLibrary({
   serverId,
   startDate,
   endDate,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
+  viewerUserId?: string;
 }): Promise<LibraryWatchTime> {
   // Get exclusion settings
   const { userExclusion, librariesTableExclusion } =
-    await getStatisticsExclusions(serverId);
+    await getStatisticsExclusions(serverId, viewerUserId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -426,15 +434,19 @@ export async function getMostWatchedDay({
   startDate,
   endDate,
   userId,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
   userId?: string | number;
+  viewerUserId?: string;
 }): Promise<MostWatchedDay | null> {
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -486,13 +498,18 @@ export async function getMostActiveUsersDay({
   serverId,
   startDate,
   endDate,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
+  viewerUserId?: string;
 }): Promise<MostActiveUsersDay | null> {
   // Get exclusion settings
-  const { userExclusion } = await getStatisticsExclusions(serverId);
+  const { userExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),

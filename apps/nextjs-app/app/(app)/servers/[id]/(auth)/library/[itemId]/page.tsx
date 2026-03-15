@@ -67,9 +67,11 @@ export default async function ItemDetailsPage({
     redirect("/login");
   }
 
+  const viewerUserId = isAdmin ? undefined : me.id;
   const itemDetails = await getItemDetails({
     itemId,
     userId: isAdmin ? undefined : me.id,
+    viewerUserId,
   });
 
   if (!itemDetails) {

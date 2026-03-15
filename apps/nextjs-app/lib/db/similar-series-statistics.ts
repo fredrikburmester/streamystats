@@ -22,6 +22,7 @@ import {
 } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 
+import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
 
 const enableDebug = false;
@@ -133,6 +134,7 @@ async function getSeriesRecommendations(
   serverIdNum: number,
   userId: string,
   poolSize: number,
+  viewerUserId?: string,
 ): Promise<SeriesRecommendationItem[]> {
   try {
     debugLog(
@@ -144,6 +146,7 @@ async function getSeriesRecommendations(
       serverIdNum,
       userId,
       poolSize,
+      viewerUserId,
     );
     debugLog(
       `✅ Got ${recommendations.length} user-specific series recommendations`,
@@ -164,6 +167,7 @@ export async function getSimilarSeries(
   userId?: string,
   limit = 20,
   offset = 0,
+  viewerUserId?: string,
 ): Promise<SeriesRecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
@@ -183,6 +187,7 @@ export async function getSimilarSeries(
     serverIdNum,
     targetUserId,
     RECOMMENDATION_POOL_SIZE,
+    viewerUserId,
   );
 
   return allRecommendations.slice(offset, offset + limit);
@@ -202,9 +207,15 @@ async function getUserSpecificSeriesRecommendations(
   serverId: number,
   userId: string,
   limit: number,
+  viewerUserId?: string,
 ): Promise<SeriesRecommendationItem[]> {
   debugLog(
     `\n🎯 Starting user-specific series recommendations for user ${userId}, server ${serverId}, limit ${limit}`,
+  );
+
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
   );
 
   // Get user's watch history for episodes, aggregated by series
@@ -420,6 +431,7 @@ async function getUserSpecificSeriesRecommendations(
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
             : sql`true`, // Exclude hidden items
+          itemLibraryExclusion ?? sql`true`,
         ),
       )
       .orderBy(desc(similarity))
