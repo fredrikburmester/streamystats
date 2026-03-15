@@ -52,7 +52,7 @@
     "@types/sql.js": "^1.4.9",
     "@xyflow/react": "^12.10.0",
     "add": "^2.0.6",
-    "ai": "^5.0.116",
+    "ai": "^6.0.116",
     "ajv": "^8.17.1",
     "blurhash": "^2.0.5",
     "class-variance-authority": "^0.7.1",
