@@ -10,7 +10,7 @@ import {
   users,
   watchlists,
 } from "@streamystats/database";
-import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
 import { getStatisticsExclusions } from "./exclusions";
 
 /**

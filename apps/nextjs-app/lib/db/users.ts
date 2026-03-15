@@ -10,7 +10,6 @@ import {
   inArray,
   isNotNull,
   lte,
-  notInArray,
   type SQL,
   sql,
   sum,
@@ -19,7 +18,7 @@ import { cookies } from "next/headers";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "../server-url";
 import { destroySession, getSession } from "../session";
-import { getExclusionSettings, getStatisticsExclusions } from "./exclusions";
+import { getStatisticsExclusions } from "./exclusions";
 import { isBetterDisplayName, normalizeGenre } from "./genres";
 import { getServer } from "./server";
 

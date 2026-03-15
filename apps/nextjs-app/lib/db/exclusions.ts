@@ -8,8 +8,8 @@ import {
   sessions,
   users,
 } from "@streamystats/database";
-import { and, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 import type { AnyColumn } from "drizzle-orm";
+import { and, eq, inArray, notInArray, type SQL, sql } from "drizzle-orm";
 
 export interface ExclusionSettings {
   excludedUserIds: string[];

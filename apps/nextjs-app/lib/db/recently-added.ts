@@ -13,7 +13,6 @@ import {
   inArray,
   isNotNull,
   isNull,
-  notInArray,
 } from "drizzle-orm";
 import { getStatisticsExclusions } from "./exclusions";
 import type {
