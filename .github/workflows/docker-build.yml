@@ -9,10 +9,10 @@ env:
   IMAGE_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         part:
           - streamystats-v2-nextjs
@@ -21,21 +21,55 @@ jobs:
           - streamystats-v2-aio
         include:
           - part: streamystats-v2-nextjs
-            folder: .
             dockerfile: apps/nextjs-app/Dockerfile
           - part: streamystats-v2-job-server
-            folder: .
             dockerfile: apps/job-server/Dockerfile
           - part: streamystats-v2-migrate
-            folder: .
             dockerfile: migration.Dockerfile
           - part: streamystats-v2-aio
-            folder: .
             dockerfile: Dockerfile.aio
 
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
+      - name: Build ${{ matrix.part }} (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=latest
+            COMMIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
+          push: false
+
+  push:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        part:
+          - streamystats-v2-nextjs
+          - streamystats-v2-job-server
+          - streamystats-v2-migrate
+          - streamystats-v2-aio
+        include:
+          - part: streamystats-v2-nextjs
+            dockerfile: apps/nextjs-app/Dockerfile
+          - part: streamystats-v2-job-server
+            dockerfile: apps/job-server/Dockerfile
+          - part: streamystats-v2-migrate
+            dockerfile: migration.Dockerfile
+          - part: streamystats-v2-aio
+            dockerfile: Dockerfile.aio
+
+    steps:
+      - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
@@ -48,7 +82,7 @@ jobs:
       - name: Build & push ${{ matrix.part }}
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.folder }}
+          context: .
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
