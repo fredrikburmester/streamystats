@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   nextjs-app:
-    image: docker.io/fredrikburmester/streamystats-v2-nextjs:${VERSION:-latest}
+    image: ghcr.io/fredrikburmester/streamystats-nextjs:${VERSION:-latest}
     ports:
       - "3000:3000"
     environment:
@@ -28,7 +28,7 @@ services:
       - app-network
 
   job-server:
-    image: docker.io/fredrikburmester/streamystats-v2-job-server:${VERSION:-latest}
+    image: ghcr.io/fredrikburmester/streamystats-job-server:${VERSION:-latest}
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}

@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-REGISTRY="docker.io/fredrikburmester"
+REGISTRY="ghcr.io/fredrikburmester"
 VERSION=${VERSION:-latest}
 
 # Colors
@@ -98,20 +98,20 @@ while true; do
             case $selected in
                 0) # NextJS App
                     echo -e "${BLUE}Building NextJS App only...${NC}\n"
-                    build_and_push "apps/nextjs-app/Dockerfile" "streamystats-v2-nextjs" "NextJS app"
+                    build_and_push "apps/nextjs-app/Dockerfile" "streamystats-nextjs" "NextJS app"
                     ;;
                 1) # Job Server
                     echo -e "${BLUE}Building Job Server only...${NC}\n"
-                    build_and_push "apps/job-server/Dockerfile" "streamystats-v2-job-server" "Job server"
+                    build_and_push "apps/job-server/Dockerfile" "streamystats-job-server" "Job server"
                     ;;
                 2) # All Services
                     echo -e "${BLUE}Building all services...${NC}\n"
 
                     # Build in parallel
-                    build_and_push "apps/nextjs-app/Dockerfile" "streamystats-v2-nextjs" "NextJS app" &
+                    build_and_push "apps/nextjs-app/Dockerfile" "streamystats-nextjs" "NextJS app" &
                     NEXTJS_PID=$!
 
-                    build_and_push "apps/job-server/Dockerfile" "streamystats-v2-job-server" "Job server" &
+                    build_and_push "apps/job-server/Dockerfile" "streamystats-job-server" "Job server" &
                     JOBSERVER_PID=$!
 
                     echo -e "\n${YELLOW}Waiting for all builds to complete...${NC}\n"
@@ -131,11 +131,11 @@ while true; do
             echo ""
             echo "Built images:"
             case $selected in
-                0) echo "  - $REGISTRY/streamystats-v2-nextjs:$VERSION" ;;
-                1) echo "  - $REGISTRY/streamystats-v2-job-server:$VERSION" ;;
+                0) echo "  - $REGISTRY/streamystats-nextjs:$VERSION" ;;
+                1) echo "  - $REGISTRY/streamystats-job-server:$VERSION" ;;
                 2)
-                    echo "  - $REGISTRY/streamystats-v2-nextjs:$VERSION"
-                    echo "  - $REGISTRY/streamystats-v2-job-server:$VERSION"
+                    echo "  - $REGISTRY/streamystats-nextjs:$VERSION"
+                    echo "  - $REGISTRY/streamystats-job-server:$VERSION"
                     ;;
             esac
 
