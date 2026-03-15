@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "enabled_folders" text[] DEFAULT '{}';

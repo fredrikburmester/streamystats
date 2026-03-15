@@ -12,7 +12,7 @@ import { getServer } from "@/lib/db/server";
 import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
-import { getMe, isUserAdmin } from "@/lib/db/users";
+import { getMe, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { ActiveSessions } from "./ActiveSessions";
 import { MostWatchedItems } from "./MostWatchedItems";
@@ -62,7 +62,11 @@ async function DashboardContent({ serverId }: { serverId: string }) {
 }
 
 async function GeneralStats({ server }: { server: ServerPublic }) {
-  const [me, isAdmin] = await Promise.all([getMe(), isUserAdmin()]);
+  const [me, isAdmin, viewerUserId] = await Promise.all([
+    getMe(),
+    isUserAdmin(),
+    getViewerUserId(),
+  ]);
 
   const [
     similarData,
@@ -72,15 +76,16 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
     recentlyAddedMovies,
     recentlyAddedSeries,
   ] = await Promise.all([
-    getSimilarStatistics(server.id),
-    getSimilarSeries(server.id),
+    getSimilarStatistics({ serverId: server.id, viewerUserId }),
+    getSimilarSeries({ serverId: server.id, viewerUserId }),
     getMostWatchedItems({
       serverId: server.id,
       userId: isAdmin ? undefined : me?.id,
+      viewerUserId,
     }),
-    getSeasonalRecommendations(server.id),
-    getRecentlyAddedItems(server.id, "Movie"),
-    getRecentlyAddedSeriesWithEpisodes(server.id),
+    getSeasonalRecommendations({ serverId: server.id, viewerUserId }),
+    getRecentlyAddedItems(server.id, "Movie", 20, 0, viewerUserId),
+    getRecentlyAddedSeriesWithEpisodes(server.id, 7, 20, 0, viewerUserId),
   ]);
 
   return (

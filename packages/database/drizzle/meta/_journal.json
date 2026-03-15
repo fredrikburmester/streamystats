@@ -297,6 +297,13 @@
       "breakpoints": true
     },
     {
+      "idx": 42,
+      "version": "7",
+      "when": 1772439449431,
+      "tag": "0042_majestic_lethal_legion",
+      "breakpoints": true
+    },
+    {
       "idx": 43,
       "version": "7",
       "when": 1772392818692,

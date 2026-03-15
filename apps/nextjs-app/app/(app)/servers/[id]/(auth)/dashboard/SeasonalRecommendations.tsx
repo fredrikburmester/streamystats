@@ -252,7 +252,10 @@ export function SeasonalRecommendations({
         const [entry] = entries;
         if (entry?.isIntersecting && !isLoading && hasMore) {
           setIsLoading(true);
-          getSeasonalRecommendations(server.id, 15, items.length)
+          getSeasonalRecommendations({
+            serverId: server.id,
+            offset: items.length,
+          })
             .then((result) => {
               if (!result || result.items.length === 0) {
                 setHasMore(false);
