@@ -1,5 +1,62 @@
 # Changelog
 
+## [2.17.0](https://github.com/fredrikburmester/streamystats/compare/v2.16.0...v2.17.0) (2026-03-15)
+
+
+### Features
+
+* add "Title Count" aggregation option for people stats ([#399](https://github.com/fredrikburmester/streamystats/issues/399)) ([dc85d25](https://github.com/fredrikburmester/streamystats/commit/dc85d250c13f63e13c0221eaf416038bca16cc8c))
+* add Asia/Karachi timezone option ([#414](https://github.com/fredrikburmester/streamystats/issues/414)) ([6fe8791](https://github.com/fredrikburmester/streamystats/commit/6fe879138f95f063625491d288be231d1db6dbea))
+* add Bangladesh Standard Time (Dhaka) to timezone options ([#389](https://github.com/fredrikburmester/streamystats/issues/389)) ([467bcdc](https://github.com/fredrikburmester/streamystats/commit/467bcdc0e6f8a9aee120aebd7f369d96dac0f4e8))
+* add clickable links to library statistics cards ([1597522](https://github.com/fredrikburmester/streamystats/commit/159752267eb80d395faedaeaf2f616db09a22d41))
+* add external API support for watchlist CRUD operations ([7ee1a40](https://github.com/fredrikburmester/streamystats/commit/7ee1a40784f92b381d00a2d7b5c4572aeebb00ff))
+* add OpenRouter as AI provider and fix embedding URL bugs ([#451](https://github.com/fredrikburmester/streamystats/issues/451)) ([33d618e](https://github.com/fredrikburmester/streamystats/commit/33d618e500d8b5c84051fac0179e827f07da8784))
+* add per-server timezone support ([63e0dc8](https://github.com/fredrikburmester/streamystats/commit/63e0dc8e0b8ac956e66a4d7f1800a6e1fb3c1084))
+* add wrapped design ([#345](https://github.com/fredrikburmester/streamystats/issues/345)) ([c1b053d](https://github.com/fredrikburmester/streamystats/commit/c1b053d635e78efee23ba77eb2d5f825e4342dba))
+* **api:** add cors headers to recommendations endpoint ([f4ed35c](https://github.com/fredrikburmester/streamystats/commit/f4ed35c6d4a669d70c0a1bd7ce22630ed280bd08))
+* improve global search results ([#442](https://github.com/fredrikburmester/streamystats/issues/442)) ([f2d62d2](https://github.com/fredrikburmester/streamystats/commit/f2d62d2a54da5df52b197f62ab667e2f3f62b9f0))
+* internal external url ([#335](https://github.com/fredrikburmester/streamystats/issues/335)) ([bf414e8](https://github.com/fredrikburmester/streamystats/commit/bf414e8423d95763399936b62ae1c7222de6cbb0))
+* mark items as played and infer the watchtime ([a226f65](https://github.com/fredrikburmester/streamystats/commit/a226f65f930fe35f4e447ef1eec57855a94593b1))
+* switch Docker registry from Docker Hub to GHCR ([#476](https://github.com/fredrikburmester/streamystats/issues/476)) ([4fa4ded](https://github.com/fredrikburmester/streamystats/commit/4fa4dede1906d19888641d708c5866c0cccaa0db))
+* **tests:** implement some tests for watchlists api ([5ce7344](https://github.com/fredrikburmester/streamystats/commit/5ce7344e0867d4066efd938aa701eaa102e379bc))
+* **ui:** improve user genre radar chart readability ([#412](https://github.com/fredrikburmester/streamystats/issues/412)) ([ea62991](https://github.com/fredrikburmester/streamystats/commit/ea62991b17fdf5e9f74c8324e67020373c6dd2cb))
+
+
+### Bug Fixes
+
+* **#347:** useQueryParams should strip basePath from pathname ([ee1e337](https://github.com/fredrikburmester/streamystats/commit/ee1e3377bf5ba08a1b867d1ea823e1f46c335ac2))
+* add auth to unprotected API routes and remove dead image-proxy endpoint ([#427](https://github.com/fredrikburmester/streamystats/issues/427)) ([de404ad](https://github.com/fredrikburmester/streamystats/commit/de404ad220226b8cbb75dba9b79361e51dc08bc0))
+* add DeviceId to Jellyfin auth headers for multi-device sessions ([#453](https://github.com/fredrikburmester/streamystats/issues/453)) ([00d933b](https://github.com/fredrikburmester/streamystats/commit/00d933b83917a7b9eebe6859d337c2003fc7622f))
+* add security middleware and input validation to Next.js app ([#425](https://github.com/fredrikburmester/streamystats/issues/425)) ([18f3b72](https://github.com/fredrikburmester/streamystats/commit/18f3b72095fe1a837dbc10304703275a20475325))
+* add voyage as distinct embedding provider to fix API parameter mismatch ([#420](https://github.com/fredrikburmester/streamystats/issues/420)) ([#446](https://github.com/fredrikburmester/streamystats/issues/446)) ([5b46469](https://github.com/fredrikburmester/streamystats/commit/5b464691023689bd28b14de78e86309a1cf3f1be))
+* address security audit findings for Docker and Next.js self-hosting ([7a2e336](https://github.com/fredrikburmester/streamystats/commit/7a2e3369221dcfb965bcf9bc632432efa60f8c73))
+* allow server creation without session auth ([#429](https://github.com/fredrikburmester/streamystats/issues/429)) ([bb04813](https://github.com/fredrikburmester/streamystats/commit/bb04813fd751c1f562e629cb17dde16233ff8361))
+* combine genres in spider graph fixes [#346](https://github.com/fredrikburmester/streamystats/issues/346) ([be0f0dc](https://github.com/fredrikburmester/streamystats/commit/be0f0dc6f4be66938f25d50c1146b9855663b0f4))
+* copy real nextjs-app package.json in job-server and migration Dockerfiles ([c119c5f](https://github.com/fredrikburmester/streamystats/commit/c119c5f901c64706eaf4f10360c633801324ea38))
+* correct migration 0041 ordering so internal_url column is applied ([bd6150c](https://github.com/fredrikburmester/streamystats/commit/bd6150c1ad17c80414577e47254a3466c945bff2))
+* correct watch time duration formatting in charts ([#390](https://github.com/fredrikburmester/streamystats/issues/390)) ([79e28f1](https://github.com/fredrikburmester/streamystats/commit/79e28f130911d501a581936239c8523ed6211dc5))
+* dynamically compute Lunar New Year zodiac animal ([#413](https://github.com/fredrikburmester/streamystats/issues/413)) ([f1c5ab6](https://github.com/fredrikburmester/streamystats/commit/f1c5ab618c0a4e6db697e9d113e2e11d5b64d80f))
+* enforce Jellyfin library access restrictions for non-admin users ([#459](https://github.com/fredrikburmester/streamystats/issues/459)) ([a84ef24](https://github.com/fredrikburmester/streamystats/commit/a84ef24a27deecbc3d6e995cb648c8b425262d26))
+* fetch embedding config from DB for scheduled jobs ([#438](https://github.com/fredrikburmester/streamystats/issues/438)) ([8e72944](https://github.com/fredrikburmester/streamystats/commit/8e729442f41dcaa428c76a0657a7625f97af92b1))
+* filter deleted items in Almost Done to prevent duplicate episodes ([#441](https://github.com/fredrikburmester/streamystats/issues/441)) ([f74efe3](https://github.com/fredrikburmester/streamystats/commit/f74efe376a65a5fbf9ffdee6ee2a537e0ba1ac31))
+* hide last played user from non-admin users on library page ([#415](https://github.com/fredrikburmester/streamystats/issues/415)) ([375fcc3](https://github.com/fredrikburmester/streamystats/commit/375fcc3222b10074f91ce86d3fbd29c408b91d9f))
+* history table filters on user profile page ([169d0cb](https://github.com/fredrikburmester/streamystats/commit/169d0cb0eb1f9af0cca1b301a2acc9cd311fb579))
+* ignore mcp file ([ffd762f](https://github.com/fredrikburmester/streamystats/commit/ffd762f9c8e7115f5307c3398bf15c96c5e6dcad))
+* **images:** allow local IPs unconditionally to fix private Jellyfin servers ([f55c345](https://github.com/fredrikburmester/streamystats/commit/f55c345b375ce3d15cc2eca561bdfdc23e518b37))
+* migrate Jellyfin API calls to MediaBrowser auth header ([#447](https://github.com/fredrikburmester/streamystats/issues/447)) ([d041f47](https://github.com/fredrikburmester/streamystats/commit/d041f474760c7f200295160267bd79d0537a2626))
+* missed commit for pr 446 ([b44956b](https://github.com/fredrikburmester/streamystats/commit/b44956bfc5ef88b6cc46e4396f1f7025650e29e9))
+* prevent iOS zoom on command input ([a463cbe](https://github.com/fredrikburmester/streamystats/commit/a463cbed7440ea1b429d823829f89c6cf09a0245))
+* remove old cursor files ([bcf5644](https://github.com/fredrikburmester/streamystats/commit/bcf5644b9dbecdf46748867fbf0fccf2600701e9))
+* remove stale libraries during sync ([#417](https://github.com/fredrikburmester/streamystats/issues/417)) ([57d15fa](https://github.com/fredrikburmester/streamystats/commit/57d15fa8e66e9ed85181ca8c6f6489dcdf3873d5))
+* **search:** prioritize series/movies over episodes in search results ([#439](https://github.com/fredrikburmester/streamystats/issues/439)) ([98e1571](https://github.com/fredrikburmester/streamystats/commit/98e1571edff441540b79cd0bff8e0595e09767e0))
+* set startTime/endTime on Jellystat import ([#350](https://github.com/fredrikburmester/streamystats/issues/350)) ([#450](https://github.com/fredrikburmester/streamystats/issues/450)) ([93753cd](https://github.com/fredrikburmester/streamystats/commit/93753cdcf0a2285088b8683d599684feff8ef24a))
+* stop showing update notifications for latest Docker builds ([#416](https://github.com/fredrikburmester/streamystats/issues/416)) ([dc75b07](https://github.com/fredrikburmester/streamystats/commit/dc75b0735cd7ebea2597cef255fbd8e2f39f91b5))
+* update trivy-action from 0.34.1 to 0.38.0 ([#461](https://github.com/fredrikburmester/streamystats/issues/461)) ([41f5dad](https://github.com/fredrikburmester/streamystats/commit/41f5dad51323ea259639acf6f41c1610417cc7bf))
+* use deterministic session ID to prevent import duplicates ([#149](https://github.com/fredrikburmester/streamystats/issues/149)) ([#448](https://github.com/fredrikburmester/streamystats/issues/448)) ([dc5b8ab](https://github.com/fredrikburmester/streamystats/commit/dc5b8abb0fd97d855454b327809c79f521c135bb))
+* use FormattedDate in ActivityLogTable to fix hydration ([732fe37](https://github.com/fredrikburmester/streamystats/commit/732fe376a78ca8328b571b53b22aec475da20a33))
+* use next/navigation internal state instead ([8c3e5da](https://github.com/fredrikburmester/streamystats/commit/8c3e5da126e0e7cbe8c478a47911bfb0ae400e9a))
+* wrong url for mark watched ([b35043a](https://github.com/fredrikburmester/streamystats/commit/b35043aee52af90e8e10bc24e1a167bc24e7d438))
+
 ## [2.16.0](https://github.com/fredrikburmester/streamystats/compare/v2.15.0...v2.16.0) (2025-12-31)
 
 
