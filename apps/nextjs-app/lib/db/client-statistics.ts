@@ -62,13 +62,19 @@ export interface ClientStatisticsResponse {
   uniqueDevices: number;
 }
 
-export async function getClientStatistics(
-  serverId: number,
-  startDate?: string,
-  endDate?: string,
-  userId?: string,
-  viewerUserId?: string,
-): Promise<ClientStatisticsResponse> {
+export async function getClientStatistics({
+  serverId,
+  startDate,
+  endDate,
+  userId,
+  viewerUserId,
+}: {
+  serverId: number;
+  startDate?: string;
+  endDate?: string;
+  userId?: string;
+  viewerUserId?: string;
+}): Promise<ClientStatisticsResponse> {
   "use cache";
   cacheLife("days");
   cacheTag(`client-statistics-${serverId}`);
@@ -158,22 +164,6 @@ export async function getClientStatistics(
     .groupBy(sessions.deviceName, sessions.deviceId, sessions.clientName)
     .orderBy(sql`COUNT(${sessions.id}) DESC`);
 
-  // Get transcoding stats by client
-  const transcodingQuery = db
-    .select({
-      clientName: sessions.clientName,
-      totalSessions: count(sessions.id),
-      transcodedSessions: sql<number>`COUNT(CASE WHEN ${sessions.isTranscoded} IS TRUE THEN 1 END)`,
-      directPlaySessions: sql<number>`COUNT(CASE WHEN ${sessions.isTranscoded} IS FALSE OR ${sessions.playMethod} = 'DirectPlay' THEN 1 END)`,
-    })
-    .from(sessions)
-    .$dynamic();
-  if (requiresItemsJoin) transcodingQuery.innerJoin(items, itemsJoinCondition);
-  const transcodingByClient = await transcodingQuery
-    .where(and(...whereConditions))
-    .groupBy(sessions.clientName)
-    .orderBy(sql`COUNT(${sessions.id}) DESC`);
-
   // Get total counts
   const totalCountsQuery = db
     .select({
@@ -237,23 +227,15 @@ export async function getClientStatistics(
       totalWatchTime: Number(stat.totalWatchTime || 0),
     }));
 
-  // Process transcoding by client
+  // Derive transcoding stats from client stats (avoids redundant query)
   const processedTranscodingByClient: ClientTranscodingStat[] =
-    transcodingByClient
-      .filter((stat) => stat.clientName)
-      .map((stat) => {
-        const total = Number(stat.totalSessions || 0);
-        const transcoded = Number(stat.transcodedSessions || 0);
-        const transcodingRate = total > 0 ? (transcoded / total) * 100 : 0;
-
-        return {
-          clientName: stat.clientName || "Unknown",
-          totalSessions: total,
-          transcodedSessions: transcoded,
-          directPlaySessions: Number(stat.directPlaySessions || 0),
-          transcodingRate,
-        };
-      });
+    processedClientStats.map((stat) => ({
+      clientName: stat.clientName,
+      totalSessions: stat.sessionCount,
+      transcodedSessions: stat.transcodedSessions,
+      directPlaySessions: stat.directPlaySessions,
+      transcodingRate: stat.transcodingRate,
+    }));
 
   return {
     clientBreakdown: processedClientStats,

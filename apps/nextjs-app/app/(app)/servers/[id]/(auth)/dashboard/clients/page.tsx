@@ -78,13 +78,13 @@ async function ClientStats({
   // 3. Otherwise, undefined (all users)
   const effectiveUserId = userId ? userId : isAdmin ? undefined : me?.id;
 
-  const stats = await getClientStatistics(
-    server.id,
+  const stats = await getClientStatistics({
+    serverId: server.id,
     startDate,
     endDate,
-    effectiveUserId,
+    userId: effectiveUserId,
     viewerUserId,
-  );
+  });
 
   return (
     <div className="flex flex-col gap-6">
