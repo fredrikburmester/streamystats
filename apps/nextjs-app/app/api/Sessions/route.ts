@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
 import type { ActiveSession } from "@/lib/db/active-sessions";
 import { getServerWithSecrets } from "@/lib/db/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET(request: Request) {
@@ -46,10 +47,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(`${getInternalUrl(server)}/Sessions`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": server.apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(server.apiKey),
     });
 
     // Pass through the actual status code from Jellyfin for better error handling on the client

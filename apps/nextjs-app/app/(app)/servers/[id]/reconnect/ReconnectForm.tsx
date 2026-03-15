@@ -56,6 +56,7 @@ export function ReconnectForm({
         apiKey,
         username,
         password,
+        userAgent: navigator.userAgent,
       });
 
       if (result.success) {

@@ -109,8 +109,14 @@ async function searchItems(
           ELSE 0
         END,
         word_similarity(${query}, ${items.name}),
-        COALESCE(word_similarity(${query}, ${items.seriesName}), 0)
-      ) as rank
+        COALESCE(word_similarity(${query}, ${items.seriesName}), 0) * 0.6
+      )
+      * CASE ${items.type}
+          WHEN 'Movie' THEN 1.2
+          WHEN 'Series' THEN 1.2
+          ELSE 1.0
+        END
+      as rank
     FROM ${items}
     LEFT JOIN ${libraries} ON ${items.libraryId} = ${libraries.id}
     WHERE ${items.serverId} = ${serverId}
