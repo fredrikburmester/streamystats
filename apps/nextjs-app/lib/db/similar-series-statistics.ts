@@ -162,13 +162,19 @@ async function getSeriesRecommendations(
   }
 }
 
-export async function getSimilarSeries(
-  serverId: string | number,
-  userId?: string,
+export async function getSimilarSeries({
+  serverId,
+  userId,
   limit = 20,
   offset = 0,
-  viewerUserId?: string,
-): Promise<SeriesRecommendationItem[]> {
+  viewerUserId,
+}: {
+  serverId: string | number;
+  userId?: string;
+  limit?: number;
+  offset?: number;
+  viewerUserId?: string;
+}): Promise<SeriesRecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
   let targetUserId = userId;

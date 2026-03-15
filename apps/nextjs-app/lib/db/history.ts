@@ -380,13 +380,9 @@ export const getItemHistory = async (
   itemId: string,
   page = 1,
   perPage = 50,
-  viewerUserId?: string,
 ): Promise<HistoryResponse> => {
   // Get exclusion settings
-  const { userExclusion } = await getStatisticsExclusions(
-    serverId,
-    viewerUserId,
-  );
+  const { userExclusion } = await getStatisticsExclusions(serverId);
 
   const offset = (page - 1) * perPage;
 

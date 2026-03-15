@@ -368,12 +368,17 @@ async function getSeasonalRecommendationsCached(
  * Get seasonal recommendations based on the current active holiday/season.
  * Uses keyword matching in name/overview and genre matching.
  */
-export async function getSeasonalRecommendations(
-  serverId: string | number,
+export async function getSeasonalRecommendations({
+  serverId,
   limit = 15,
   offset = 0,
-  viewerUserId?: string,
-): Promise<SeasonalRecommendationResult | null> {
+  viewerUserId,
+}: {
+  serverId: string | number;
+  limit?: number;
+  offset?: number;
+  viewerUserId?: string;
+}): Promise<SeasonalRecommendationResult | null> {
   const serverIdNum = Number(serverId);
 
   // Get user outside the cached function

@@ -155,14 +155,21 @@ async function getRecommendations(
   }
 }
 
-export async function getSimilarStatistics(
-  serverId: string | number,
-  userId?: string,
+export async function getSimilarStatistics({
+  serverId,
+  userId,
   limit = 20,
   offset = 0,
-  timeWindow?: RecommendationTimeWindow,
-  viewerUserId?: string,
-): Promise<RecommendationItem[]> {
+  timeWindow,
+  viewerUserId,
+}: {
+  serverId: string | number;
+  userId?: string;
+  limit?: number;
+  offset?: number;
+  timeWindow?: RecommendationTimeWindow;
+  viewerUserId?: string;
+}): Promise<RecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
   let targetUserId = userId;

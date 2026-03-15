@@ -127,6 +127,7 @@ async function WatchtimeStats({
             serverId: server.id,
             startDate,
             endDate,
+            viewerUserId,
           })
         : Promise.resolve([]),
     ]);
