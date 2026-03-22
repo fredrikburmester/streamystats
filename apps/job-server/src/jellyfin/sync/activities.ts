@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import {
   db,
   activities,
@@ -12,7 +12,6 @@ import {
   SyncResult,
   createSyncResult,
 } from "../sync-metrics";
-import pMap from "p-map";
 import { sleep } from "../../utils/sleep";
 import { formatSyncLogLine } from "./sync-log";
 import { formatError } from "../../utils/format-error";
@@ -41,7 +40,6 @@ export async function syncActivities(
   const {
     pageSize = 1000,
     maxPages = 5000, // Prevent infinite loops
-    concurrency = 2,
     apiRequestDelayMs = 300,
   } = options;
 
@@ -51,7 +49,7 @@ export async function syncActivities(
 
   try {
     console.info(
-      `[activities-sync] server=${server.name} phase=start pageSize=${pageSize} concurrency=${concurrency} apiRequestDelayMs=${apiRequestDelayMs}`
+      `[activities-sync] server=${server.name} phase=start pageSize=${pageSize} apiRequestDelayMs=${apiRequestDelayMs}`
     );
 
     let startIndex = 0;
@@ -80,29 +78,17 @@ export async function syncActivities(
         );
 
         const processStart = Date.now();
-        // Process activities with controlled concurrency
-        await pMap(
+        // Process the whole page in 3 bulk queries instead of 3 queries per activity
+        const pageResult = await processActivitiesPage(
           jellyfinActivities,
-          async (jellyfinActivity) => {
-            try {
-              await processActivity(jellyfinActivity, server.id, metrics);
-            } catch (error) {
-              console.error(
-                `[activities-sync] server=${server.name} activityId=${jellyfinActivity.Id} status=error error=${formatError(
-                  error
-                )}`
-              );
-              metrics.incrementErrors();
-              errors.push(
-                `Activity ${jellyfinActivity.Id}: ${
-                  error instanceof Error ? error.message : "Unknown error"
-                }`
-              );
-            }
-          },
-          { concurrency }
+          server.id,
+          metrics
         );
         const processMs = Date.now() - processStart;
+
+        if (pageResult.errors.length > 0) {
+          errors.push(...pageResult.errors);
+        }
 
         const afterPageMetrics = metrics.getCurrentMetrics();
         const processedDelta =
@@ -213,7 +199,6 @@ export async function syncRecentActivities(
   const {
     pageSize = 1000,
     maxPages = 5000,
-    concurrency = 2,
     apiRequestDelayMs = 300,
     intelligent = false,
   } = options;
@@ -308,28 +293,18 @@ export async function syncRecentActivities(
             const newActivities = jellyfinActivities.slice(0, foundIndex);
             if (newActivities.length > 0) {
               const processStart = Date.now();
-              await pMap(
+              const pageResult = await processActivitiesPage(
                 newActivities,
-                async (jellyfinActivity) => {
-                  try {
-                    await processActivity(jellyfinActivity, server.id, metrics);
-                    activitiesProcessed++;
-                  } catch (error) {
-                    console.error(
-                      `[recent-activities-sync] server=${server.name} activityId=${jellyfinActivity.Id} status=error error=${formatError(
-                        error
-                      )}`
-                    );
-                    metrics.incrementErrors();
-                    errors.push(
-                      `Activity ${jellyfinActivity.Id}: ${
-                        error instanceof Error ? error.message : "Unknown error"
-                      }`
-                    );
-                  }
-                },
-                { concurrency }
+                server.id,
+                metrics
               );
+              if (pageResult.errors.length > 0) {
+                errors.push(...pageResult.errors);
+              }
+              // Use metrics delta so we only count successfully written activities
+              activitiesProcessed +=
+                metrics.getCurrentMetrics().activitiesProcessed -
+                beforePageMetrics.activitiesProcessed;
 
               const processMs = Date.now() - processStart;
               const afterPageMetrics = metrics.getCurrentMetrics();
@@ -355,29 +330,19 @@ export async function syncRecentActivities(
         }
 
         const processStart = Date.now();
-        // Process all activities in the current page
-        await pMap(
+        // Process the whole page in 3 bulk queries instead of 3 queries per activity
+        const pageResult = await processActivitiesPage(
           jellyfinActivities,
-          async (jellyfinActivity) => {
-            try {
-              await processActivity(jellyfinActivity, server.id, metrics);
-              activitiesProcessed++;
-            } catch (error) {
-              console.error(
-                `[recent-activities-sync] server=${server.name} activityId=${jellyfinActivity.Id} status=error error=${formatError(
-                  error
-                )}`
-              );
-              metrics.incrementErrors();
-              errors.push(
-                `Activity ${jellyfinActivity.Id}: ${
-                  error instanceof Error ? error.message : "Unknown error"
-                }`
-              );
-            }
-          },
-          { concurrency }
+          server.id,
+          metrics
         );
+        if (pageResult.errors.length > 0) {
+          errors.push(...pageResult.errors);
+        }
+        // Use metrics delta so we only count successfully written activities
+        activitiesProcessed +=
+          metrics.getCurrentMetrics().activitiesProcessed -
+          beforePageMetrics.activitiesProcessed;
         const processMs = Date.now() - processStart;
 
         const afterPageMetrics = metrics.getCurrentMetrics();
@@ -513,74 +478,104 @@ export async function syncRecentActivities(
   }
 }
 
-async function processActivity(
-  jellyfinActivity: JellyfinActivity,
+/**
+ * Process a full page of activities using 3 bulk DB queries instead of
+ * 3 queries per activity. This is the primary performance fix for large syncs.
+ *
+ * 1. Bulk SELECT existing activity IDs → determine insert vs update
+ * 2. Bulk SELECT valid user IDs from the page's unique user IDs
+ * 3. Single bulk INSERT ... ON CONFLICT DO UPDATE for all activities
+ */
+async function processActivitiesPage(
+  jellyfinActivities: JellyfinActivity[],
   serverId: number,
   metrics: SyncMetricsTracker
-): Promise<void> {
-  // Check if activity already exists
-  const existingActivity = await db
-    .select()
-    .from(activities)
-    .where(eq(activities.id, jellyfinActivity.Id))
-    .limit(1);
+): Promise<{ errors: string[] }> {
+  if (jellyfinActivities.length === 0) {
+    return { errors: [] };
+  }
 
-  const isNewActivity = existingActivity.length === 0;
+  const errors: string[] = [];
 
-  // Validate userId - check if user exists in our database
-  let validUserId: string | null = null;
-  if (jellyfinActivity.UserId) {
-    try {
-      const userExists = await db
+  try {
+    const allIds = jellyfinActivities.map((a) => a.Id);
+
+    // 1. Bulk check which activities already exist
+    const existingRows = await db
+      .select({ id: activities.id })
+      .from(activities)
+      .where(inArray(activities.id, allIds));
+    const existingIds = new Set(existingRows.map((r) => r.id));
+
+    // 2. Bulk validate user IDs (filter out nulls and system user)
+    const uniqueUserIds = [
+      ...new Set(
+        jellyfinActivities
+          .map((a) => a.UserId)
+          .filter(
+            (id): id is string =>
+              !!id && id !== ACTIVITYLOG_SYSTEM_USERID
+          )
+      ),
+    ];
+
+    const validUserIds = new Set<string>();
+    if (uniqueUserIds.length > 0) {
+      const validRows = await db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.id, jellyfinActivity.UserId))
-        .limit(1);
-
-      if (userExists.length > 0) {
-        validUserId = jellyfinActivity.UserId;
-      } else if (jellyfinActivity.UserId == ACTIVITYLOG_SYSTEM_USERID) {
-        // this is a system event (plugin install/uninstall, ...) we do not print a warning
+        .where(inArray(users.id, uniqueUserIds));
+      for (const row of validRows) {
+        validUserIds.add(row.id);
       }
-    } catch (error) {
-      console.warn(
-        `[activities-sync] activityId=${jellyfinActivity.Id} status=user-check-error userId=null error=${formatError(
-          error
-        )}`
-      );
     }
+
+    // 3. Build all activity records and bulk upsert
+    const activityValues: NewActivity[] = jellyfinActivities.map((a) => ({
+      id: a.Id,
+      name: a.Name,
+      shortOverview: a.ShortOverview || null,
+      type: a.Type,
+      date: new Date(a.Date),
+      severity: a.Severity,
+      serverId,
+      userId:
+        a.UserId && validUserIds.has(a.UserId) ? a.UserId : null,
+      itemId: a.ItemId || null,
+    }));
+
+    await db
+      .insert(activities)
+      .values(activityValues)
+      .onConflictDoUpdate({
+        target: activities.id,
+        set: {
+          name: activities.name,
+          shortOverview: activities.shortOverview,
+          type: activities.type,
+          date: activities.date,
+          severity: activities.severity,
+          serverId: activities.serverId,
+          userId: activities.userId,
+          itemId: activities.itemId,
+        },
+      });
+
+    metrics.incrementDatabaseOperations(3);
+
+    const insertedCount = activityValues.filter(
+      (a) => !existingIds.has(a.id)
+    ).length;
+    const updatedCount = activityValues.length - insertedCount;
+
+    metrics.incrementActivitiesInserted(insertedCount);
+    metrics.incrementActivitiesUpdated(updatedCount);
+    metrics.incrementActivitiesProcessed(activityValues.length);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    errors.push(`Batch upsert failed: ${message}`);
+    metrics.incrementErrors();
   }
 
-  const activityData: NewActivity = {
-    id: jellyfinActivity.Id,
-    name: jellyfinActivity.Name,
-    shortOverview: jellyfinActivity.ShortOverview || null,
-    type: jellyfinActivity.Type,
-    date: new Date(jellyfinActivity.Date),
-    severity: jellyfinActivity.Severity,
-    serverId,
-    userId: validUserId,
-    itemId: jellyfinActivity.ItemId || null,
-  };
-
-  // Upsert activity (insert or update if exists)
-  await db
-    .insert(activities)
-    .values(activityData)
-    .onConflictDoUpdate({
-      target: activities.id,
-      set: {
-        ...activityData,
-      },
-    });
-
-  metrics.incrementDatabaseOperations();
-
-  if (isNewActivity) {
-    metrics.incrementActivitiesInserted();
-  } else {
-    metrics.incrementActivitiesUpdated();
-  }
-
-  metrics.incrementActivitiesProcessed();
+  return { errors };
 }
