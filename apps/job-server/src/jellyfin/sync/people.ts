@@ -24,7 +24,7 @@ interface PersonData {
 }
 
 const LIBRARY_TYPES_WITH_PEOPLE = ["movies", "tvshows", "music"] as const;
-const ITEM_IDS_PER_FETCH = 100;
+const ITEM_IDS_PER_FETCH = 20;
 const DB_BATCH_LIMIT = 500;
 const DEFAULT_MAX_RUNTIME_MS = 14 * 60 * 1000;
 
@@ -243,7 +243,7 @@ async function syncPeopleToTables(
         },
       })
       .returning({ id: people.id });
-    insertedPeople = result.length;
+    insertedPeople += result.length;
   }
 
   // Insert item_people junction records (type is stored here, per item-person relationship)

@@ -1,4 +1,4 @@
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, sql } from "drizzle-orm";
 import {
   db,
   activities,
@@ -550,14 +550,14 @@ async function processActivitiesPage(
       .onConflictDoUpdate({
         target: activities.id,
         set: {
-          name: activities.name,
-          shortOverview: activities.shortOverview,
-          type: activities.type,
-          date: activities.date,
-          severity: activities.severity,
-          serverId: activities.serverId,
-          userId: activities.userId,
-          itemId: activities.itemId,
+          name: sql`excluded.name`,
+          shortOverview: sql`excluded.short_overview`,
+          type: sql`excluded.type`,
+          date: sql`excluded.date`,
+          severity: sql`excluded.severity`,
+          serverId: sql`excluded.server_id`,
+          userId: sql`excluded.user_id`,
+          itemId: sql`excluded.item_id`,
         },
       });
 
@@ -573,7 +573,8 @@ async function processActivitiesPage(
     metrics.incrementActivitiesProcessed(activityValues.length);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    errors.push(`Batch upsert failed: ${message}`);
+    const sampleIds = jellyfinActivities.slice(0, 5).map((a) => a.Id).join(",");
+    errors.push(`Batch upsert failed (ids=${sampleIds}...): ${message}`);
     metrics.incrementErrors();
   }
 
