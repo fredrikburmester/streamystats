@@ -214,29 +214,36 @@ async function syncPeopleToTables(
     (p) => p.Id && p.Name && p.Id.trim() !== "" && p.Name.trim() !== ""
   );
 
-  // Upsert each person (type is stored per item-person relationship, not on person)
-  for (const person of validPeople) {
+  // Deduplicate by Id before bulk upsert — a person can appear multiple times in one
+  // item's people list (e.g. listed as both Actor and Director). The people table only
+  // needs one row per person; roles are stored in itemPeople.
+  const uniquePeopleById = new Map(
+    validPeople.map((p) => [p.Id, p])
+  );
+  const uniquePeople = Array.from(uniquePeopleById.values());
+
+  // Bulk upsert all people in one query
+  if (uniquePeople.length > 0) {
     const result = await db
       .insert(people)
-      .values({
-        id: person.Id,
-        serverId,
-        name: person.Name,
-        primaryImageTag: person.PrimaryImageTag ?? null,
-      })
+      .values(
+        uniquePeople.map((person) => ({
+          id: person.Id,
+          serverId,
+          name: person.Name,
+          primaryImageTag: person.PrimaryImageTag ?? null,
+        }))
+      )
       .onConflictDoUpdate({
         target: [people.id, people.serverId],
         set: {
-          name: person.Name,
-          primaryImageTag: person.PrimaryImageTag ?? null,
+          name: people.name,
+          primaryImageTag: people.primaryImageTag,
           updatedAt: new Date(),
         },
       })
       .returning({ id: people.id });
-
-    if (result.length > 0) {
-      insertedPeople += 1;
-    }
+    insertedPeople += result.length;
   }
 
   // Insert item_people junction records (type is stored here, per item-person relationship)
