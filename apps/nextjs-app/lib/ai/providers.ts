@@ -91,9 +91,18 @@ export function createChatModel(config: ChatConfig): LanguageModel | null {
       if (!config.apiKey) {
         throw new Error("Anthropic requires an API key");
       }
+      // Only pass baseURL if it differs from the default Anthropic URL.
+      // The SDK internally uses "https://api.anthropic.com/v1" as its base,
+      // but passing "https://api.anthropic.com" as baseURL overrides this
+      // and causes requests to hit /messages instead of /v1/messages.
+      const defaultAnthropicUrl = CHAT_PROVIDER_PRESETS.anthropic.baseUrl;
+      const customBaseUrl =
+        config.baseUrl && config.baseUrl !== defaultAnthropicUrl
+          ? config.baseUrl
+          : undefined;
       const anthropic = createAnthropic({
         apiKey: config.apiKey,
-        baseURL: config.baseUrl || undefined,
+        baseURL: customBaseUrl,
       });
       return anthropic(config.model);
     }
