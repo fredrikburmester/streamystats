@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
+exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemLibrariesRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.itemLibraries = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 // Custom vector type that supports variable dimensions
 // This allows storing embeddings of any size without hardcoding dimensions
@@ -658,6 +658,16 @@ exports.watchlistItems = (0, pg_core_1.pgTable)("watchlist_items", {
     (0, pg_core_1.index)("watchlist_items_item_idx").on(table.itemId),
     (0, pg_core_1.unique)("watchlist_items_unique").on(table.watchlistId, table.itemId),
 ]);
+// Junction table tracking which libraries each item belongs to.
+// An item can appear in multiple Jellyfin libraries with the same ID.
+exports.itemLibraries = (0, pg_core_1.pgTable)("item_libraries", {
+    itemId: (0, pg_core_1.text)("item_id")
+        .notNull()
+        .references(() => exports.items.id, { onDelete: "cascade" }),
+    libraryId: (0, pg_core_1.text)("library_id")
+        .notNull()
+        .references(() => exports.libraries.id, { onDelete: "cascade" }),
+}, (table) => [(0, pg_core_1.primaryKey)({ columns: [table.itemId, table.libraryId] })]);
 // Define relationships
 exports.serversRelations = (0, drizzle_orm_1.relations)(exports.servers, ({ many }) => ({
     libraries: many(exports.libraries),
@@ -725,6 +735,17 @@ exports.itemsRelations = (0, drizzle_orm_1.relations)(exports.items, ({ one, man
     hiddenRecommendations: many(exports.hiddenRecommendations),
     watchlistItems: many(exports.watchlistItems),
     itemPeople: many(exports.itemPeople),
+    itemLibraries: many(exports.itemLibraries),
+}));
+exports.itemLibrariesRelations = (0, drizzle_orm_1.relations)(exports.itemLibraries, ({ one }) => ({
+    item: one(exports.items, {
+        fields: [exports.itemLibraries.itemId],
+        references: [exports.items.id],
+    }),
+    library: one(exports.libraries, {
+        fields: [exports.itemLibraries.libraryId],
+        references: [exports.libraries.id],
+    }),
 }));
 exports.sessionsRelations = (0, drizzle_orm_1.relations)(exports.sessions, ({ one, many }) => ({
     server: one(exports.servers, {

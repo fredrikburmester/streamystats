@@ -11,6 +11,7 @@ export const UserLeaderboard = async ({ server }: Props) => {
   const users = await getUsers({ serverId: server.id });
   const totalWatchTime = await getTotalWatchTimeForUsers({
     userIds: users.map((user: User) => user.id),
+    serverId: server.id,
   });
 
   return (

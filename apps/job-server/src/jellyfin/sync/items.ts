@@ -2,6 +2,7 @@ import { eq, and, inArray, isNotNull, or, sql } from "drizzle-orm";
 import {
   db,
   items,
+  itemLibraries,
   libraries,
   sessions,
   hiddenRecommendations,
@@ -411,6 +412,16 @@ async function processItem(
     );
   }
 
+  // Always track library membership, even for unchanged items.
+  // An item can exist in multiple libraries with the same ID,
+  // so we record each library it appears in.
+  if (!isNewItem) {
+    await db
+      .insert(itemLibraries)
+      .values({ itemId: jellyfinItem.Id, libraryId })
+      .onConflictDoNothing();
+  }
+
   // If item only needs media sources sync (no other changes), just sync media sources
   if (
     !isNewItem &&
@@ -432,27 +443,6 @@ async function processItem(
   }
 
   const serverId = await getServerIdFromLibrary(libraryId);
-
-  // For truly new items, check for previously deleted items to migrate data from
-  if (isNewItem) {
-    const tempItemData: NewItem = {
-      id: jellyfinItem.Id,
-      serverId,
-      libraryId,
-      name: jellyfinItem.Name,
-      type: jellyfinItem.Type,
-      seriesId: jellyfinItem.SeriesId || null,
-      seriesName: jellyfinItem.SeriesName || null,
-      productionYear: jellyfinItem.ProductionYear || null,
-      indexNumber: jellyfinItem.IndexNumber || null,
-      parentIndexNumber: jellyfinItem.ParentIndexNumber || null,
-      providerIds: jellyfinItem.ProviderIds || null,
-      isFolder: jellyfinItem.IsFolder || false,
-      rawData: jellyfinItem,
-      updatedAt: new Date(),
-    };
-    await checkAndMigrateDeletedItem(tempItemData);
-  }
 
   const itemData: NewItem = {
     id: jellyfinItem.Id,
@@ -537,6 +527,18 @@ async function processItem(
         }),
       },
     });
+
+  // Track library membership in junction table
+  await db
+    .insert(itemLibraries)
+    .values({ itemId: jellyfinItem.Id, libraryId })
+    .onConflictDoNothing();
+
+  // For truly new items, check for previously deleted items to migrate data from
+  // Must run AFTER the item is inserted so FK constraints on sessions are satisfied
+  if (isNewItem) {
+    await checkAndMigrateDeletedItem(itemData);
+  }
 
   // Sync media sources for this item and mark as synced
   await syncMediaSources(jellyfinItem, serverId);
@@ -1008,6 +1010,20 @@ async function processValidItems(
   const updateResult = await processUpdates(itemsToUpdate);
   const unchangedCount = unchangedItems.length;
 
+  // Unchanged items still need library membership tracked
+  if (unchangedItems.length > 0) {
+    const libraryValues = unchangedItems.map((item) => ({
+      itemId: item.id,
+      libraryId: item.libraryId,
+    }));
+    for (let i = 0; i < libraryValues.length; i += 500) {
+      await db
+        .insert(itemLibraries)
+        .values(libraryValues.slice(i, i + 500))
+        .onConflictDoNothing();
+    }
+  }
+
   return {
     insertResult: insertResults.insertCount,
     updateResult,
@@ -1037,6 +1053,17 @@ async function processInserts(itemsToInsert: NewItem[]): Promise<{
 
     // Insert all items first (required before migrating sessions due to FK constraints)
     await db.insert(items).values(itemsToInsert);
+
+    // Populate item_libraries for all inserted items
+    await db
+      .insert(itemLibraries)
+      .values(
+        itemsToInsert.map((item) => ({
+          itemId: item.id,
+          libraryId: item.libraryId,
+        }))
+      )
+      .onConflictDoNothing();
 
     // After inserting, check each item for matches with deleted items and migrate data
     for (const item of itemsToInsert) {
@@ -1109,6 +1136,11 @@ async function processUpdates(itemsToUpdate: NewItem[]): Promise<number> {
           processed: false,
         })
         .where(and(eq(items.id, item.id), eq(items.serverId, item.serverId)));
+
+      await db
+        .insert(itemLibraries)
+        .values({ itemId: item.id, libraryId: item.libraryId })
+        .onConflictDoNothing();
 
       updateCount++;
     } catch (error) {
