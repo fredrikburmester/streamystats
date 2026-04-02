@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-REGISTRY="docker.io/fredrikburmester"
+REGISTRY="ghcr.io/fredrikburmester"
 VERSION=${VERSION:-latest}
 
 # Colors
@@ -27,7 +27,7 @@ echo "Version: $VERSION"
 echo ""
 
 # Menu options
-options=("NextJS App" "Job Server" "Migration Container" "All Services")
+options=("NextJS App" "Job Server" "All Services")
 selected=0
 
 # Function to display menu
@@ -98,35 +98,27 @@ while true; do
             case $selected in
                 0) # NextJS App
                     echo -e "${BLUE}Building NextJS App only...${NC}\n"
-                    build_and_push "apps/nextjs-app/Dockerfile" "streamystats-v2-nextjs" "NextJS app"
+                    build_and_push "apps/nextjs-app/Dockerfile" "streamystats-nextjs" "NextJS app"
                     ;;
                 1) # Job Server
                     echo -e "${BLUE}Building Job Server only...${NC}\n"
-                    build_and_push "apps/job-server/Dockerfile" "streamystats-v2-job-server" "Job server"
+                    build_and_push "apps/job-server/Dockerfile" "streamystats-job-server" "Job server"
                     ;;
-                2) # Migration Container
-                    echo -e "${BLUE}Building Migration Container only...${NC}\n"
-                    build_and_push "migration.Dockerfile" "streamystats-v2-migrate" "Migration container"
-                    ;;
-                3) # All Services
+                2) # All Services
                     echo -e "${BLUE}Building all services...${NC}\n"
 
                     # Build in parallel
-                    build_and_push "apps/nextjs-app/Dockerfile" "streamystats-v2-nextjs" "NextJS app" &
+                    build_and_push "apps/nextjs-app/Dockerfile" "streamystats-nextjs" "NextJS app" &
                     NEXTJS_PID=$!
 
-                    build_and_push "apps/job-server/Dockerfile" "streamystats-v2-job-server" "Job server" &
+                    build_and_push "apps/job-server/Dockerfile" "streamystats-job-server" "Job server" &
                     JOBSERVER_PID=$!
-
-                    build_and_push "migration.Dockerfile" "streamystats-v2-migrate" "Migration container" &
-                    MIGRATE_PID=$!
 
                     echo -e "\n${YELLOW}Waiting for all builds to complete...${NC}\n"
 
                     FAILED=0
                     wait $NEXTJS_PID || FAILED=1
                     wait $JOBSERVER_PID || FAILED=1
-                    wait $MIGRATE_PID || FAILED=1
 
                     if [ $FAILED -eq 1 ]; then
                         echo -e "\n${RED}❌ One or more builds failed${NC}"
@@ -139,13 +131,11 @@ while true; do
             echo ""
             echo "Built images:"
             case $selected in
-                0) echo "  - $REGISTRY/streamystats-v2-nextjs:$VERSION" ;;
-                1) echo "  - $REGISTRY/streamystats-v2-job-server:$VERSION" ;;
-                2) echo "  - $REGISTRY/streamystats-v2-migrate:$VERSION" ;;
-                3)
-                    echo "  - $REGISTRY/streamystats-v2-nextjs:$VERSION"
-                    echo "  - $REGISTRY/streamystats-v2-job-server:$VERSION"
-                    echo "  - $REGISTRY/streamystats-v2-migrate:$VERSION"
+                0) echo "  - $REGISTRY/streamystats-nextjs:$VERSION" ;;
+                1) echo "  - $REGISTRY/streamystats-job-server:$VERSION" ;;
+                2)
+                    echo "  - $REGISTRY/streamystats-nextjs:$VERSION"
+                    echo "  - $REGISTRY/streamystats-job-server:$VERSION"
                     ;;
             esac
 

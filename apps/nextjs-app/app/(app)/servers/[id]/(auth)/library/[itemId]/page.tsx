@@ -13,7 +13,7 @@ import {
   getSimilarItemsForItem,
   type RecommendationItem,
 } from "@/lib/db/similar-statistics";
-import { getMe, isUserAdmin } from "@/lib/db/users";
+import { getMe, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getToken } from "@/lib/token";
 import { CastSection } from "./CastSection";
@@ -57,19 +57,20 @@ export default async function ItemDetailsPage({
     redirect("/not-found");
   }
 
-  const [me, isAdmin, token] = await Promise.all([
+  const [me, isAdmin, token, viewerUserId] = await Promise.all([
     getMe(),
     isUserAdmin(),
     getToken(),
+    getViewerUserId(),
   ]);
 
   if (!me) {
     redirect("/login");
   }
-
   const itemDetails = await getItemDetails({
     itemId,
     userId: isAdmin ? undefined : me.id,
+    viewerUserId,
   });
 
   if (!itemDetails) {

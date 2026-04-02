@@ -2,7 +2,12 @@ import { Clock } from "lucide-react";
 import { redirect } from "next/navigation";
 import type React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getMe, getTotalWatchTime, isUserAdmin } from "@/lib/db/users";
+import {
+  getMe,
+  getTotalWatchTime,
+  getViewerUserId,
+  isUserAdmin,
+} from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 
@@ -17,7 +22,11 @@ const TotalWatchTime: React.FC<Props> = async ({
   startDate,
   endDate,
 }) => {
-  const [me, isAdmin] = await Promise.all([getMe(), isUserAdmin()]);
+  const [me, isAdmin, viewerUserId] = await Promise.all([
+    getMe(),
+    isUserAdmin(),
+    getViewerUserId(),
+  ]);
 
   if (!me) {
     redirect("/not-found");
@@ -28,6 +37,7 @@ const TotalWatchTime: React.FC<Props> = async ({
     userId: isAdmin ? undefined : me.id,
     startDate,
     endDate,
+    viewerUserId,
   });
 
   return (

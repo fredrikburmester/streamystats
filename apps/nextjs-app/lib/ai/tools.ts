@@ -122,10 +122,10 @@ async function embedTextForServer({
 
   try {
     if (provider === "ollama") {
-      const res = await fetch(`${normalizeBaseUrl(baseUrl)}/api/embeddings`, {
+      const res = await fetch(`${normalizeBaseUrl(baseUrl)}/api/embed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt: text }),
+        body: JSON.stringify({ model, input: text }),
       });
 
       if (!res.ok) {
@@ -137,10 +137,9 @@ async function embedTextForServer({
       }
 
       const json = (await res.json()) as {
-        embedding?: number[];
-        embeddings?: number[];
+        embeddings?: number[][];
       };
-      const embedding = json.embedding ?? json.embeddings;
+      const embedding = json.embeddings?.[0];
       if (!Array.isArray(embedding) || embedding.length === 0) {
         return {
           ok: false,
@@ -163,7 +162,11 @@ async function embedTextForServer({
       body.dimensions = dimensions;
     }
 
-    const res = await fetch(`${normalizeBaseUrl(baseUrl)}/v1/embeddings`, {
+    const normalized = normalizeBaseUrl(baseUrl);
+    const embeddingsUrl = normalized.endsWith("/v1")
+      ? `${normalized}/embeddings`
+      : `${normalized}/v1/embeddings`;
+    const res = await fetch(embeddingsUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -306,11 +309,11 @@ export function createChatTools(serverId: number, userId: string) {
         "Get personalized movie and series recommendations based on user's watch history using AI embeddings. Each recommendation includes a 'reason' field (e.g. 'Because you watched X and Y') and a 'basedOn' array with the watched items that led to this recommendation. Always use this data when presenting recommendations to explain what they're based on.",
       inputSchema: limitTypeSchema,
       execute: async ({ limit, type }: z.infer<typeof limitTypeSchema>) => {
-        const recommendations = await getSimilarStatistics(
+        const recommendations = await getSimilarStatistics({
           serverId,
           userId,
-          limit * 2,
-        );
+          limit: limit * 2,
+        });
 
         const filtered =
           type === "all"
@@ -676,8 +679,12 @@ export function createChatTools(serverId: number, userId: string) {
         }
 
         const [currentUserRecs, otherUserRecs] = await Promise.all([
-          getSimilarStatistics(serverId, userId, 50),
-          getSimilarStatistics(serverId, otherUser.id, 50),
+          getSimilarStatistics({ serverId, userId, limit: 50 }),
+          getSimilarStatistics({
+            serverId,
+            userId: otherUser.id,
+            limit: 50,
+          }),
         ]);
 
         const currentUserRecIds = new Set(

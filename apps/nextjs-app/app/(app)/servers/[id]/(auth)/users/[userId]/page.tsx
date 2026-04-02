@@ -21,6 +21,7 @@ import {
   getUserGenreStats,
   getUsers,
   getUserWatchStats,
+  getViewerUserId,
   getWatchTimePerWeekDay,
   isUserAdmin,
 } from "@/lib/db/users";
@@ -77,9 +78,10 @@ export default async function User({
     redirect("/");
   }
 
-  const [isAdmin, currentSession] = await Promise.all([
+  const [isAdmin, currentSession, viewerUserId] = await Promise.all([
     isUserAdmin(),
     getSession(),
+    getViewerUserId(),
   ]);
 
   // Check if current user is viewing their own page
@@ -105,6 +107,7 @@ export default async function User({
     getWatchTimePerWeekDay({
       serverId: server.id,
       userId: user.id,
+      viewerUserId,
     }),
     getUserHistory(server.id, user.id, {
       page: currentPage,
@@ -120,8 +123,8 @@ export default async function User({
       playMethod: playMethod || undefined,
     }),
     getUserGenreStats({ userId: user.id, serverId: server.id }),
-    getMostWatchedItems({ serverId: server.id, userId: user.id }),
-    getAlmostDoneSeries({ serverId: server.id, userId: user.id }),
+    getMostWatchedItems({ serverId: server.id, userId: user.id, viewerUserId }),
+    getAlmostDoneSeries({ serverId: server.id, userId: user.id, viewerUserId }),
     getUserAnomalies(server.id, user.id, { resolved: false, limit: 1 }),
     getUsers({ serverId: server.id }),
     getUniqueDeviceNames(server.id),
