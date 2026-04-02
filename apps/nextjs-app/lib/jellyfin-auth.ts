@@ -5,14 +5,20 @@ const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
  * Uses MediaBrowser format required by Jellyfin 10.12+ (non-legacy auth).
  */
 export function jellyfinHeaders(
-  token: string,
+  token?: string,
   device?: { id: string; name: string },
 ): Record<string, string> {
-  const devicePart = device
-    ? `, Device="${device.name}", DeviceId="${device.id}"`
-    : "";
+  const parts = [
+    `Client="Streamystats"`,
+    device ? `Device="${device.name}"` : `Device="Server"`,
+    device ? `DeviceId="${device.id}"` : `DeviceId="streamystats-server"`,
+    `Version="${STREAMYSTATS_VERSION}"`,
+  ];
+  if (token) {
+    parts.push(`Token="${token}"`);
+  }
   return {
-    Authorization: `MediaBrowser Client="Streamystats"${devicePart}, Version="${STREAMYSTATS_VERSION}", Token="${token}"`,
+    Authorization: `MediaBrowser ${parts.join(", ")}`,
     "Content-Type": "application/json",
   };
 }
@@ -119,6 +125,140 @@ export async function getUserFromEmbyToken(args: {
       // Ignore error from System/Info and return original error
     }
 
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Jellyfin request failed",
+    };
+  }
+}
+
+export async function checkQuickConnectEnabled(args: {
+  serverUrl: string;
+}): Promise<boolean> {
+  const serverUrl = normalizeBaseUrl(args.serverUrl);
+  try {
+    const res = await fetch(`${serverUrl}/QuickConnect/Enabled`, {
+      method: "GET",
+      headers: jellyfinHeaders(),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return false;
+    const json: unknown = await res.json();
+    return json === true;
+  } catch {
+    return false;
+  }
+}
+
+type QuickConnectInitiateResponse = {
+  Code?: string;
+  Secret?: string;
+};
+
+export async function initiateQuickConnect(args: {
+  serverUrl: string;
+}): Promise<
+  { ok: true; secret: string; code: string } | { ok: false; error: string }
+> {
+  const serverUrl = normalizeBaseUrl(args.serverUrl);
+  try {
+    const res = await fetch(`${serverUrl}/QuickConnect/Initiate`, {
+      method: "POST",
+      headers: jellyfinHeaders(),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      return { ok: false, error: "QuickConnect initiation failed" };
+    }
+    const json = (await res.json()) as QuickConnectInitiateResponse;
+    const secret = asNonEmptyString(json.Secret);
+    const code = asNonEmptyString(json.Code);
+    if (!secret || !code) {
+      return { ok: false, error: "Jellyfin did not return secret or code" };
+    }
+    return { ok: true, secret, code };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return { ok: false, error: "Jellyfin request timed out" };
+    }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Jellyfin request failed",
+    };
+  }
+}
+
+type QuickConnectStatusResponse = {
+  Authenticated?: boolean;
+};
+
+export async function checkQuickConnectStatus(args: {
+  serverUrl: string;
+  secret: string;
+}): Promise<
+  { ok: true; authenticated: boolean } | { ok: false; error: string }
+> {
+  const serverUrl = normalizeBaseUrl(args.serverUrl);
+  try {
+    const res = await fetch(
+      `${serverUrl}/QuickConnect/Connect?Secret=${encodeURIComponent(args.secret)}`,
+      {
+        method: "GET",
+        headers: jellyfinHeaders(),
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!res.ok) {
+      return { ok: false, error: "QuickConnect status check failed" };
+    }
+    const json = (await res.json()) as QuickConnectStatusResponse;
+    return { ok: true, authenticated: json.Authenticated === true };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return { ok: false, error: "Jellyfin request timed out" };
+    }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Jellyfin request failed",
+    };
+  }
+}
+
+export async function authenticateWithQuickConnect(args: {
+  serverUrl: string;
+  secret: string;
+}): Promise<
+  | { ok: true; user: JellyfinAuthUser; accessToken: string | null }
+  | { ok: false; error: string }
+> {
+  const serverUrl = normalizeBaseUrl(args.serverUrl);
+  try {
+    const res = await fetch(
+      `${serverUrl}/Users/AuthenticateWithQuickConnect`,
+      {
+        method: "POST",
+        headers: jellyfinHeaders(),
+        body: JSON.stringify({ Secret: args.secret }),
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!res.ok) {
+      if (res.status === 401) {
+        return { ok: false, error: "QuickConnect authorization failed" };
+      }
+      return { ok: false, error: "QuickConnect authentication failed" };
+    }
+    const json = (await res.json()) as JellyfinAuthenticateByNameResponse;
+    const id = asNonEmptyString(json.User?.Id);
+    if (!id) return { ok: false, error: "Jellyfin did not return a user id" };
+    const name = asNonEmptyString(json.User?.Name);
+    const accessToken = asNonEmptyString(json.AccessToken);
+    const isAdmin = json.User?.Policy?.IsAdministrator ?? false;
+    return { ok: true, user: { id, name, isAdmin }, accessToken };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return { ok: false, error: "Jellyfin request timed out" };
+    }
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Jellyfin request failed",
