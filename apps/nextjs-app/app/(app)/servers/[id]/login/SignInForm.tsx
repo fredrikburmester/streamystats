@@ -66,6 +66,7 @@ export const SignInForm: React.FC<Props> = ({
         serverId: server.id,
         username: data.username,
         password: data.password || "",
+        userAgent: navigator.userAgent,
       });
       toast.success("Logged in successfully");
       router.push(`/servers/${server.id}/dashboard`);

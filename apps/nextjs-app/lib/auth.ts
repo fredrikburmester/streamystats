@@ -5,6 +5,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 import { getServer, getServerWithSecrets } from "./db/server";
+import { parseDeviceName } from "./device";
 import {
   authenticateWithQuickConnect,
   checkQuickConnectEnabled,
@@ -37,10 +38,12 @@ export const login = async ({
   serverId,
   username,
   password,
+  userAgent,
 }: {
   serverId: number;
   username: string;
   password?: string | null;
+  userAgent?: string;
 }): Promise<void> => {
   const clientIp = await getClientIp();
   loginLimiter.enforce(String(serverId), clientIp);
@@ -60,11 +63,19 @@ export const login = async ({
     }
   }
 
+  // Each browser session gets a unique DeviceId so Jellyfin tracks them as
+  // separate devices. Without this, re-authenticating revokes the previous
+  // token and breaks multi-device sessions (#370).
+  const device = {
+    id: crypto.randomUUID(),
+    name: userAgent ? parseDeviceName(userAgent) : "Streamystats Web",
+  };
+
   const res = await fetch(
     `${getInternalUrl(server)}/Users/AuthenticateByName`,
     {
       method: "POST",
-      headers: jellyfinHeaders(server.apiKey),
+      headers: jellyfinHeaders(server.apiKey, device),
       body: JSON.stringify({ Username: username, Pw: password }),
     },
   );

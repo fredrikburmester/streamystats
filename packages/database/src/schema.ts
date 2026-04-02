@@ -249,6 +249,7 @@ export const users = pgTable(
     enableAllDevices: boolean("enable_all_devices").notNull().default(true),
     enableAllChannels: boolean("enable_all_channels").notNull().default(true),
     enableAllFolders: boolean("enable_all_folders").notNull().default(true),
+    enabledFolders: text("enabled_folders").array().default([]),
     enablePublicSharing: boolean("enable_public_sharing")
       .notNull()
       .default(false),

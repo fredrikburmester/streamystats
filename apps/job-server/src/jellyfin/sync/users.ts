@@ -194,6 +194,10 @@ async function processUser(
     enableAllDevices: jellyfinUser.EnableAllDevices,
     enableAllChannels: jellyfinUser.EnableAllChannels,
     enableAllFolders: jellyfinUser.EnableAllFolders,
+    enabledFolders:
+      jellyfinUser.EnabledFolders ??
+      jellyfinUser.Policy?.EnabledFolders ??
+      [],
     enablePublicSharing: jellyfinUser.EnablePublicSharing,
     invalidLoginAttemptCount: jellyfinUser.InvalidLoginAttemptCount,
     loginAttemptsBeforeLockout: jellyfinUser.LoginAttemptsBeforeLockout,

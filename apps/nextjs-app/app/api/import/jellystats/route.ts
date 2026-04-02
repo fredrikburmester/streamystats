@@ -299,6 +299,8 @@ async function importSession(
     // Playback position and timing
     positionTicks: session.PlayState?.PositionTicks || null,
     lastActivityDate: new Date(session.ActivityDateInserted),
+    startTime: new Date(session.ActivityDateInserted),
+    endTime: new Date(session.ActivityDateInserted),
 
     // Audio/Video settings from PlayState
     audioStreamIndex: session.PlayState?.AudioStreamIndex ?? null,

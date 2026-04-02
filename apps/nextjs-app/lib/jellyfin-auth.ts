@@ -4,11 +4,14 @@ const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
  * Build the standard Jellyfin Authorization header.
  * Uses MediaBrowser format required by Jellyfin 10.12+ (non-legacy auth).
  */
-export function jellyfinHeaders(token?: string): Record<string, string> {
+export function jellyfinHeaders(
+  token?: string,
+  device?: { id: string; name: string },
+): Record<string, string> {
   const parts = [
     `Client="Streamystats"`,
-    `Device="Server"`,
-    `DeviceId="streamystats-server"`,
+    device ? `Device="${device.name}"` : `Device="Server"`,
+    device ? `DeviceId="${device.id}"` : `DeviceId="streamystats-server"`,
     `Version="${STREAMYSTATS_VERSION}"`,
   ];
   if (token) {

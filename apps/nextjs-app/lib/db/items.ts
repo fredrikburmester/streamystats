@@ -88,9 +88,11 @@ export interface ItemDetailsResponse {
 export const getItemDetails = async ({
   itemId,
   userId,
+  viewerUserId,
 }: {
   itemId: string;
   userId?: string;
+  viewerUserId?: string;
 }): Promise<ItemDetailsResponse | null> => {
   // Get the item first
   const item = await db.query.items.findFirst({
@@ -99,6 +101,20 @@ export const getItemDetails = async ({
 
   if (!item) {
     return null;
+  }
+
+  // Check library access for restricted users (respects both server and user exclusions)
+  if (viewerUserId && item.libraryId) {
+    const { allowedLibraryIds } = await getStatisticsExclusions(
+      item.serverId,
+      viewerUserId,
+    );
+    if (
+      allowedLibraryIds !== null &&
+      !allowedLibraryIds.includes(item.libraryId)
+    ) {
+      return null;
+    }
   }
 
   // Get basic stats
@@ -446,6 +462,7 @@ export const getItemUserStats = async ({
           enableAllDevices: true,
           enableAllChannels: true,
           enableAllFolders: true,
+          enabledFolders: [],
           enablePublicSharing: false,
           invalidLoginAttemptCount: 0,
           loginAttemptsBeforeLockout: 3,
@@ -491,6 +508,7 @@ export const getItemUserStats = async ({
           enableAllDevices: true,
           enableAllChannels: true,
           enableAllFolders: true,
+          enabledFolders: [],
           enablePublicSharing: false,
           invalidLoginAttemptCount: 0,
           loginAttemptsBeforeLockout: 3,
@@ -825,16 +843,21 @@ export const getAlmostDoneSeries = async ({
   minPercent = 50,
   maxPercent = 99,
   limit = 10,
+  viewerUserId,
 }: {
   serverId: number | string;
   userId: string;
   minPercent?: number;
   maxPercent?: number;
   limit?: number;
+  viewerUserId?: string;
 }): Promise<AlmostDoneSeries[]> => {
   const serverIdNum = Number(serverId);
 
-  const { itemLibraryExclusion } = await getStatisticsExclusions(serverIdNum);
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverIdNum,
+    viewerUserId,
+  );
 
   // Step 1: Get all series that the user has watched at least one episode of
   const watchedSeriesQuery = await db
