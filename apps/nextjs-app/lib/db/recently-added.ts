@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db } from "@streamystats/database";
 import { items } from "@streamystats/database/schema";
 import {
@@ -11,9 +13,8 @@ import {
   inArray,
   isNotNull,
   isNull,
-  notInArray,
 } from "drizzle-orm";
-import { getExclusionSettings } from "./exclusions";
+import { getStatisticsExclusions } from "./exclusions";
 import type {
   RecentlyAddedEpisode,
   RecentlyAddedItem,
@@ -57,11 +58,14 @@ export async function getRecentlyAddedItems(
   itemType: "Movie" | "Series",
   limit = 20,
   offset = 0,
+  viewerUserId?: string,
 ): Promise<RecentlyAddedItem[]> {
   const serverIdNum = Number(serverId);
 
-  const exclusions = await getExclusionSettings(serverIdNum);
-  const { excludedLibraryIds } = exclusions;
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverIdNum,
+    viewerUserId,
+  );
 
   const results = await db
     .select(itemSelect)
@@ -72,9 +76,7 @@ export async function getRecentlyAddedItems(
         isNull(items.deletedAt),
         isNotNull(items.dateCreated),
         eq(items.type, itemType),
-        excludedLibraryIds.length > 0
-          ? notInArray(items.libraryId, excludedLibraryIds)
-          : undefined,
+        itemLibraryExclusion,
       ),
     )
     .orderBy(desc(items.dateCreated))
@@ -93,18 +95,14 @@ export async function getRecentlyAddedSeriesWithEpisodes(
   days = 7,
   limit = 20,
   offset = 0,
+  viewerUserId?: string,
 ): Promise<RecentlyAddedSeriesGroup[]> {
   const serverIdNum = Number(serverId);
   const thresholdDate = new Date();
   thresholdDate.setDate(thresholdDate.getDate() - days);
 
-  const exclusions = await getExclusionSettings(serverIdNum);
-  const { excludedLibraryIds } = exclusions;
-
-  const libraryExclusion =
-    excludedLibraryIds.length > 0
-      ? notInArray(items.libraryId, excludedLibraryIds)
-      : undefined;
+  const { itemLibraryExclusion: libraryExclusion } =
+    await getStatisticsExclusions(serverIdNum, viewerUserId);
 
   // 1. Get recently added episodes grouped by series
   const recentEpisodes = await db

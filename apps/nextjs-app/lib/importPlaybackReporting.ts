@@ -1,6 +1,6 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { db } from "@streamystats/database";
 import {
   items,
@@ -453,7 +453,14 @@ async function importPlaybackReportingSession(
     seriesName = episodeInfo.seriesName;
   }
 
-  const sessionId = randomUUID();
+  // Deterministic ID from content fields so re-importing the same file
+  // produces the same IDs and onConflictDoNothing() prevents duplicates
+  const sessionId = createHash("sha256")
+    .update(
+      `${serverId}|${playbackData.userId ?? ""}|${playbackData.itemId ?? ""}|${playbackData.timestamp}|${durationSeconds}`,
+    )
+    .digest("hex")
+    .slice(0, 32);
   const runtimeTicks = durationSeconds * 10000000;
   const positionTicks = runtimeTicks;
 

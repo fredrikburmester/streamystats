@@ -1,3 +1,22 @@
+const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
+
+/**
+ * Build the standard Jellyfin Authorization header.
+ * Uses MediaBrowser format required by Jellyfin 10.12+ (non-legacy auth).
+ */
+export function jellyfinHeaders(
+  token: string,
+  device?: { id: string; name: string },
+): Record<string, string> {
+  const devicePart = device
+    ? `, Device="${device.name}", DeviceId="${device.id}"`
+    : "";
+  return {
+    Authorization: `MediaBrowser Client="Streamystats"${devicePart}, Version="${STREAMYSTATS_VERSION}", Token="${token}"`,
+    "Content-Type": "application/json",
+  };
+}
+
 type JellyfinUserMeResponse = {
   Id?: string;
   Name?: string;
@@ -42,21 +61,18 @@ export async function getUserFromEmbyToken(args: {
 > {
   const serverUrl = normalizeBaseUrl(args.serverUrl);
   const token = args.token.trim();
-  if (!token) return { ok: false, error: "Empty X-Emby-Token" };
+  if (!token) return { ok: false, error: "Empty Authorization header" };
 
   try {
     const res = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": token,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(token),
       signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) {
       if (res.status === 401) {
-        return { ok: false, error: "Invalid X-Emby-Token" };
+        return { ok: false, error: "Invalid Authorization header" };
       }
       return { ok: false, error: `Jellyfin returned ${res.status}` };
     }
@@ -83,10 +99,7 @@ export async function getUserFromEmbyToken(args: {
         `${normalizeBaseUrl(args.serverUrl)}/System/Info`,
         {
           method: "GET",
-          headers: {
-            "X-Emby-Token": args.token.trim(),
-            "Content-Type": "application/json",
-          },
+          headers: jellyfinHeaders(args.token.trim()),
           signal: AbortSignal.timeout(5000),
         },
       );

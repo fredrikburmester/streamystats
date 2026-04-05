@@ -16,10 +16,12 @@ interface EmbeddingConfig {
 }
 
 // Job data for embedding generation
+// provider and config are optional to support scheduled jobs that omit them;
+// the handler will fetch them from the DB using serverId in that case.
 interface GenerateItemEmbeddingsJobData {
   serverId: number;
-  provider: "openai-compatible" | "openai" | "ollama" | "gemini";
-  config: EmbeddingConfig;
+  provider?: "openai-compatible" | "openai" | "ollama" | "voyage" | "gemini";
+  config?: EmbeddingConfig;
   manualStart?: boolean;
 }
 
@@ -27,6 +29,7 @@ interface GenerateItemEmbeddingsJobData {
 const DEFAULT_MAX_TEXT_LENGTH = 8000;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RATE_LIMIT_DELAY = 500;
+const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
 const ITEMS_PER_BATCH = 100; // Items to fetch from DB at a time
 const API_BATCH_SIZE = 20; // Items to send to embedding API at once
 const MAX_CONSECUTIVE_BATCH_FAILURES = 5;
@@ -34,8 +37,29 @@ const MAX_CONSECUTIVE_BATCH_FAILURES = 5;
 // Track if index has been ensured this session (per dimension)
 const indexEnsuredForDimension = new Set<number>();
 
+/**
+ * Normalize an embedding provider string to the canonical internal value.
+ * Throws a clear error for any unrecognized value so bad data fails fast.
+ */
+function normalizeEmbeddingProvider(
+  raw: string,
+  source: string
+): "openai-compatible" | "ollama" | "voyage" {
+  switch (raw) {
+    case "openai":
+    case "openai-compatible":
+      return "openai-compatible";
+    case "ollama":
+      return "ollama";
+    case "voyage":
+      return "voyage";
+    default:
+      throw new Error(`Unsupported embedding provider from ${source}: ${raw}`);
+  }
+}
+
 function sanitizeErrorMessage(message: string): string {
-  // postgres-js style errors can include the full parameter list. For embeddings that’s a 1536-length
+  // postgres-js style errors can include the full parameter list. For embeddings that's a 1536-length
   // vector which is noisy and can bloat logs.
   if (message.includes("Failed query:") && message.includes("params:")) {
     const beforeParams = message.split("params:")[0]?.trimEnd() ?? message;
@@ -348,6 +372,7 @@ async function processOpenAIBatch(
     response = await client.embeddings.create({
       model: config.model,
       input: texts,
+      encoding_format: "float",
       ...(config.dimensions ? { dimensions: config.dimensions } : {}),
     });
   } catch (error) {
@@ -357,6 +382,7 @@ async function processOpenAIBatch(
       response = await client.embeddings.create({
         model: config.model,
         input: texts,
+        encoding_format: "float",
       });
     } else {
       throw error;
@@ -433,12 +459,17 @@ async function processOllamaItem(
   }
 
   const response = await axios.post(
-    `${config.baseUrl}/api/embeddings`,
-    { model: config.model, prompt: text },
+    `${config.baseUrl}/api/embed`,
+    {
+      model: config.model,
+      input: text,
+      keep_alive: "5m",
+      ...(config.dimensions ? { dimensions: config.dimensions } : {}),
+    },
     { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
   );
 
-  const rawEmbedding = response.data.embedding || response.data.embeddings;
+  const rawEmbedding = response.data.embeddings?.[0] || response.data.embedding;
   if (!rawEmbedding) {
     throw new Error("No embedding returned from Ollama");
   }
@@ -453,6 +484,114 @@ async function processOllamaItem(
     .set({ embedding: sql`${toPgVectorLiteral(embedding)}::vector`, processed: true })
     .where(eq(items.id, item.id));
   return { processed: 1, skipped: 0, errors: 0 };
+}
+
+/**
+ * Process a batch of items using Voyage AI API.
+ * Voyage uses `output_dimension` instead of `dimensions` and does not support `encoding_format`.
+ */
+async function processVoyageBatch(
+  batchItems: Item[],
+  config: EmbeddingConfig,
+  validateEmbedding: (raw: number[], itemId: string) => number[] | null,
+  serverId: number
+): Promise<{ processed: number; skipped: number; errors: number }> {
+  let processed = 0;
+  let skipped = 0;
+  let errors = 0;
+  let firstDbWriteError: string | null = null;
+
+  const batchData: { item: Item; text: string }[] = [];
+  const toSkip: Item[] = [];
+
+  for (const item of batchItems) {
+    const text = await prepareTextForEmbedding(item, serverId);
+    if (text.trim()) {
+      batchData.push({ item, text });
+    } else {
+      toSkip.push(item);
+    }
+  }
+
+  for (const item of toSkip) {
+    await db
+      .update(items)
+      .set({ processed: true })
+      .where(eq(items.id, item.id));
+    skipped++;
+  }
+
+  if (batchData.length === 0) {
+    return { processed, skipped, errors };
+  }
+
+  const texts = batchData.map((d) => d.text);
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (config.apiKey) {
+    headers["Authorization"] = `Bearer ${config.apiKey}`;
+  }
+
+  const payload: Record<string, unknown> = {
+    model: config.model,
+    input: texts,
+    input_type: "document",
+  };
+  if (config.dimensions) {
+    payload["output_dimension"] = config.dimensions;
+  }
+
+  const response = await axios.post(
+    `${config.baseUrl}/embeddings`,
+    payload,
+    { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
+  );
+
+  const responseData = response.data?.data as
+    | Array<{ embedding: number[] }>
+    | undefined;
+
+  if (!responseData || responseData.length !== batchData.length) {
+    throw new Error(
+      `Invalid response: expected ${batchData.length} embeddings, got ${responseData?.length || 0}`
+    );
+  }
+
+  for (let j = 0; j < batchData.length; j++) {
+    const { item } = batchData[j];
+    const embeddingData = responseData[j];
+
+    if (!embeddingData?.embedding) {
+      errors++;
+      continue;
+    }
+
+    const embedding = validateEmbedding(embeddingData.embedding, item.id);
+    if (!embedding) {
+      errors++;
+      continue;
+    }
+
+    try {
+      const vectorLiteral = toPgVectorLiteral(embedding);
+      await db
+        .update(items)
+        .set({ embedding: sql`${vectorLiteral}::vector`, processed: true })
+        .where(eq(items.id, item.id));
+      processed++;
+    } catch (err) {
+      if (!firstDbWriteError) {
+        firstDbWriteError = getErrorMessage(err);
+      }
+      errors++;
+    }
+  }
+
+  if (processed === 0 && firstDbWriteError) {
+    throw new Error(`Failed to persist embeddings to DB: ${firstDbWriteError}`);
+  }
+
+  return { processed, skipped, errors };
 }
 
 /**
@@ -573,8 +712,10 @@ export async function generateItemEmbeddingsJob(
   job: PgBossJob<GenerateItemEmbeddingsJobData>
 ) {
   const startTime = Date.now();
-  const { serverId, provider: rawProvider, config, manualStart = false } = job.data;
-  const provider = rawProvider === "openai" ? "openai-compatible" : rawProvider;
+  const { serverId, provider: rawProvider, config: jobConfig, manualStart = false } = job.data;
+
+  let provider: "openai-compatible" | "ollama" | "voyage" | undefined;
+  let config: EmbeddingConfig | undefined = jobConfig;
 
   let totalProcessed = 0;
   let totalSkipped = 0;
@@ -619,11 +760,44 @@ export async function generateItemEmbeddingsJob(
   };
 
   try {
-    if (!provider) {
-      throw new Error("Embedding provider not configured.");
+    // Resolve provider and config — scheduled jobs omit these fields so we
+    // fetch them fresh from the DB here. This also means config is always
+    // up-to-date even if the user changed it after the schedule was created.
+    // All resolution is inside try so errors flow through structured logging.
+
+    // Normalize provider from job data if present
+    if (rawProvider != null) {
+      provider = normalizeEmbeddingProvider(rawProvider, "job data");
     }
-    if (!config.baseUrl || !config.model) {
-      throw new Error("Embedding configuration incomplete.");
+
+    // Fetch from DB if provider or config is missing
+    if (!provider || !config?.baseUrl || !config?.model) {
+      const serverConfig = await db
+        .select({
+          embeddingProvider: servers.embeddingProvider,
+          embeddingBaseUrl: servers.embeddingBaseUrl,
+          embeddingApiKey: servers.embeddingApiKey,
+          embeddingModel: servers.embeddingModel,
+          embeddingDimensions: servers.embeddingDimensions,
+        })
+        .from(servers)
+        .where(eq(servers.id, serverId))
+        .limit(1);
+
+      const s = serverConfig[0];
+
+      if (!s?.embeddingProvider || !s?.embeddingBaseUrl || !s?.embeddingModel) {
+        throw new Error("Embedding provider not configured.");
+      }
+
+      provider = normalizeEmbeddingProvider(s.embeddingProvider, `database for server ${serverId}`);
+
+      config = {
+        baseUrl: s.embeddingBaseUrl,
+        apiKey: s.embeddingApiKey ?? undefined,
+        model: s.embeddingModel,
+        dimensions: s.embeddingDimensions ?? DEFAULT_EMBEDDING_DIMENSIONS,
+      };
     }
 
     console.info(
@@ -796,6 +970,57 @@ export async function generateItemEmbeddingsJob(
             totalErrors += apiBatch.length;
 
             // Avoid infinite loops when provider/config is invalid (e.g. wrong model/baseUrl).
+            if (consecutiveBatchFailures >= MAX_CONSECUTIVE_BATCH_FAILURES) {
+              throw new Error(
+                `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`
+              );
+            }
+          }
+
+          await sleep(DEFAULT_RATE_LIMIT_DELAY);
+        }
+      } else if (provider === "voyage") {
+        // Process in smaller API batches (same pattern as openai-compatible)
+        for (let i = 0; i < batch.length; i += API_BATCH_SIZE) {
+          if (await isStopRequested(serverId)) {
+            stopped = true;
+            break;
+          }
+
+          const apiBatch = batch.slice(i, i + API_BATCH_SIZE);
+          try {
+            const result = await processVoyageBatch(
+              apiBatch,
+              config,
+              validateEmbedding,
+              serverId
+            );
+            totalProcessed += result.processed;
+            totalSkipped += result.skipped;
+            totalErrors += result.errors;
+            consecutiveBatchFailures = 0;
+            lastBatchError = null;
+          } catch (batchError) {
+            if (batchError instanceof Error) {
+              if (getHttpStatus(batchError) === 401) {
+                throw new Error(
+                  `Voyage API returned 401 (unauthorized). Check your API key.`
+                );
+              }
+              if (batchError.message.includes("Dimension mismatch")) {
+                throw batchError;
+              }
+              if (batchError.message.includes("Failed to persist embeddings to DB")) {
+                throw batchError;
+              }
+            }
+            consecutiveBatchFailures++;
+            lastBatchError = getErrorMessage(batchError);
+            console.error(
+              `[embeddings] server=${serverName} serverId=${serverId} action=batchError provider=${provider} model=${config.model} baseUrl=${config.baseUrl} consecutiveFailures=${consecutiveBatchFailures} error=${lastBatchError}`
+            );
+            totalErrors += apiBatch.length;
+
             if (consecutiveBatchFailures >= MAX_CONSECUTIVE_BATCH_FAILURES) {
               throw new Error(
                 `Embeddings failed repeatedly (${consecutiveBatchFailures} consecutive batch failures). Last error: ${lastBatchError}`

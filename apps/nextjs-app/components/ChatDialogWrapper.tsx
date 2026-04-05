@@ -6,15 +6,13 @@ import { ChatDialog } from "./ChatDialog";
 interface ChatDialogWrapperProps {
   chatConfigured: boolean;
   me?: User;
-  serverUrl?: string;
+  server?: { url: string; internalUrl?: string | null };
 }
 
 export function ChatDialogWrapper({
   chatConfigured,
   me,
-  serverUrl,
+  server,
 }: ChatDialogWrapperProps) {
-  return (
-    <ChatDialog chatConfigured={chatConfigured} me={me} serverUrl={serverUrl} />
-  );
+  return <ChatDialog chatConfigured={chatConfigured} me={me} server={server} />;
 }

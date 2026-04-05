@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db, items, sessions, type User, users } from "@streamystats/database";
 import {
   and,
@@ -8,14 +10,15 @@ import {
   inArray,
   isNotNull,
   lte,
-  notInArray,
   type SQL,
   sql,
   sum,
 } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "../server-url";
 import { destroySession, getSession } from "../session";
-import { getExclusionSettings } from "./exclusions";
+import { getStatisticsExclusions } from "./exclusions";
 import { isBetterDisplayName, normalizeGenre } from "./genres";
 import { getServer } from "./server";
 
@@ -94,18 +97,21 @@ export const getWatchTimePerWeekDay = async ({
   userId,
   startDate,
   endDate,
+  viewerUserId,
 }: {
   serverId: string | number;
   userId?: string | number;
   startDate?: string;
   endDate?: string;
+  viewerUserId?: string;
 }): Promise<WatchTimePerWeekDay[]> => {
   const start = getStartDateConstraint(startDate);
   const end = getEndDateConstraint(endDate);
 
   // Get exclusion settings
-  const { excludedUserIds, excludedLibraryIds } = await getExclusionSettings(
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     Number(serverId),
+    viewerUserId,
   );
 
   // Build the where condition based on whether userId is provided
@@ -121,11 +127,11 @@ export const getWatchTimePerWeekDay = async ({
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
-  if (excludedLibraryIds.length > 0) {
-    whereConditions.push(notInArray(items.libraryId, excludedLibraryIds));
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   // Use SQL GROUP BY for aggregation instead of fetching all rows
@@ -176,18 +182,21 @@ export const getWatchTimePerHour = async ({
   userId,
   startDate,
   endDate,
+  viewerUserId,
 }: {
   serverId: string | number;
   userId?: string | number;
   startDate?: string;
   endDate?: string;
+  viewerUserId?: string;
 }): Promise<WatchTimePerHour[]> => {
   const start = getStartDateConstraint(startDate);
   const end = getEndDateConstraint(endDate);
 
   // Get exclusion settings
-  const { excludedUserIds, excludedLibraryIds } = await getExclusionSettings(
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     Number(serverId),
+    viewerUserId,
   );
 
   // Build the where condition based on whether userId is provided
@@ -203,11 +212,11 @@ export const getWatchTimePerHour = async ({
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
-  if (excludedLibraryIds.length > 0) {
-    whereConditions.push(notInArray(items.libraryId, excludedLibraryIds));
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   // Use SQL GROUP BY for aggregation instead of fetching all rows
@@ -233,18 +242,21 @@ export const getTotalWatchTime = async ({
   userId,
   startDate,
   endDate,
+  viewerUserId,
 }: {
   serverId: string | number;
   userId?: string | number;
   startDate?: string;
   endDate?: string;
+  viewerUserId?: string;
 }): Promise<number> => {
   const start = getStartDateConstraint(startDate);
   const end = getEndDateConstraint(endDate);
 
   // Get exclusion settings
-  const { excludedUserIds, excludedLibraryIds } = await getExclusionSettings(
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     Number(serverId),
+    viewerUserId,
   );
 
   // Build the where condition based on whether userId is provided
@@ -260,11 +272,11 @@ export const getTotalWatchTime = async ({
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
-  if (excludedLibraryIds.length > 0) {
-    whereConditions.push(notInArray(items.libraryId, excludedLibraryIds));
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
   }
 
   const result = await db
@@ -326,13 +338,18 @@ export const getUserActivityPerDay = async ({
   serverId,
   startDate,
   endDate,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
+  viewerUserId?: string;
 }): Promise<UserActivityPerDay> => {
   // Get exclusion settings
-  const { excludedUserIds } = await getExclusionSettings(Number(serverId));
+  const { userExclusion } = await getStatisticsExclusions(
+    Number(serverId),
+    viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -341,8 +358,8 @@ export const getUserActivityPerDay = async ({
   ];
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
 
   // Get sessions with date and user information
@@ -406,6 +423,16 @@ export const isUserAdmin = async (): Promise<boolean> => {
 };
 
 /**
+ * Get the viewer user ID for library access filtering.
+ * Returns undefined for admins (no restrictions), or the user's ID for non-admins.
+ */
+export const getViewerUserId = async (): Promise<string | undefined> => {
+  const session = await getSession();
+  if (!session) return undefined;
+  return session.isAdmin ? undefined : session.id;
+};
+
+/**
  * Validates admin status against the live Jellyfin server.
  * Use this for security-critical operations where you need real-time verification.
  */
@@ -425,12 +452,9 @@ export const validateAdminWithJellyfin = async (): Promise<boolean> => {
   const token = c.get("streamystats-token");
 
   try {
-    const response = await fetch(`${server.url}/Users/Me`, {
+    const response = await fetch(`${getInternalUrl(server)}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": token?.value || "",
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(token?.value || ""),
       signal: AbortSignal.timeout(5000),
     });
 
@@ -465,17 +489,18 @@ export const getUserStatsSummaryForServer = async ({
   endDate,
   userId,
   itemType,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate?: string;
   endDate?: string;
   userId?: string;
   itemType?: "Movie" | "Series" | "Episode" | "all";
+  viewerUserId?: string;
 }): Promise<UserStatsSummary[]> => {
   // Get exclusion settings
-  const { excludedUserIds, excludedLibraryIds } = await getExclusionSettings(
-    Number(serverId),
-  );
+  const { userExclusion, itemLibraryExclusion, requiresItemsJoin } =
+    await getStatisticsExclusions(Number(serverId), viewerUserId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -499,15 +524,15 @@ export const getUserStatsSummaryForServer = async ({
   }
 
   // Add exclusion filters
-  if (excludedUserIds.length > 0) {
-    whereConditions.push(notInArray(sessions.userId, excludedUserIds));
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
   }
 
   const needsItemTypeFilter =
     itemType && itemType !== "all" && itemType !== undefined;
 
   // Need to join items if we have library exclusions OR item type filter
-  const needsItemJoin = needsItemTypeFilter || excludedLibraryIds.length > 0;
+  const needsItemJoin = needsItemTypeFilter || requiresItemsJoin;
 
   let query = db
     .select({
@@ -533,8 +558,8 @@ export const getUserStatsSummaryForServer = async ({
     whereConditions.push(isNotNull(sessions.itemId));
 
     // Add library exclusion when joining items
-    if (excludedLibraryIds.length > 0) {
-      whereConditions.push(notInArray(items.libraryId, excludedLibraryIds));
+    if (itemLibraryExclusion) {
+      whereConditions.push(itemLibraryExclusion);
     }
   }
 

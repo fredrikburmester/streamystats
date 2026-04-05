@@ -110,6 +110,27 @@ export async function syncLibraries(
       );
     }
 
+    // Remove libraries that no longer exist in Jellyfin
+    const jellyfinLibraryIds = jellyfinLibraries.map((lib) => lib.Id);
+    if (jellyfinLibraryIds.length > 0) {
+      const existingLibraries = await db
+        .select({ id: libraries.id })
+        .from(libraries)
+        .where(eq(libraries.serverId, server.id));
+
+      const staleLibraryIds = existingLibraries
+        .map((lib) => lib.id)
+        .filter((id) => !jellyfinLibraryIds.includes(id));
+
+      for (const staleId of staleLibraryIds) {
+        await db.delete(libraries).where(eq(libraries.id, staleId));
+        metrics.incrementDatabaseOperations();
+        console.info(
+          `[libraries-sync] server=${server.name} removed stale library=${staleId}`
+        );
+      }
+    }
+
     const finalMetrics = metrics.finish();
     const data: LibrarySyncData = {
       librariesProcessed: finalMetrics.librariesProcessed,

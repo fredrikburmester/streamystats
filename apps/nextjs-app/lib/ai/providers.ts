@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
@@ -44,6 +46,13 @@ export const CHAT_PROVIDER_PRESETS = {
     name: "Groq",
     baseUrl: "https://api.groq.com/openai/v1",
     defaultModel: "llama-3.3-70b-versatile",
+    requiresApiKey: true,
+    provider: "openai-compatible" as ChatProvider,
+  },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    defaultModel: "openai/gpt-4o-mini",
     requiresApiKey: true,
     provider: "openai-compatible" as ChatProvider,
   },

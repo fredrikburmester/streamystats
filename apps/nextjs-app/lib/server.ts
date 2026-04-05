@@ -1,11 +1,26 @@
 "use server";
 
 import type { Server } from "@streamystats/database";
+import { z } from "zod/v4";
 import type { ServerPublic } from "@/lib/types";
+
+const createServerSchema = z.object({
+  name: z.string().min(1).max(200),
+  url: z.string().min(1).max(1000),
+  apiKey: z.string().min(1).max(500),
+  localAddress: z.string().max(500).optional(),
+  autoGenerateEmbeddings: z.boolean().optional(),
+  embeddingProvider: z.enum(["openai-compatible", "ollama"]).optional(),
+  embeddingBaseUrl: z.string().max(500).optional(),
+  embeddingApiKey: z.string().max(500).optional(),
+  embeddingModel: z.string().max(200).optional(),
+  embeddingDimensions: z.number().int().positive().max(10000).optional(),
+});
 
 interface CreateServerRequest {
   name: string;
   url: string;
+  internalUrl?: string;
   apiKey: string;
   localAddress?: string;
   autoGenerateEmbeddings?: boolean;
@@ -29,13 +44,14 @@ interface CreateServerErrorResponse {
   details?: string;
 }
 
-/**
- * Creates a new server by calling the job-server's create-server endpoint
- * This will validate the connection, create the server record, and start the sync process
- */
 export async function createServer(
   serverData: CreateServerRequest,
 ): Promise<CreateServerSuccessResponse | CreateServerErrorResponse> {
+  const parsed = createServerSchema.safeParse(serverData);
+  if (!parsed.success) {
+    return { success: false, details: "Invalid input" };
+  }
+
   const jobServerUrl =
     process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
       ? process.env.JOB_SERVER_URL
@@ -47,7 +63,7 @@ export async function createServer(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(serverData),
+      body: JSON.stringify(parsed.data),
     });
 
     if (!response.ok) {

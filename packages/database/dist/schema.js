@@ -47,6 +47,7 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
         .notNull()
         .default(0),
     localAddress: (0, pg_core_1.text)("local_address"),
+    internalUrl: (0, pg_core_1.text)("internal_url"),
     version: (0, pg_core_1.text)("version"),
     productName: (0, pg_core_1.text)("product_name"),
     operatingSystem: (0, pg_core_1.text)("operating_system"),
@@ -161,6 +162,7 @@ exports.users = (0, pg_core_1.pgTable)("users", {
     enableAllDevices: (0, pg_core_1.boolean)("enable_all_devices").notNull().default(true),
     enableAllChannels: (0, pg_core_1.boolean)("enable_all_channels").notNull().default(true),
     enableAllFolders: (0, pg_core_1.boolean)("enable_all_folders").notNull().default(true),
+    enabledFolders: (0, pg_core_1.text)("enabled_folders").array().default([]),
     enablePublicSharing: (0, pg_core_1.boolean)("enable_public_sharing")
         .notNull()
         .default(false),

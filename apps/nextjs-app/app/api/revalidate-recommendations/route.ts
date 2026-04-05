@@ -1,8 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { revalidateSeriesRecommendations } from "@/lib/db/similar-series-statistics";
 import { revalidateRecommendations } from "@/lib/db/similar-statistics";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSession();
+  if (auth.error) return auth.error;
+
   try {
     const { serverId, userId } = await req.json();
 

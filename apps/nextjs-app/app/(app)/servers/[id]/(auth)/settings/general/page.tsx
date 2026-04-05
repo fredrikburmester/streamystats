@@ -38,7 +38,11 @@ export default async function GeneralSettings(props: {
           serverId={server.id}
           currentTimezone={server.timezone}
         />
-        <UpdateConnection serverId={server.id} />
+        <UpdateConnection
+          serverId={server.id}
+          url={server.url}
+          internalUrl={server.internalUrl}
+        />
         {isAdmin ? (
           <InferWatchtimeAdminManager
             serverId={server.id}

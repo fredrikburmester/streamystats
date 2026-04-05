@@ -154,7 +154,7 @@ function WatchTimeChartView({
             style={{ backgroundColor: item?.color }}
           />
           <p className="">{String(name)}</p>
-          <p className="ml-auto">{formatDuration(Number(value), "minutes")}</p>
+          <p className="ml-auto">{formatDuration(Number(value), "seconds")}</p>
         </div>
       );
     },
@@ -191,12 +191,12 @@ function WatchTimeChartView({
       const bucketKey = formatBucketKey(bStart);
       ensureBucket(bucketKey);
 
-      const watchTimeMinutes = Math.floor(value.totalWatchTime / 60);
-      if (type === "movie") bucketMap[bucketKey].Movie += watchTimeMinutes;
+      const watchTimeSeconds = value.totalWatchTime;
+      if (type === "movie") bucketMap[bucketKey].Movie += watchTimeSeconds;
       else if (type === "episode")
-        bucketMap[bucketKey].Episode += watchTimeMinutes;
-      else if (type === "music") bucketMap[bucketKey].Music += watchTimeMinutes;
-      else if (type === "other") bucketMap[bucketKey].Other += watchTimeMinutes;
+        bucketMap[bucketKey].Episode += watchTimeSeconds;
+      else if (type === "music") bucketMap[bucketKey].Music += watchTimeSeconds;
+      else if (type === "other") bucketMap[bucketKey].Other += watchTimeSeconds;
     }
 
     const result: Array<{

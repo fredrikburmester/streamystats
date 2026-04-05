@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   db,
   type Item,
@@ -59,8 +61,10 @@ export interface ItemWatchStatsResponse {
  */
 export const getAggregatedLibraryStatistics = async ({
   serverId,
+  userId,
 }: {
   serverId: number;
+  userId?: string;
 }): Promise<AggregatedLibraryStatistics> => {
   // Get exclusion settings
   const {
@@ -68,7 +72,7 @@ export const getAggregatedLibraryStatistics = async ({
     usersTableExclusion,
     librariesTableExclusion,
     userExclusion,
-  } = await getStatisticsExclusions(serverId);
+  } = await getStatisticsExclusions(serverId, userId);
 
   // Build item conditions (excluding soft-deleted items and excluded libraries)
   const itemConditions: SQL[] = [
@@ -165,6 +169,7 @@ export const getAggregatedLibraryStatistics = async ({
  */
 export const getLibraryItemsWithStats = async ({
   serverId,
+  userId,
   page,
   sortOrder,
   sortBy,
@@ -173,6 +178,7 @@ export const getLibraryItemsWithStats = async ({
   libraryIds,
 }: {
   serverId: number;
+  userId?: string;
   page?: string;
   sortOrder?: string;
   sortBy?: string;
@@ -181,7 +187,10 @@ export const getLibraryItemsWithStats = async ({
   libraryIds?: string;
 }): Promise<ItemWatchStatsResponse> => {
   // Get exclusion settings
-  const { itemLibraryExclusion } = await getStatisticsExclusions(serverId);
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    userId,
+  );
 
   const currentPage = Math.max(1, Number(page) || 1);
   const perPage = 20;
@@ -348,12 +357,14 @@ export interface PerLibraryStatistics {
  */
 export const getPerLibraryStatistics = async ({
   serverId,
+  userId,
 }: {
   serverId: number;
+  userId?: string;
 }): Promise<PerLibraryStatistics[]> => {
   // Get exclusion settings
   const { librariesTableExclusion, itemLibraryExclusion, userExclusion } =
-    await getStatisticsExclusions(serverId);
+    await getStatisticsExclusions(serverId, userId);
 
   // Build library conditions
   const libraryConditions: SQL[] = [eq(libraries.serverId, serverId)];

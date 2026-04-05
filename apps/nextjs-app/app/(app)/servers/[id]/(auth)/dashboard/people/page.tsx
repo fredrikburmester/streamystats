@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { MediaTypeFilter } from "@/lib/db/people-stats";
+import type { MediaTypeFilter, PlayCountSortBy } from "@/lib/db/people-stats";
 import { getServer } from "@/lib/db/server";
 import { PeopleStats } from "./PeopleStats";
 import { PeopleTypeTabs } from "./PeopleTypeTabs";
@@ -13,10 +13,10 @@ export default async function PeoplePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ mediaType?: string }>;
+  searchParams: Promise<{ mediaType?: string; playCountSort?: string }>;
 }) {
   const { id } = await params;
-  const { mediaType } = await searchParams;
+  const { mediaType, playCountSort } = await searchParams;
   const server = await getServer({ serverId: id });
 
   if (!server) {
@@ -26,6 +26,10 @@ export default async function PeoplePage({
   // Validate mediaType parameter
   const effectiveMediaType: MediaTypeFilter =
     mediaType === "Movie" || mediaType === "Series" ? mediaType : "all";
+
+  // Validate playCountSort parameter
+  const effectivePlayCountSort: PlayCountSortBy =
+    playCountSort === "playCount" ? "playCount" : "titleCount";
 
   return (
     <Container className="flex flex-col">
@@ -42,7 +46,11 @@ export default async function PeoplePage({
           </div>
         }
       >
-        <PeopleStats server={server} mediaType={effectiveMediaType} />
+        <PeopleStats
+          server={server}
+          mediaType={effectiveMediaType}
+          playCountSort={effectivePlayCountSort}
+        />
       </Suspense>
     </Container>
   );

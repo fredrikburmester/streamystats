@@ -1,5 +1,7 @@
 // Transcoding statistics types and functions
 
+import "server-only";
+
 import type { Session } from "@streamystats/database";
 import { db, sessions } from "@streamystats/database";
 import {

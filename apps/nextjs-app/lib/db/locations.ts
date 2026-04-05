@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import {
   activities,
   activityLocations,

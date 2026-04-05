@@ -1,14 +1,18 @@
 "use server";
 
+import "server-only";
+
 import {
   activities,
   db,
   items,
+  libraries,
   sessions,
   users,
   watchlists,
 } from "@streamystats/database";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
+import { getStatisticsExclusions } from "./exclusions";
 
 /**
  * Generic search result type that can represent any searchable entity
@@ -63,9 +67,20 @@ async function searchItems(
   serverId: number,
   query: string,
   limit: number = 10,
+  viewerUserId?: string,
 ): Promise<SearchResult[]> {
   const searchQuery = buildTsQuery(query);
   if (!searchQuery) return [];
+
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
+
+  // Build library filter as raw SQL for use in the template literal query
+  const libraryFilter: SQL = itemLibraryExclusion
+    ? sql`AND ${itemLibraryExclusion}`
+    : sql``;
 
   // Use a CTE to set similarity threshold, then search with multiple strategies:
   // 1. Full-text search (uses GiST index on search_vector)
@@ -83,6 +98,7 @@ async function searchItems(
     primary_image_tag: string | null;
     series_primary_image_tag: string | null;
     series_id: string | null;
+    library_name: string | null;
     rank: number;
   }>(sql`
     SELECT
@@ -97,6 +113,7 @@ async function searchItems(
       ${items.primaryImageTag} as primary_image_tag,
       ${items.seriesPrimaryImageTag} as series_primary_image_tag,
       ${items.seriesId} as series_id,
+      ${libraries.name} as library_name,
       GREATEST(
         CASE
           WHEN search_vector IS NOT NULL
@@ -104,11 +121,19 @@ async function searchItems(
           ELSE 0
         END,
         word_similarity(${query}, ${items.name}),
-        COALESCE(word_similarity(${query}, ${items.seriesName}), 0)
-      ) as rank
+        COALESCE(word_similarity(${query}, ${items.seriesName}), 0) * 0.6
+      )
+      * CASE ${items.type}
+          WHEN 'Movie' THEN 1.2
+          WHEN 'Series' THEN 1.2
+          ELSE 1.0
+        END
+      as rank
     FROM ${items}
+    LEFT JOIN ${libraries} ON ${items.libraryId} = ${libraries.id}
     WHERE ${items.serverId} = ${serverId}
       AND ${items.deletedAt} IS NULL
+      ${libraryFilter}
       AND (
         search_vector @@ plainto_tsquery('english', ${searchQuery})
         OR ${items.name} ILIKE ${`%${query}%`}
@@ -150,6 +175,9 @@ async function searchItems(
       imageId,
       imageTag: imageTag ?? undefined,
       href: `/library/${item.id}`,
+      metadata: {
+        ...(item.library_name ? { libraryName: item.library_name } : {}),
+      },
       rank: item.rank,
     };
   });
@@ -438,6 +466,7 @@ export async function globalSearch(
     sessionLimit?: number;
     actorLimit?: number;
   } = {},
+  viewerUserId?: string,
 ): Promise<SearchResults> {
   const {
     itemLimit = 10,
@@ -469,7 +498,7 @@ export async function globalSearch(
     sessionResults,
     actorResults,
   ] = await Promise.all([
-    searchItems(serverId, query, itemLimit),
+    searchItems(serverId, query, itemLimit, viewerUserId),
     searchUsers(serverId, query, userLimit),
     searchWatchlists(serverId, query, userId, watchlistLimit),
     searchActivities(serverId, query, activityLimit),

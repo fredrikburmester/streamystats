@@ -112,6 +112,7 @@ export const servers = pgTable(
       .notNull()
       .default(0),
     localAddress: text("local_address"),
+    internalUrl: text("internal_url"),
     version: text("version"),
     productName: text("product_name"),
     operatingSystem: text("operating_system"),
@@ -242,6 +243,7 @@ export const users = pgTable(
     enableAllDevices: boolean("enable_all_devices").notNull().default(true),
     enableAllChannels: boolean("enable_all_channels").notNull().default(true),
     enableAllFolders: boolean("enable_all_folders").notNull().default(true),
+    enabledFolders: text("enabled_folders").array().default([]),
     enablePublicSharing: boolean("enable_public_sharing")
       .notNull()
       .default(false),

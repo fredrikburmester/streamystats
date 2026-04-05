@@ -65,7 +65,7 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
                 cursor={false}
                 formatter={(val) => (
                   <div>
-                    <p>{formatDuration(Number(val), "minutes")}</p>
+                    <p>{formatDuration(Number(val), "seconds")}</p>
                   </div>
                 )}
                 content={<ChartTooltipContent />}
@@ -74,7 +74,7 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
                 dataKey="watchTime"
                 fill="hsl(var(--chart-1))"
                 radius={[4, 4, 0, 0]}
-                name="Watch Time (min)"
+                name="Watch Time"
               />
             </BarChart>
           </ResponsiveContainer>

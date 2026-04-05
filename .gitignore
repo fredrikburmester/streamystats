@@ -93,3 +93,4 @@ Thumbs.db
 apps/job-server/dist/
 .claude
 .cursor
+.mcp.json

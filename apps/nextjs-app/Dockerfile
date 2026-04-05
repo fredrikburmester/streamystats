@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Dependencies stage - Full Bun
-FROM oven/bun:1.3.5-alpine AS deps
+FROM oven/bun:1.3.10-alpine AS deps
 
 # Install system dependencies for native modules
 RUN apk add --no-cache libc6-compat python3 make g++ vips-dev
@@ -50,7 +50,7 @@ RUN --mount=type=cache,target=/app/apps/nextjs-app/.next/cache \
     bun --bun next build --experimental-build-mode compile
 
 # Production runtime stage
-FROM node:24-alpine AS runner
+FROM node:22-alpine AS runner
 
 RUN apk add --no-cache libc6-compat vips curl
 

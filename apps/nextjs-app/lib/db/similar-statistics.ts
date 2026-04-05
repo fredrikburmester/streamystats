@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db } from "@streamystats/database";
 import {
   hiddenRecommendations,
@@ -21,6 +23,7 @@ import {
 } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 
+import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
 
 const debugLog = (..._args: unknown[]) => {};
@@ -125,6 +128,7 @@ async function getRecommendations(
   userId: string,
   poolSize: number,
   timeWindow?: RecommendationTimeWindow,
+  viewerUserId?: string,
 ): Promise<RecommendationItem[]> {
   try {
     debugLog(
@@ -137,6 +141,7 @@ async function getRecommendations(
       userId,
       poolSize,
       timeWindow,
+      viewerUserId,
     );
     debugLog(`✅ Got ${recommendations.length} user-specific recommendations`);
 
@@ -150,13 +155,21 @@ async function getRecommendations(
   }
 }
 
-export async function getSimilarStatistics(
-  serverId: string | number,
-  userId?: string,
+export async function getSimilarStatistics({
+  serverId,
+  userId,
   limit = 20,
   offset = 0,
-  timeWindow?: RecommendationTimeWindow,
-): Promise<RecommendationItem[]> {
+  timeWindow,
+  viewerUserId,
+}: {
+  serverId: string | number;
+  userId?: string;
+  limit?: number;
+  offset?: number;
+  timeWindow?: RecommendationTimeWindow;
+  viewerUserId?: string;
+}): Promise<RecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
   let targetUserId = userId;
@@ -176,6 +189,7 @@ export async function getSimilarStatistics(
     targetUserId,
     RECOMMENDATION_POOL_SIZE,
     timeWindow,
+    viewerUserId,
   );
 
   return allRecommendations.slice(offset, offset + limit);
@@ -196,9 +210,15 @@ async function getUserSpecificRecommendations(
   userId: string,
   limit: number,
   timeWindow?: RecommendationTimeWindow,
+  viewerUserId?: string,
 ): Promise<RecommendationItem[]> {
   debugLog(
     `\n🎯 Starting user-specific recommendations for user ${userId}, server ${serverId}, limit ${limit}`,
+  );
+
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
   );
 
   const sessionTimeConditions = [
@@ -384,6 +404,7 @@ async function getUserSpecificRecommendations(
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
             : sql`true`, // Exclude hidden items
+          itemLibraryExclusion ?? sql`true`,
         ),
       )
       .orderBy(desc(similarity))
