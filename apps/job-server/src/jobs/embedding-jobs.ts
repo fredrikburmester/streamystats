@@ -44,7 +44,7 @@ const indexEnsuredForDimension = new Set<number>();
 function normalizeEmbeddingProvider(
   raw: string,
   source: string
-): "openai-compatible" | "ollama" | "voyage" {
+): "openai-compatible" | "ollama" | "voyage" | "gemini" {
   switch (raw) {
     case "openai":
     case "openai-compatible":
@@ -53,6 +53,8 @@ function normalizeEmbeddingProvider(
       return "ollama";
     case "voyage":
       return "voyage";
+    case "gemini":
+      return "gemini";
     default:
       throw new Error(`Unsupported embedding provider from ${source}: ${raw}`);
   }
@@ -714,7 +716,7 @@ export async function generateItemEmbeddingsJob(
   const startTime = Date.now();
   const { serverId, provider: rawProvider, config: jobConfig, manualStart = false } = job.data;
 
-  let provider: "openai-compatible" | "ollama" | "voyage" | undefined;
+  let provider: "openai-compatible" | "ollama" | "voyage" | "gemini" | undefined;
   let config: EmbeddingConfig | undefined = jobConfig;
 
   let totalProcessed = 0;
