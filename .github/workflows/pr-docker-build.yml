@@ -129,7 +129,7 @@ jobs:
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ steps.pr.outputs.number }}
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ steps.pr.outputs.number }}
           format: table
@@ -165,7 +165,7 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Add PR comment
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const prNumber = context.payload.number;
