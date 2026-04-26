@@ -32,7 +32,7 @@ RUN bun add geoip-lite@1.4.10
 RUN bun build ./src/index.ts --compile --minify --outfile server
 
 # Production runtime stage - Debian Slim (glibc compatible)
-FROM debian:bookworm-20260223-slim AS runner
+FROM debian:bookworm-20260421-slim AS runner
 
 # Install minimal dependencies (wget/curl for healthcheck)
 RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
