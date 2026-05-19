@@ -11,6 +11,15 @@ import { getInternalUrl } from "./server-url";
 import { getSession, type SessionUser } from "./session";
 
 /**
+ * Identity surfaced when a request authenticates with a Jellyfin server
+ * API key rather than a user access token. Centralised so the
+ * MediaBrowser path here and `getUserFromEmbyToken` in `jellyfin-auth.ts`
+ * stay in sync.
+ */
+export const SYSTEM_API_KEY_USER_ID = "system-api-key";
+export const SYSTEM_API_KEY_USER_NAME = "System API Key";
+
+/**
  * Parse MediaBrowser authorization header
  * Format: MediaBrowser Client="...", Device="...", DeviceId="...", Version="...", Token="..."
  * Note: Not exported to avoid Server Action async requirement
@@ -50,11 +59,14 @@ function parseMediaBrowserHeader(authHeader: string): {
  *
  * Accepts both Jellyfin user access tokens (returned by
  * `/Users/AuthenticateByName`) and Jellyfin server API keys. User
- * tokens are validated via `/Users/Me`; server API keys (which have no
- * user context and return 401 from `/Users/Me`) are validated via a
- * `/System/Info` fallback and surfaced as an admin "system-api-key"
- * pseudo-user, matching the pattern already used by
- * `getUserFromEmbyToken` in `jellyfin-auth.ts`.
+ * tokens are validated via `/Users/Me`. A server API key has no user
+ * context, so `/Users/Me` rejects it (the exact status varies by
+ * Jellyfin version); any non-OK response therefore falls back to a
+ * `/System/Info` check and, on success, surfaces the caller as the
+ * admin "system-api-key" pseudo-user — matching the pattern already
+ * used by `getUserFromEmbyToken` in `jellyfin-auth.ts`. A valid user
+ * token always returns 200 here, so the fallback never runs for real
+ * users.
  */
 export async function validateJellyfinToken(
   serverUrl: string,
@@ -76,20 +88,15 @@ export async function validateJellyfinToken(
       };
     }
 
-    // /Users/Me returned non-2xx. If the caller is using a server API
-    // key rather than a user access token, /Users/Me returns 401 (no
-    // user context). Fall back to /System/Info to verify the key.
-    if (response.status === 401) {
-      return await validateAsApiKey(serverUrl, token);
-    }
-
-    return null;
+    // Any non-OK response means this is not a usable user access token.
+    // It may be a server API key (no user context) — validate it as one.
+    return await validateAsApiKey(serverUrl, token);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       return null;
     }
-    // Network error on /Users/Me may still leave /System/Info reachable
-    // for valid API keys (e.g. transient proxy issue); try the fallback.
+    // A network error on /Users/Me may still leave /System/Info
+    // reachable for a valid API key; try the fallback before failing.
     return await validateAsApiKey(serverUrl, token);
   }
 }
@@ -106,8 +113,8 @@ async function validateAsApiKey(
     });
     if (sysRes.ok) {
       return {
-        userId: "system-api-key",
-        userName: "System API Key",
+        userId: SYSTEM_API_KEY_USER_ID,
+        userName: SYSTEM_API_KEY_USER_NAME,
         isAdmin: true,
       };
     }
