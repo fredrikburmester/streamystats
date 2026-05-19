@@ -47,6 +47,14 @@ function parseMediaBrowserHeader(authHeader: string): {
 /**
  * Validates a Jellyfin session token and returns user info
  * Returns the user ID and admin status if valid
+ *
+ * Accepts both Jellyfin user access tokens (returned by
+ * `/Users/AuthenticateByName`) and Jellyfin server API keys. User
+ * tokens are validated via `/Users/Me`; server API keys (which have no
+ * user context and return 401 from `/Users/Me`) are validated via a
+ * `/System/Info` fallback and surfaced as an admin "system-api-key"
+ * pseudo-user, matching the pattern already used by
+ * `getUserFromEmbyToken` in `jellyfin-auth.ts`.
  */
 export async function validateJellyfinToken(
   serverUrl: string,
@@ -59,16 +67,51 @@ export async function validateJellyfinToken(
       signal: AbortSignal.timeout(5000),
     });
 
-    if (!response.ok) {
-      return null;
+    if (response.ok) {
+      const user = await response.json();
+      return {
+        userId: user.Id,
+        userName: user.Name,
+        isAdmin: user.Policy?.IsAdministrator ?? false,
+      };
     }
 
-    const user = await response.json();
-    return {
-      userId: user.Id,
-      userName: user.Name,
-      isAdmin: user.Policy?.IsAdministrator ?? false,
-    };
+    // /Users/Me returned non-2xx. If the caller is using a server API
+    // key rather than a user access token, /Users/Me returns 401 (no
+    // user context). Fall back to /System/Info to verify the key.
+    if (response.status === 401) {
+      return await validateAsApiKey(serverUrl, token);
+    }
+
+    return null;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return null;
+    }
+    // Network error on /Users/Me may still leave /System/Info reachable
+    // for valid API keys (e.g. transient proxy issue); try the fallback.
+    return await validateAsApiKey(serverUrl, token);
+  }
+}
+
+async function validateAsApiKey(
+  serverUrl: string,
+  token: string,
+): Promise<{ userId: string; userName: string; isAdmin: boolean } | null> {
+  try {
+    const sysRes = await fetch(`${serverUrl}/System/Info`, {
+      method: "GET",
+      headers: jellyfinHeaders(token),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (sysRes.ok) {
+      return {
+        userId: "system-api-key",
+        userName: "System API Key",
+        isAdmin: true,
+      };
+    }
+    return null;
   } catch {
     return null;
   }
