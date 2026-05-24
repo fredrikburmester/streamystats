@@ -475,14 +475,9 @@ export async function syncRecentActivities(
           lastKnownActivityId: mostRecentDbActivityId,
         })
       );
-      // Return partial success to prevent immediate re-triggering by pg-boss
-      return createSyncResult(
-        "partial",
-        data,
-        finalMetrics,
-        undefined,
-        [warningMessage]
-      );
+      // Informational condition (the anchor scrolled out of the fetched window),
+      // not a sync error. Fall through to the normal success/partial result
+      // based on `errors` below. The next scheduled run resumes from the cursor.
     }
 
     if (errors.length > 0) {
