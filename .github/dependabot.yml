@@ -4,6 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "ai"
+      - dependency-name: "@ai-sdk/*"
     groups:
       minor-and-patch:
         update-types:
