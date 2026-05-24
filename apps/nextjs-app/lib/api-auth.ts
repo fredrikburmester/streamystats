@@ -16,8 +16,8 @@ import { getSession, type SessionUser } from "./session";
  * MediaBrowser path here and `getUserFromEmbyToken` in `jellyfin-auth.ts`
  * stay in sync.
  */
-export const SYSTEM_API_KEY_USER_ID = "system-api-key";
-export const SYSTEM_API_KEY_USER_NAME = "System API Key";
+const SYSTEM_API_KEY_USER_ID = "system-api-key";
+const SYSTEM_API_KEY_USER_NAME = "System API Key";
 
 /**
  * Parse MediaBrowser authorization header
