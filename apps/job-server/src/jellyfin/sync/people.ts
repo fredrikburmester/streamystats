@@ -237,8 +237,8 @@ async function syncPeopleToTables(
       .onConflictDoUpdate({
         target: [people.id, people.serverId],
         set: {
-          name: people.name,
-          primaryImageTag: people.primaryImageTag,
+          name: sql`excluded.name`,
+          primaryImageTag: sql`excluded.primary_image_tag`,
           updatedAt: new Date(),
         },
       })
