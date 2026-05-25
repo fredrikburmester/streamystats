@@ -1,9 +1,6 @@
 import type { Server } from "@streamystats/database";
 import type { NextRequest } from "next/server";
-import {
-  authenticateMediaBrowser,
-  validateJellyfinToken,
-} from "@/lib/api-auth";
+import { authenticateMediaBrowserForServer } from "@/lib/api-auth";
 import {
   hasServerIdentifier,
   parseServerIdentifier,
@@ -19,6 +16,7 @@ import {
   type RecommendationItem,
 } from "@/lib/db/similar-statistics";
 import { authenticateByName } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 type RecommendationType = "Movie" | "Series" | "all";
 type RangePreset = "7d" | "30d" | "90d" | "thisMonth" | "all";
@@ -381,63 +379,25 @@ export async function GET(request: NextRequest) {
     return jsonResponse({ error: "Server not found" }, 404);
   }
 
-  // Try MediaBrowser auth (Authorization: MediaBrowser Token="...")
-  const mediaBrowserAuth = await authenticateMediaBrowser(request);
-  if (!mediaBrowserAuth) {
+  // Authenticate the MediaBrowser token against the requested server.
+  const userInfo = await authenticateMediaBrowserForServer({ request, server });
+  if (!userInfo) {
     return jsonResponse(
       {
         error: "Unauthorized",
         message:
-          'Valid Jellyfin token required. Use Authorization: MediaBrowser Token="..." header.',
+          'Valid Jellyfin token required for the requested server. Use Authorization: MediaBrowser Token="..." header.',
       },
       401,
     );
   }
 
-  // Verify the authenticated server matches the requested server
-  if (mediaBrowserAuth.server.id !== server.id) {
-    // Token is valid but for a different server - try validating against requested server
-    const authHeader = request.headers.get("authorization");
-    const tokenMatch = authHeader?.match(/Token="([^"]*)"/i);
-    const token = tokenMatch?.[1];
-
-    if (token) {
-      const userInfo = await validateJellyfinToken(server.url, token);
-      if (userInfo) {
-        let targetUser: ApiUser = {
-          id: userInfo.userId,
-          name: userInfo.userName,
-        };
-        if (userInfo.isAdmin && parsed.targetUserId) {
-          targetUser = { id: parsed.targetUserId, name: null };
-        }
-        const payload = await buildRecommendationsResponse({
-          server,
-          user: targetUser,
-          params: parsed.params,
-          timeWindow: parsed.timeWindow,
-        });
-        return jsonResponse(payload, 200);
-      }
-    }
-
-    return jsonResponse(
-      {
-        error: "Unauthorized",
-        message: "Token is not valid for the requested server.",
-      },
-      401,
-    );
-  }
-
-  // DEFAULT: Use the authenticated user
+  // DEFAULT: the authenticated user. OVERRIDE: an admin may target another.
   let targetUser: ApiUser = {
-    id: mediaBrowserAuth.session.id,
-    name: mediaBrowserAuth.session.name,
+    id: userInfo.userId,
+    name: userInfo.userName,
   };
-
-  // OVERRIDE: If Admin, allow fetching for another user
-  if (mediaBrowserAuth.session.isAdmin && parsed.targetUserId) {
+  if (userInfo.isAdmin && parsed.targetUserId) {
     targetUser = { id: parsed.targetUserId, name: null };
   }
 
@@ -491,7 +451,7 @@ export async function POST(request: NextRequest) {
   }
 
   const auth = await authenticateByName({
-    serverUrl: server.url,
+    serverUrl: getInternalUrl(server),
     username,
     password,
   });

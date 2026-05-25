@@ -43,6 +43,15 @@ export type JellyfinAuthUser = {
   isAdmin: boolean;
 };
 
+/**
+ * Identity surfaced when a request authenticates with a Jellyfin server
+ * API key rather than a user access token. Shared by both auth paths
+ * (`getUserFromEmbyToken` here and `validateJellyfinToken` in
+ * `api-auth.ts`) so they stay in sync.
+ */
+export const SYSTEM_API_KEY_USER_ID = "system-api-key";
+export const SYSTEM_API_KEY_USER_NAME = "System API Key";
+
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
@@ -51,6 +60,45 @@ function asNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * A failure that is the server's fault and likely to resolve on retry,
+ * as opposed to a definitive rejection of the request/token. Used to
+ * decide whether a non-OK `/Users/Me` is worth probing as an API key:
+ * a transient failure should stay retryable rather than trigger a guess.
+ */
+export function isTransientJellyfinStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+/**
+ * Returns true when `token` is accepted by `/System/Info` (200), false on
+ * any non-OK response or network error.
+ *
+ * IMPORTANT: this is NOT an API-key-only check. `/System/Info` uses the
+ * `FirstTimeSetupOrIgnoreParentalControl` policy, which any non-guest
+ * principal satisfies — admins, server API keys (always Administrator),
+ * AND regular users. It is therefore only safe to treat a `true` result
+ * as "this is an admin API key" when the caller has already confirmed the
+ * token is NOT a usable user access token (i.e. `/Users/Me` returned a
+ * non-OK status first). A real user token returns 200 from `/Users/Me`
+ * and must be resolved there, before this probe is reached.
+ */
+export async function isValidJellyfinApiKey(
+  serverUrl: string,
+  token: string,
+): Promise<boolean> {
+  try {
+    const sysRes = await fetch(`${normalizeBaseUrl(serverUrl)}/System/Info`, {
+      method: "GET",
+      headers: jellyfinHeaders(token.trim()),
+      signal: AbortSignal.timeout(5000),
+    });
+    return sysRes.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function getUserFromEmbyToken(args: {
@@ -71,6 +119,24 @@ export async function getUserFromEmbyToken(args: {
     });
 
     if (!res.ok) {
+      // A user access token always returns 200 above. A non-OK status
+      // means this isn't a usable user token — but a server API key has
+      // no user context and is rejected here (400 on current Jellyfin,
+      // 401 on older versions). Probe it as an API key, unless the
+      // failure is transient (429/5xx), which should stay retryable.
+      if (
+        !isTransientJellyfinStatus(res.status) &&
+        (await isValidJellyfinApiKey(serverUrl, token))
+      ) {
+        return {
+          ok: true,
+          user: {
+            id: SYSTEM_API_KEY_USER_ID,
+            name: SYSTEM_API_KEY_USER_NAME,
+            isAdmin: true,
+          },
+        };
+      }
       if (res.status === 401) {
         return { ok: false, error: "Invalid Authorization header" };
       }
@@ -81,9 +147,6 @@ export async function getUserFromEmbyToken(args: {
     const id = asNonEmptyString(json.Id);
     if (!id) return { ok: false, error: "Jellyfin did not return a user id" };
     const name = asNonEmptyString(json.Name);
-
-    // API Keys don't return Policy in Users/Me usually, but if it's a user token it might.
-    // However, if we are here, it's a User Token.
     const isAdmin = json.Policy?.IsAdministrator ?? false;
 
     return { ok: true, user: { id, name, isAdmin } };
@@ -91,34 +154,8 @@ export async function getUserFromEmbyToken(args: {
     if (error instanceof Error && error.name === "AbortError") {
       return { ok: false, error: "Jellyfin request timed out" };
     }
-
-    // If /Users/Me failed, it might be an API Key.
-    // Try /System/Info to validate if it's a valid API Key.
-    try {
-      const sysRes = await fetch(
-        `${normalizeBaseUrl(args.serverUrl)}/System/Info`,
-        {
-          method: "GET",
-          headers: jellyfinHeaders(args.token.trim()),
-          signal: AbortSignal.timeout(5000),
-        },
-      );
-
-      if (sysRes.ok) {
-        // It is a valid API Key (Admin)
-        return {
-          ok: true,
-          user: {
-            id: "system-api-key",
-            name: "System API Key",
-            isAdmin: true,
-          },
-        };
-      }
-    } catch {
-      // Ignore error from System/Info and return original error
-    }
-
+    // Network error: `/System/Info` is unreachable too, so don't probe —
+    // surface the error and let the caller retry.
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Jellyfin request failed",
