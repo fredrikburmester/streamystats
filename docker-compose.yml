@@ -5,24 +5,8 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
-  migrate:
-    image: docker.io/fredrikburmester/streamystats-v2-migrate:${VERSION:-latest}
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-streamystats}
-      - PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
-    depends_on:
-      vectorchord:
-        condition: service_healthy
-    restart: "no"
-    logging: *default-logging
-    networks:
-      - app-network
-
   nextjs-app:
-    image: docker.io/fredrikburmester/streamystats-v2-nextjs:${VERSION:-latest}
+    image: ghcr.io/fredrikburmester/streamystats-nextjs:${VERSION:-latest}
     ports:
       - "3000:3000"
     environment:
@@ -36,8 +20,6 @@ services:
     depends_on:
       vectorchord:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
       job-server:
         condition: service_healthy
     restart: unless-stopped
@@ -46,7 +28,7 @@ services:
       - app-network
 
   job-server:
-    image: docker.io/fredrikburmester/streamystats-v2-job-server:${VERSION:-latest}
+    image: ghcr.io/fredrikburmester/streamystats-job-server:${VERSION:-latest}
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
@@ -71,8 +53,6 @@ services:
     depends_on:
       vectorchord:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     restart: unless-stopped
     logging: *default-logging
     networks:

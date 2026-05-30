@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { setEndDateToEndOfDay } from "@/dates";
 import { getClientStatistics } from "@/lib/db/client-statistics";
 import { getServer } from "@/lib/db/server";
-import { getMe, getUsers, isUserAdmin } from "@/lib/db/users";
+import { getMe, getUsers, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { ClientStatistics } from "../ClientStatistics";
 import { ClientFilters } from "./ClientFilters";
@@ -66,7 +66,11 @@ async function ClientStats({
   endDate?: string;
   userId?: string;
 }) {
-  const [isAdmin, me] = await Promise.all([isUserAdmin(), getMe()]);
+  const [isAdmin, me, viewerUserId] = await Promise.all([
+    isUserAdmin(),
+    getMe(),
+    getViewerUserId(),
+  ]);
 
   // Determine which userId to use:
   // 1. If userId is provided in query params, use it
@@ -74,12 +78,13 @@ async function ClientStats({
   // 3. Otherwise, undefined (all users)
   const effectiveUserId = userId ? userId : isAdmin ? undefined : me?.id;
 
-  const stats = await getClientStatistics(
-    server.id,
+  const stats = await getClientStatistics({
+    serverId: server.id,
     startDate,
     endDate,
-    effectiveUserId,
-  );
+    userId: effectiveUserId,
+    viewerUserId,
+  });
 
   return (
     <div className="flex flex-col gap-6">

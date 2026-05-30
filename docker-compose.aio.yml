@@ -10,11 +10,11 @@
 #     -p 3000:3000 \
 #     -v streamystats_data:/var/lib/postgresql/data \
 #     -e SESSION_SECRET="your-secret-here" \
-#     fredrikburmester/streamystats-v2-aio:latest
+#     ghcr.io/fredrikburmester/streamystats-aio:latest
 
 services:
   streamystats:
-    image: docker.io/fredrikburmester/streamystats-v2-aio:${VERSION:-latest}
+    image: ghcr.io/fredrikburmester/streamystats-aio:${VERSION:-latest}
     ports:
       - "3000:3000"
     environment:

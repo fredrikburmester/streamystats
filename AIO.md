@@ -26,7 +26,7 @@ docker run -d \
   -v streamystats_data:/var/lib/postgresql/data \
   -e SESSION_SECRET="$(openssl rand -hex 32)" \
   -e POSTGRES_PASSWORD="your-secure-password" \
-  fredrikburmester/streamystats-v2-aio:latest
+  ghcr.io/fredrikburmester/streamystats-aio:latest
 ```
 
 ## Configuration

@@ -44,6 +44,8 @@ export interface JellyfinUser {
   EnableAllDevices: boolean;
   EnableAllChannels: boolean;
   EnableAllFolders: boolean;
+  EnabledFolders?: string[];
+  Policy?: { EnabledFolders?: string[] };
   EnablePublicSharing: boolean;
   InvalidLoginAttemptCount: number;
   LoginAttemptsBeforeLockout: number;

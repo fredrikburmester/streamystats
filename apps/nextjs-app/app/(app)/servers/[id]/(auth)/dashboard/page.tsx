@@ -11,7 +11,7 @@ import { getSeasonalRecommendations } from "@/lib/db/seasonal-recommendations";
 import { getServer } from "@/lib/db/server";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
-import { getMe, isUserAdmin } from "@/lib/db/users";
+import { getMe, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { ActiveSessions } from "./ActiveSessions";
 import { MostWatchedItems } from "./MostWatchedItems";
@@ -61,7 +61,11 @@ async function DashboardContent({ serverId }: { serverId: string }) {
 }
 
 async function GeneralStats({ server }: { server: ServerPublic }) {
-  const [me, isAdmin] = await Promise.all([getMe(), isUserAdmin()]);
+  const [me, isAdmin, viewerUserId] = await Promise.all([
+    getMe(),
+    isUserAdmin(),
+    getViewerUserId(),
+  ]);
 
   const [
     similarData,
@@ -71,15 +75,24 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
     recentlyAddedMovies,
     recentlyAddedSeries,
   ] = await Promise.all([
-    getSimilarStatistics({ serverId: server.id, type: "Movie" }),
-    getSimilarStatistics({ serverId: server.id, type: "Series" }),
+    getSimilarStatistics({
+      serverId: server.id,
+      type: "Movie",
+      viewerUserId: viewerUserId ?? null,
+    }),
+    getSimilarStatistics({
+      serverId: server.id,
+      type: "Series",
+      viewerUserId: viewerUserId ?? null,
+    }),
     getMostWatchedItems({
       serverId: server.id,
       userId: isAdmin ? undefined : me?.id,
+      viewerUserId,
     }),
-    getSeasonalRecommendations(server.id),
-    getRecentlyAddedItems(server.id, "Movie"),
-    getRecentlyAddedSeriesWithEpisodes(server.id),
+    getSeasonalRecommendations({ serverId: server.id, viewerUserId }),
+    getRecentlyAddedItems(server.id, "Movie", 20, 0, viewerUserId),
+    getRecentlyAddedSeriesWithEpisodes(server.id, 7, 20, 0, viewerUserId),
   ]);
 
   return (
@@ -104,10 +117,18 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
         />
       )}
       {similarData.length > 0 && (
-        <SimilarMovieStatistics data={similarData} server={server} />
+        <SimilarMovieStatistics
+          data={similarData}
+          server={server}
+          viewerUserId={viewerUserId ?? null}
+        />
       )}
       {similarSeriesData.length > 0 && (
-        <SimilarSeriesStatistics data={similarSeriesData} server={server} />
+        <SimilarSeriesStatistics
+          data={similarSeriesData}
+          server={server}
+          viewerUserId={viewerUserId ?? null}
+        />
       )}
       <MostWatchedItems data={data} server={server} />
       {isAdmin ? <UserLeaderboard server={server} /> : null}

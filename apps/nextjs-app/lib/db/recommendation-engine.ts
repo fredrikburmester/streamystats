@@ -18,6 +18,7 @@ import {
   notInArray,
   sql,
 } from "drizzle-orm";
+import { getStatisticsExclusions } from "./exclusions";
 
 const recommendationItemCardSelect = {
   id: items.id,
@@ -90,13 +91,21 @@ const MAX_EXCLUSION_LIST_SIZE = 5000;
  *
  * @param targetType - "Movie" or "Series" — filters which items to recommend
  */
-export async function getProfileRecommendations(
-  serverId: number,
-  userId: string,
-  targetType: "Movie" | "Series" | "all",
-  limit: number,
-  offset: number = 0,
-): Promise<RecommendationResult[]> {
+export async function getProfileRecommendations({
+  serverId,
+  userId,
+  targetType,
+  limit,
+  offset = 0,
+  viewerUserId,
+}: {
+  serverId: number;
+  userId: string;
+  targetType: "Movie" | "Series" | "all";
+  limit: number;
+  offset?: number;
+  viewerUserId?: string | null;
+}): Promise<RecommendationResult[]> {
   // ── 1. Fetch pre-computed user profile ───────────────────────────────────
   const userProfile = await db
     .select({ embedding: userEmbeddings.embedding })
@@ -115,6 +124,10 @@ export async function getProfileRecommendations(
   }
 
   const profileVector = userProfile[0].embedding;
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId === undefined ? userId : (viewerUserId ?? undefined),
+  );
 
   // ── 2. Get hidden + watched item IDs for exclusion ───────────────────────
   const [hiddenRows, watchedMovieRows, watchedSeriesRows] = await Promise.all([
@@ -190,6 +203,7 @@ export async function getProfileRecommendations(
     isNull(items.deletedAt),
     isNotNull(items.embedding),
     sql`(1 - (${cosineDistance(items.embedding, profileVector)})) > ${MIN_SIMILARITY}`,
+    itemLibraryExclusion,
   ];
 
   // Cap the exclusion list to avoid perf degradation with very large NOT IN clauses

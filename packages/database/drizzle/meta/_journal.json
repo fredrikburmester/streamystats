@@ -299,8 +299,22 @@
     {
       "idx": 42,
       "version": "7",
-      "when": 1772562734075,
-      "tag": "0042_deep_grandmaster",
+      "when": 1772439449431,
+      "tag": "0042_majestic_lethal_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1772439449432,
+      "tag": "0043_backfill-jellystat-dates",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1780183104197,
+      "tag": "0044_lethal_pandemic",
       "breakpoints": true
     }
   ]

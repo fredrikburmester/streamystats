@@ -267,10 +267,11 @@ function parseQueryParams(searchParams: URLSearchParams):
 async function buildRecommendationsResponse(args: {
   server: Server;
   user: ApiUser;
+  viewerUserId: string | null;
   params: Omit<ResolvedParams, "serverId" | "serverName">;
   timeWindow: { start?: Date; end?: Date };
 }) {
-  const { server, user, params, timeWindow } = args;
+  const { server, user, viewerUserId, params } = args;
 
   const fetchLimit = Math.min(200, Math.max(params.limit * 4, params.limit));
 
@@ -284,6 +285,7 @@ async function buildRecommendationsResponse(args: {
       userId: user.id,
       limit: fetchLimit,
       type: "Movie",
+      viewerUserId,
     });
   }
 
@@ -293,6 +295,7 @@ async function buildRecommendationsResponse(args: {
       userId: user.id,
       limit: fetchLimit,
       type: "Series",
+      viewerUserId,
     })) as RecommendationItem[];
   }
 
@@ -410,6 +413,7 @@ export async function GET(request: NextRequest) {
         const payload = await buildRecommendationsResponse({
           server,
           user: targetUser,
+          viewerUserId: userInfo.isAdmin ? null : userInfo.userId,
           params: parsed.params,
           timeWindow: parsed.timeWindow,
         });
@@ -440,6 +444,9 @@ export async function GET(request: NextRequest) {
   const payload = await buildRecommendationsResponse({
     server,
     user: targetUser,
+    viewerUserId: mediaBrowserAuth.session.isAdmin
+      ? null
+      : mediaBrowserAuth.session.id,
     params: parsed.params,
     timeWindow: parsed.timeWindow,
   });
@@ -498,6 +505,7 @@ export async function POST(request: NextRequest) {
   const payload = await buildRecommendationsResponse({
     server,
     user: { id: auth.user.id, name: auth.user.name },
+    viewerUserId: auth.user.isAdmin ? null : auth.user.id,
     params: parsed.params,
     timeWindow: parsed.timeWindow,
   });

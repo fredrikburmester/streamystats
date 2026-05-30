@@ -25,6 +25,7 @@ export const updateServerConnectionAction = async (input: {
   apiKey: string;
   username: string;
   password?: string | null;
+  userAgent?: string;
 }): Promise<UpdateServerConnectionResult> => {
   try {
     const parsed = updateConnectionSchema.safeParse(input);
@@ -42,6 +43,7 @@ export const updateServerConnectionAction = async (input: {
       apiKey,
       username,
       password,
+      userAgent: input.userAgent,
     });
 
     if (result.success && result.accessToken && result.userId) {

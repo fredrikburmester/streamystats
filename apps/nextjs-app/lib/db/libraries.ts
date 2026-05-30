@@ -2,10 +2,22 @@ import "server-only";
 
 import { db, libraries } from "@streamystats/database";
 import { and, eq } from "drizzle-orm";
+import { getStatisticsExclusions } from "./exclusions";
 
-export const getLibraries = async ({ serverId }: { serverId: number }) => {
+export const getLibraries = async ({
+  serverId,
+  userId,
+}: {
+  serverId: number;
+  userId?: string;
+}) => {
+  const { librariesTableExclusion } = await getStatisticsExclusions(
+    serverId,
+    userId,
+  );
+
   return await db.query.libraries.findMany({
-    where: eq(libraries.serverId, serverId),
+    where: and(eq(libraries.serverId, serverId), librariesTableExclusion),
   });
 };
 

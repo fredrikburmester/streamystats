@@ -12,15 +12,21 @@ import { RecommendationsSection } from "./RecommendationsSection";
 interface Props {
   data: SeriesRecommendationItem[];
   server: ServerPublic;
+  viewerUserId: string | null;
 }
 
-export const SimilarSeriesStatistics = ({ data, server }: Props) => {
+export const SimilarSeriesStatistics = ({
+  data,
+  server,
+  viewerUserId,
+}: Props) => {
   const fetchNextPage = async (offset: number) => {
     return getSimilarStatistics({
       serverId: server.id,
       limit: 20,
       offset,
       type: "Series",
+      viewerUserId,
     });
   };
 

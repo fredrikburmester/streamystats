@@ -9,7 +9,7 @@ import {
   type HistoryResponse,
 } from "@/lib/db/history";
 import { getServer } from "@/lib/db/server";
-import { getUsers } from "@/lib/db/users";
+import { getUsers, getViewerUserId } from "@/lib/db/users";
 import { HistoryTable } from "./HistoryTable";
 
 export default async function HistoryPage({
@@ -51,6 +51,8 @@ export default async function HistoryPage({
     redirect("/setup");
   }
 
+  const viewerUserId = await getViewerUserId();
+
   const [data, users, deviceNames, clientNames, playMethods] =
     await Promise.all([
       getHistory(
@@ -69,6 +71,7 @@ export default async function HistoryPage({
           clientName,
           playMethod,
         },
+        viewerUserId,
       ),
       getUsers({ serverId: server.id }),
       getUniqueDeviceNames(server.id),

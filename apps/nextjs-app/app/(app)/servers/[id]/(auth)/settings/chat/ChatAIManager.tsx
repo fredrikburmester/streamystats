@@ -75,6 +75,13 @@ const PROVIDER_PRESETS = {
     requiresApiKey: true,
     provider: "openai-compatible" as ChatProvider,
   },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    defaultModel: "openai/gpt-4o-mini",
+    requiresApiKey: true,
+    provider: "openai-compatible" as ChatProvider,
+  },
   ollama: {
     name: "Ollama",
     baseUrl: "http://localhost:11434/v1",
@@ -248,6 +255,7 @@ export function ChatAIManager({ server }: { server: ServerPublic }) {
                   <SelectItem value="together-ai">Together AI</SelectItem>
                   <SelectItem value="fireworks">Fireworks AI</SelectItem>
                   <SelectItem value="groq">Groq</SelectItem>
+                  <SelectItem value="openrouter">OpenRouter</SelectItem>
                   <SelectItem value="ollama">Ollama (Local)</SelectItem>
                   <SelectItem value="lm-studio">LM Studio (Local)</SelectItem>
                   <SelectItem value="custom">Custom</SelectItem>

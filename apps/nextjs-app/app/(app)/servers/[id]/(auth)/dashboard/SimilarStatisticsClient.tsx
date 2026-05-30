@@ -21,8 +21,15 @@ const SimilarStatistics = dynamic(
 interface Props {
   data: RecommendationItem[];
   server: ServerPublic;
+  viewerUserId: string | null;
 }
 
-export function SimilarStatisticsClient({ data, server }: Props) {
-  return <SimilarStatistics data={data} server={server} />;
+export function SimilarStatisticsClient({ data, server, viewerUserId }: Props) {
+  return (
+    <SimilarStatistics
+      data={data}
+      server={server}
+      viewerUserId={viewerUserId}
+    />
+  );
 }

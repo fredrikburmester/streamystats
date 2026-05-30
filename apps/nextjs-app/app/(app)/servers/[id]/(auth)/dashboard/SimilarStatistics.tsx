@@ -12,9 +12,14 @@ import { RecommendationsSection } from "./RecommendationsSection";
 interface Props {
   data: RecommendationItem[];
   server: ServerPublic;
+  viewerUserId: string | null;
 }
 
-export const SimilarMovieStatistics = ({ data, server }: Props) => {
+export const SimilarMovieStatistics = ({
+  data,
+  server,
+  viewerUserId,
+}: Props) => {
   const formatRuntime = (ticks: number | null) => {
     if (!ticks) {
       return null;
@@ -35,6 +40,7 @@ export const SimilarMovieStatistics = ({ data, server }: Props) => {
       limit: 20,
       offset,
       type: "Movie",
+      viewerUserId,
     });
   };
 

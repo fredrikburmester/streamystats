@@ -257,6 +257,10 @@ ISO 8601 UTC with microseconds: `2025-07-23T07:51:42.811836Z`
 - Always include all dependencies in effect/memo arrays
 - Prefer server components with `<Suspense>` when possible
 
+### Functions
+- Use named parameter objects when a function has 3+ parameters, or 2+ parameters of the same type — prevents argument ordering bugs
+- Keep functions pure and side-effect-free where possible — makes them easier to test and reason about. Isolate side effects (DB calls, API requests, mutations) at the boundary
+
 ### Code Style
 - Prefer `const`; use `let` only when reassignment needed; never `var`
 - Always use `===`/`!==`

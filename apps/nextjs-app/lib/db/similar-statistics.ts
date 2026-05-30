@@ -91,12 +91,14 @@ export async function getSimilarStatistics({
   limit = 20,
   offset = 0,
   type = "all",
+  viewerUserId,
 }: {
   serverId: string | number;
   userId?: string;
   limit?: number;
   offset?: number;
   type?: "Movie" | "Series" | "all";
+  viewerUserId?: string | null;
 }): Promise<RecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
@@ -111,13 +113,14 @@ export async function getSimilarStatistics({
   }
 
   try {
-    return await getProfileRecommendations(
-      serverIdNum,
-      targetUserId,
-      type,
+    return await getProfileRecommendations({
+      serverId: serverIdNum,
+      userId: targetUserId,
+      targetType: type,
       limit,
       offset,
-    );
+      viewerUserId,
+    });
   } catch (error) {
     console.error("Error getting movie recommendations:", error);
     return [];
