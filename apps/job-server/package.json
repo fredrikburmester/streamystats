@@ -22,7 +22,7 @@
     "@streamystats/database": "workspace:*",
     "axios": "^1.13.2",
     "bottleneck": "^2.19.5",
-    "drizzle-orm": "0.45.1",
+    "drizzle-orm": "0.45.2",
     "geoip-lite": "^1.4.10",
     "hono": "^4.11.1",
     "openai": "^6.15.0",
