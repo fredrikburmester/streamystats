@@ -1,11 +1,18 @@
-import { db, Item, items, servers, people, itemPeople } from "@streamystats/database";
+import {
+  db,
+  type Item,
+  itemPeople,
+  items,
+  people,
+  servers,
+} from "@streamystats/database";
 import axios from "axios";
 import { and, eq, sql } from "drizzle-orm";
 import OpenAI from "openai";
+import type { PgBossJob } from "../types/job-status";
+import { sleep } from "../utils/sleep";
 import { TIMEOUT_CONFIG } from "./config";
 import { logJobResult } from "./job-logger";
-import { sleep } from "../utils/sleep";
-import type { PgBossJob } from "../types/job-status";
 
 // Embedding configuration passed from job data
 interface EmbeddingConfig {
@@ -599,7 +606,7 @@ async function processVoyageBatch(
 /**
  * Process a batch of items using Gemini API.
  * Gemini uses a different API format than OpenAI.
- * Sends multiple texts via `contents` array and receives `embeddings` array.
+ * Sends multiple embed requests and receives an aligned `embeddings` array.
  */
 async function processGeminiBatch(
   batchItems: Item[],
@@ -637,47 +644,49 @@ async function processGeminiBatch(
     return { processed, skipped, errors };
   }
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.apiKey) {
-    headers["x-goog-api-key"] = config.apiKey;
-  }
-
-  const model = `models/${config.model}`;
-
-  // Gemini supports batch embedding via `contents` array
-  // Each content can be a string, and response will have matching `embeddings` array
-  const parts = batchData.map((d) => ({ text: d.text }));
-
+  const model = config.model.startsWith("models/")
+    ? config.model
+    : `models/${config.model}`;
   const response = await axios.post(
-    `${config.baseUrl}/${model}:embedContent`,
+    `${config.baseUrl.replace(/\/+$/, "")}/${model}:batchEmbedContents`,
     {
-      model,
-      content: { parts },
-      taskType: "SEMANTIC_SIMILARITY",
-      ...(config.dimensions ? { output_dimensionality: config.dimensions } : {}),
+      requests: batchData.map(({ text }) => ({
+        model,
+        content: { parts: [{ text }] },
+        taskType: "SEMANTIC_SIMILARITY",
+        ...(config.dimensions
+          ? { outputDimensionality: config.dimensions }
+          : {}),
+      })),
     },
-    { headers, timeout: TIMEOUT_CONFIG.DEFAULT }
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...(config.apiKey ? { "x-goog-api-key": config.apiKey } : {}),
+      },
+      timeout: TIMEOUT_CONFIG.DEFAULT,
+    }
   );
 
-  // Gemini returns response.embedding as an object, .values as an array
-  const embeddings = response.data?.embedding ? [response.data.embedding] : response.data?.embeddings;
-  if (!embeddings) {
-    throw new Error("No embeddings returned from Gemini");
+  const embeddings = response.data?.embeddings as
+    | Array<{ values?: number[] }>
+    | undefined;
+  if (!embeddings || embeddings.length !== batchData.length) {
+    throw new Error(
+      `Gemini embeddings length mismatch: expected ${batchData.length}, got ${embeddings?.length ?? 0}`
+    );
   }
 
   // Process each embedding result
   for (let i = 0; i < batchData.length; i++) {
     const { item } = batchData[i];
-    const embeddingData = embeddings[i];
-
-    if (!embeddingData?.values) {
+    const rawEmbedding = embeddings[i]?.values;
+    if (!rawEmbedding) {
       errors++;
       continue;
     }
 
-    const embedding = validateEmbedding(embeddingData.values, item.id);
+    const embedding = validateEmbedding(rawEmbedding, item.id);
     if (!embedding) {
       errors++;
       continue;
@@ -1053,10 +1062,6 @@ export async function generateItemEmbeddingsJob(
           await sleep(100);
         }
       } else if (provider === "gemini") {
-        // Gemini allows us to send a batch of items, but the rest returns "embedding" instead of "embeddings" with only one item
-        // So batching to 1 for now
-        const API_BATCH_SIZE = 1;
-        // Process in smaller API batches for Gemini
         for (let i = 0; i < batch.length; i += API_BATCH_SIZE) {
           // Check stop flag between API calls
           if (await isStopRequested(serverId)) {
