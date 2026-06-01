@@ -1,6 +1,6 @@
 import { db, itemPeople, items, people } from "@streamystats/database";
 import type { Item } from "@streamystats/database/schema";
-import { and, desc, eq, ilike, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 
 export interface ItemPeopleSearchCredit {
   personId: string;
@@ -20,6 +20,7 @@ export interface ItemPeopleSearchResult {
 
 export function collapseItemPeopleMatches(
   rows: ItemPeopleSearchRow[],
+  requiredPersonNames: string[],
   limit: number,
 ): ItemPeopleSearchResult[] {
   const resultsByItemId = new Map<string, ItemPeopleSearchResult>();
@@ -43,7 +44,19 @@ export function collapseItemPeopleMatches(
     }
   }
 
-  return [...resultsByItemId.values()].slice(0, limit);
+  const normalizedNames = requiredPersonNames.map((name) =>
+    name.trim().toLowerCase(),
+  );
+
+  return [...resultsByItemId.values()]
+    .filter(({ credits }) =>
+      normalizedNames.every((name) =>
+        credits.some((credit) =>
+          credit.personName.toLowerCase().includes(name),
+        ),
+      ),
+    )
+    .slice(0, limit);
 }
 
 type SearchItemType = "Movie" | "Series" | "all";
@@ -54,22 +67,30 @@ function getExpandedRowLimit(limit: number): number {
 
 export async function findItemsByPerson({
   serverId,
-  personName,
+  personNames,
   creditType,
   type,
   limit,
 }: {
   serverId: number;
-  personName: string;
+  personNames: string[];
   creditType: "Actor" | "Director" | "Writer" | "Producer" | "all";
   type: SearchItemType;
   limit: number;
 }): Promise<ItemPeopleSearchResult[]> {
+  const normalizedNames = personNames
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+
+  if (normalizedNames.length === 0) {
+    return [];
+  }
+
   const conditions = [
     eq(itemPeople.serverId, serverId),
     eq(people.serverId, serverId),
     eq(items.serverId, serverId),
-    ilike(people.name, `%${personName}%`),
+    or(...normalizedNames.map((name) => ilike(people.name, `%${name}%`))),
     isNull(items.deletedAt),
   ];
 
@@ -100,10 +121,9 @@ export async function findItemsByPerson({
     )
     .innerJoin(items, eq(itemPeople.itemId, items.id))
     .where(and(...conditions))
-    .orderBy(desc(items.communityRating), items.name, itemPeople.sortOrder)
-    .limit(getExpandedRowLimit(limit));
+    .orderBy(desc(items.communityRating), items.name, itemPeople.sortOrder);
 
-  return collapseItemPeopleMatches(rows, limit);
+  return collapseItemPeopleMatches(rows, normalizedNames, limit);
 }
 
 export async function findItemsByCharacter({
@@ -152,5 +172,5 @@ export async function findItemsByCharacter({
     .orderBy(desc(items.communityRating), items.name, itemPeople.sortOrder)
     .limit(getExpandedRowLimit(limit));
 
-  return collapseItemPeopleMatches(rows, limit);
+  return collapseItemPeopleMatches(rows, [], limit);
 }

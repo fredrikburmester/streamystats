@@ -474,11 +474,15 @@ export function createChatTools(serverId: number, userId: string) {
 
     findItemsByPerson: tool({
       description:
-        "Find movies or TV series connected to a person, such as an actor, director, writer, or producer. Use this for questions like 'movies with Ana de Armas', 'what is Pedro Pascal in?', or 'films directed by Christopher Nolan'. Actor credits are searched by default.",
+        "Find movies or TV series connected to one or more people, such as actors, directors, writers, or producers. Every requested person must be connected to each returned item. Use this for questions like 'movies with Ana de Armas', 'movies with Ana de Armas and Chris Evans', 'what is Pedro Pascal in?', or 'films directed by Christopher Nolan'. Actor credits are searched by default.",
       inputSchema: z.object({
-        personName: z
-          .string()
-          .describe("Name or partial name of the person to search for"),
+        personNames: z
+          .array(z.string())
+          .min(1)
+          .max(10)
+          .describe(
+            "Names or partial names of the people to search for. Returned items must match every person.",
+          ),
         creditType: z
           .enum(["Actor", "Director", "Writer", "Producer", "all"])
           .optional()
@@ -500,10 +504,10 @@ export function createChatTools(serverId: number, userId: string) {
           .default(20)
           .describe("Number of items to return"),
       }),
-      execute: async ({ personName, creditType, type, limit }) => {
+      execute: async ({ personNames, creditType, type, limit }) => {
         const results = await findItemsByPerson({
           serverId,
-          personName,
+          personNames,
           creditType,
           type,
           limit,
@@ -514,11 +518,13 @@ export function createChatTools(serverId: number, userId: string) {
             ...formatItem(item),
             matchedCredits: credits,
           })),
-          personName,
+          personNames,
           message:
             results.length > 0
-              ? `Found ${results.length} items connected to "${personName}"`
-              : `No items found for person "${personName}"`,
+              ? `Found ${results.length} items connected to ${personNames.join(
+                  " and ",
+                )}`
+              : `No items found connected to ${personNames.join(" and ")}`,
         };
       },
     }),
