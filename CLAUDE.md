@@ -209,7 +209,7 @@ Servers have two URL fields: `url` (external, required) and `internalUrl` (optio
 - **Server-to-server requests** (API routes, server actions, job-server jobs): use `getInternalUrl(server)` — returns `internalUrl` with fallback to `url`
 - **Client-side browser links** (opening Jellyfin web UI, client components): use `server.url` directly
 - **Images in server components**: use `getInternalUrl(server)` since Next.js fetches server-side
-- **Images in client components**: route through `/api/image-proxy/[itemId]` so the proxy fetches internally and serves to the browser
+- **Images in client components**: build the Jellyfin image URL directly from `server.url` (e.g. via `getJellyfinImageUrl()` in `lib/utils.ts`) so the browser fetches it
 
 Never use raw `server.url` for server-to-server Jellyfin API calls — always use `getInternalUrl()`.
 
