@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.18.1](https://github.com/fredrikburmester/streamystats/compare/v2.18.0...v2.18.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* prevent scheduler job loop by using unique schedule keys ([#458](https://github.com/fredrikburmester/streamystats/issues/458)) ([0747ea9](https://github.com/fredrikburmester/streamystats/commit/0747ea96c81bb8c2a12cce3229ea771b157d5356))
+* remove non-async exports from api-auth server action module ([#520](https://github.com/fredrikburmester/streamystats/issues/520)) ([5183492](https://github.com/fredrikburmester/streamystats/commit/5183492d260a59838f4d91efb68af22bae8d0f2f))
+* resolve full sync timeout and people sync crash ([#487](https://github.com/fredrikburmester/streamystats/issues/487)) ([1d2c1c7](https://github.com/fredrikburmester/streamystats/commit/1d2c1c74d0ab6e40b7afa2ee2585af5af1bf53b0))
+
 ## [2.18.0](https://github.com/fredrikburmester/streamystats/compare/v2.17.0...v2.18.0) (2026-03-15)
 
 
