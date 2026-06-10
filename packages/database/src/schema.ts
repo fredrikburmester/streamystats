@@ -159,6 +159,12 @@ export const servers = pgTable(
       .notNull()
       .default(false),
 
+    // When true, password-based login is disabled and only QuickConnect is shown
+    // Falls back to password login if QuickConnect is not enabled on the Jellyfin server
+    disablePasswordLogin: boolean("disable_password_login")
+      .notNull()
+      .default(false),
+
     // Display timezone for this server (IANA timezone identifier)
     // All data is stored in UTC; this controls display formatting only
     timezone: text("timezone").notNull().default("Etc/UTC"),

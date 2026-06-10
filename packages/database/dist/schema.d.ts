@@ -659,6 +659,23 @@ export declare const servers: import("drizzle-orm/pg-core").PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        disablePasswordLogin: import("drizzle-orm/pg-core").PgColumn<{
+            name: "disable_password_login";
+            tableName: "servers";
+            dataType: "boolean";
+            columnType: "PgBoolean";
+            data: boolean;
+            driverParam: boolean;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         timezone: import("drizzle-orm/pg-core").PgColumn<{
             name: "timezone";
             tableName: "servers";

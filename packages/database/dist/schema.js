@@ -87,6 +87,11 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
     embeddingStopRequested: (0, pg_core_1.boolean)("embedding_stop_requested")
         .notNull()
         .default(false),
+    // When true, password-based login is disabled and only QuickConnect is shown
+    // Falls back to password login if QuickConnect is not enabled on the Jellyfin server
+    disablePasswordLogin: (0, pg_core_1.boolean)("disable_password_login")
+        .notNull()
+        .default(false),
     // Display timezone for this server (IANA timezone identifier)
     // All data is stored in UTC; this controls display formatting only
     timezone: (0, pg_core_1.text)("timezone").notNull().default("Etc/UTC"),

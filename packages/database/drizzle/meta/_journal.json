@@ -309,6 +309,13 @@
       "when": 1772439449432,
       "tag": "0043_backfill-jellystat-dates",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1775143072868,
+      "tag": "0044_marvelous_riptide",
+      "breakpoints": true
     }
   ]
 }

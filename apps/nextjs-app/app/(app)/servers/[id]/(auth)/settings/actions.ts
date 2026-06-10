@@ -4,9 +4,10 @@ import { db, servers } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod/v4";
-import { deleteServer as deleteServerFromDb } from "@/lib/db/server";
+import { deleteServer as deleteServerFromDb, getServer } from "@/lib/db/server";
 import { isUserAdmin } from "@/lib/db/users";
-import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { checkQuickConnectEnabled, jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 const deleteServerSchema = z.object({
   serverId: z.number().int().positive(),
@@ -15,6 +16,11 @@ const deleteServerSchema = z.object({
 const updateTimezoneSchema = z.object({
   serverId: z.number().int().positive(),
   timezone: z.string().min(1).max(100),
+});
+
+const updatePasswordLoginSchema = z.object({
+  serverId: z.number().int().positive(),
+  disablePasswordLogin: z.boolean(),
 });
 
 export async function deleteServerAction(serverId: number) {
@@ -281,6 +287,70 @@ export async function updateServerTimezoneAction(
       success: false,
       message:
         error instanceof Error ? error.message : "Failed to update timezone",
+    };
+  }
+}
+
+export async function updatePasswordLoginAction(
+  serverId: number,
+  disablePasswordLogin: boolean,
+) {
+  try {
+    const isAdmin = await isUserAdmin();
+    if (!isAdmin) {
+      return { success: false, message: "Admin privileges required" };
+    }
+
+    const parsed = updatePasswordLoginSchema.safeParse({
+      serverId,
+      disablePasswordLogin,
+    });
+    if (!parsed.success) {
+      return { success: false, message: "Invalid input" };
+    }
+
+    await db
+      .update(servers)
+      .set({
+        disablePasswordLogin: parsed.data.disablePasswordLogin,
+        updatedAt: new Date(),
+      })
+      .where(eq(servers.id, parsed.data.serverId));
+
+    revalidatePath(`/servers/${parsed.data.serverId}`);
+
+    if (parsed.data.disablePasswordLogin) {
+      const server = await getServer({
+        serverId: parsed.data.serverId.toString(),
+      });
+      if (server) {
+        const qcEnabled = await checkQuickConnectEnabled({
+          serverUrl: getInternalUrl(server),
+        });
+        if (!qcEnabled) {
+          return {
+            success: true,
+            warning: true,
+            message:
+              "Password login disabled, but QuickConnect is not enabled on your Jellyfin server. Password login will remain available as a fallback until QuickConnect is enabled.",
+          };
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: parsed.data.disablePasswordLogin
+        ? "Password login disabled"
+        : "Password login enabled",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to update password login setting",
     };
   }
 }
