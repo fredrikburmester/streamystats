@@ -33,6 +33,8 @@ import {
   getUserWatchStats,
 } from "@/lib/db/users";
 
+type EmbeddingProvider = "openai-compatible" | "ollama" | "gemini";
+
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -84,8 +86,6 @@ function formatItem(
   }
   return base;
 }
-
-type EmbeddingProvider = "openai-compatible" | "ollama";
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
@@ -140,6 +140,49 @@ async function embedTextForServer({
         embeddings?: number[][];
       };
       const embedding = json.embeddings?.[0];
+      if (!Array.isArray(embedding) || embedding.length === 0) {
+        return {
+          ok: false,
+          reason: "request_failed",
+          error: "Embedding request returned no embedding vector",
+        };
+      }
+      return { ok: true, embedding };
+    }
+
+    if (provider === "gemini") {
+      const normalized = normalizeBaseUrl(baseUrl);
+      const geminiModel = model.startsWith("models/")
+        ? model
+        : `models/${model}`;
+      const res = await fetch(`${normalized}/${geminiModel}:embedContent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey ? { "x-goog-api-key": apiKey } : {}),
+        },
+        body: JSON.stringify({
+          model: geminiModel,
+          content: { parts: [{ text }] },
+          taskType: "SEMANTIC_SIMILARITY",
+          ...(dimensions && dimensions > 0
+            ? { outputDimensionality: dimensions }
+            : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        return {
+          ok: false,
+          reason: "request_failed",
+          error: `Embedding request failed (status ${res.status})`,
+        };
+      }
+
+      const json = (await res.json()) as {
+        embedding?: { values?: number[] };
+      };
+      const embedding = json.embedding?.values;
       if (!Array.isArray(embedding) || embedding.length === 0) {
         return {
           ok: false,
