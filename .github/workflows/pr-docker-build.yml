@@ -13,6 +13,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: ghcr.io/${{ github.repository_owner }}
+  # Fork PRs get a read-only token (can't push to GHCR or comment) → same-repo only.
+  IS_SAME_REPO_PR: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
 
 jobs:
   lint:
@@ -124,11 +126,12 @@ jobs:
             VERSION=pr-${{ steps.pr.outputs.number }}
             COMMIT_SHA=${{ github.sha }}
             BUILD_TIME=${{ github.event.pull_request.updated_at }}
-          push: true
+          push: ${{ env.IS_SAME_REPO_PR == 'true' }}
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ steps.pr.outputs.number }}
 
       - name: Run Trivy vulnerability scanner
+        if: ${{ env.IS_SAME_REPO_PR == 'true' }}
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ steps.pr.outputs.number }}
@@ -165,6 +168,7 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Add PR comment
+        if: ${{ env.IS_SAME_REPO_PR == 'true' }}
         uses: actions/github-script@v9
         with:
           script: |
