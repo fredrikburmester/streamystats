@@ -345,6 +345,7 @@ const DEFAULT_ITEM_FIELDS = [
   "ParentThumbItemId",
   "LocationType",
   "ProviderIds",
+  "Tags",
 ];
 
 const DEFAULT_IMAGE_TYPES = "Primary,Backdrop,Banner,Thumb";
