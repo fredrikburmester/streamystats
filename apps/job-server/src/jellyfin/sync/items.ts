@@ -1468,7 +1468,7 @@ async function syncMediaSourcesBatch(
     return;
   }
 
-  const allMediaSourceRecords: NewMediaSource[] = [];
+  const mediaSourceMap = new Map<string, NewMediaSource>();
   const allItemIds = jellyfinItems.map((item) => item.Id);
 
   for (const jellyfinItem of jellyfinItems) {
@@ -1480,8 +1480,9 @@ async function syncMediaSourcesBatch(
 
     for (let index = 0; index < jellyfinMediaSources.length; index++) {
       const ms = jellyfinMediaSources[index] as Record<string, unknown>;
-      allMediaSourceRecords.push({
-        id: (ms.Id as string) || `${jellyfinItem.Id}-${index}`,
+      const id = (ms.Id as string) || `${jellyfinItem.Id}-${index}`;
+      mediaSourceMap.set(id, {
+        id,
         itemId: jellyfinItem.Id,
         serverId,
         size: typeof ms.Size === "number" ? ms.Size : null,
@@ -1494,6 +1495,8 @@ async function syncMediaSourcesBatch(
       });
     }
   }
+
+  const allMediaSourceRecords = Array.from(mediaSourceMap.values());
 
   try {
     // Insert media sources in batches of 500 to avoid query size limits
