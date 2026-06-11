@@ -23,6 +23,10 @@ import {
 import { z } from "zod";
 import { getHistoryByFilters } from "@/lib/db/history";
 import {
+  findItemsByCharacter,
+  findItemsByPerson,
+} from "@/lib/db/item-people-search";
+import {
   getSimilarItemsForItem,
   getSimilarStatistics,
 } from "@/lib/db/similar-statistics";
@@ -464,6 +468,106 @@ export function createChatTools(serverId: number, userId: string) {
             results.length > 0
               ? `Found ${results.length} items matching "${query}"`
               : `No items found matching "${query}"`,
+        };
+      },
+    }),
+
+    findItemsByPerson: tool({
+      description:
+        "Find movies or TV series connected to one or more people, such as actors, directors, writers, or producers. Every requested person must be connected to each returned item. Use this for questions like 'movies with Ana de Armas', 'movies with Ana de Armas and Chris Evans', 'what is Pedro Pascal in?', or 'films directed by Christopher Nolan'. Actor credits are searched by default.",
+      inputSchema: z.object({
+        personNames: z
+          .array(z.string())
+          .min(1)
+          .max(10)
+          .describe(
+            "Names or partial names of the people to search for. Returned items must match every person.",
+          ),
+        creditType: z
+          .enum(["Actor", "Director", "Writer", "Producer", "all"])
+          .optional()
+          .default("Actor")
+          .describe(
+            "Credit type to search. Use Actor for starring/with questions, a specific crew type when requested, or all for any connection.",
+          ),
+        type: z
+          .enum(["Movie", "Series", "all"])
+          .optional()
+          .default("all")
+          .describe("Filter by media type"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .default(20)
+          .describe("Number of items to return"),
+      }),
+      execute: async ({ personNames, creditType, type, limit }) => {
+        const results = await findItemsByPerson({
+          serverId,
+          personNames,
+          creditType,
+          type,
+          limit,
+        });
+
+        return {
+          items: results.map(({ item, credits }) => ({
+            ...formatItem(item),
+            matchedCredits: credits,
+          })),
+          personNames,
+          message:
+            results.length > 0
+              ? `Found ${results.length} items connected to ${personNames.join(
+                  " and ",
+                )}`
+              : `No items found connected to ${personNames.join(" and ")}`,
+        };
+      },
+    }),
+
+    findItemsByCharacter: tool({
+      description:
+        "Find the movie or TV series a fictional character appears in. Use this for questions like 'which TV show is Walter White from?', 'what movie has Tony Stark?', or 'where does Eleven appear?'. Returns the matching character roles and the actors who played them.",
+      inputSchema: z.object({
+        characterName: z
+          .string()
+          .describe("Name or partial name of the character to search for"),
+        type: z
+          .enum(["Movie", "Series", "all"])
+          .optional()
+          .default("all")
+          .describe("Filter by media type"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .default(20)
+          .describe("Number of items to return"),
+      }),
+      execute: async ({ characterName, type, limit }) => {
+        const results = await findItemsByCharacter({
+          serverId,
+          characterName,
+          type,
+          limit,
+        });
+
+        return {
+          items: results.map(({ item, credits }) => ({
+            ...formatItem(item),
+            matchedCredits: credits,
+          })),
+          characterName,
+          message:
+            results.length > 0
+              ? `Found ${results.length} items featuring character "${characterName}"`
+              : `No items found featuring character "${characterName}"`,
         };
       },
     }),
