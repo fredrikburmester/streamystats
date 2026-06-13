@@ -6,18 +6,17 @@ import type { Server } from "@streamystats/database";
 import { db, servers, users } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { jellyfinHeaders } from "./jellyfin-auth";
+import {
+  isTransientJellyfinStatus,
+  isValidJellyfinApiKey,
+  JELLYFIN_REQUEST_TIMEOUT_MS,
+  jellyfinHeaders,
+  normalizeBaseUrl,
+  SYSTEM_API_KEY_USER_ID,
+  SYSTEM_API_KEY_USER_NAME,
+} from "./jellyfin-auth";
 import { getInternalUrl } from "./server-url";
 import { getSession, type SessionUser } from "./session";
-
-/**
- * Identity surfaced when a request authenticates with a Jellyfin server
- * API key rather than a user access token. Centralised so the
- * MediaBrowser path here and `getUserFromEmbyToken` in `jellyfin-auth.ts`
- * stay in sync.
- */
-const SYSTEM_API_KEY_USER_ID = "system-api-key";
-const SYSTEM_API_KEY_USER_NAME = "System API Key";
 
 /**
  * Parse MediaBrowser authorization header
@@ -59,24 +58,24 @@ function parseMediaBrowserHeader(authHeader: string): {
  *
  * Accepts both Jellyfin user access tokens (returned by
  * `/Users/AuthenticateByName`) and Jellyfin server API keys. User
- * tokens are validated via `/Users/Me`. A server API key has no user
- * context, so `/Users/Me` rejects it (the exact status varies by
- * Jellyfin version); any non-OK response therefore falls back to a
- * `/System/Info` check and, on success, surfaces the caller as the
- * admin "system-api-key" pseudo-user — matching the pattern already
- * used by `getUserFromEmbyToken` in `jellyfin-auth.ts`. A valid user
- * token always returns 200 here, so the fallback never runs for real
- * users.
+ * tokens are validated via `/Users/Me` (200). A server API key has no
+ * user context, so `/Users/Me` rejects it (400 on current Jellyfin, 401
+ * on older versions); any non-transient failure therefore probes
+ * `/System/Info` and, on success, surfaces the caller as the admin
+ * "system-api-key" pseudo-user. Transient failures (429/5xx) and network
+ * errors return null so the caller can retry rather than guessing.
+ * Mirrors `getUserFromEmbyToken` in `jellyfin-auth.ts`.
  */
 export async function validateJellyfinToken(
   serverUrl: string,
   token: string,
 ): Promise<{ userId: string; userName: string; isAdmin: boolean } | null> {
+  const baseUrl = normalizeBaseUrl(serverUrl);
   try {
-    const response = await fetch(`${serverUrl}/Users/Me`, {
+    const response = await fetch(`${baseUrl}/Users/Me`, {
       method: "GET",
       headers: jellyfinHeaders(token),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(JELLYFIN_REQUEST_TIMEOUT_MS),
     });
 
     if (response.ok) {
@@ -88,30 +87,10 @@ export async function validateJellyfinToken(
       };
     }
 
-    // Any non-OK response means this is not a usable user access token.
-    // It may be a server API key (no user context) — validate it as one.
-    return await validateAsApiKey(serverUrl, token);
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      return null;
-    }
-    // A network error on /Users/Me may still leave /System/Info
-    // reachable for a valid API key; try the fallback before failing.
-    return await validateAsApiKey(serverUrl, token);
-  }
-}
-
-async function validateAsApiKey(
-  serverUrl: string,
-  token: string,
-): Promise<{ userId: string; userName: string; isAdmin: boolean } | null> {
-  try {
-    const sysRes = await fetch(`${serverUrl}/System/Info`, {
-      method: "GET",
-      headers: jellyfinHeaders(token),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (sysRes.ok) {
+    if (
+      !isTransientJellyfinStatus(response.status) &&
+      (await isValidJellyfinApiKey(baseUrl, token))
+    ) {
       return {
         userId: SYSTEM_API_KEY_USER_ID,
         userName: SYSTEM_API_KEY_USER_NAME,
@@ -131,7 +110,7 @@ async function validateAsApiKey(
  */
 export async function authenticateMediaBrowser(
   request: NextRequest,
-): Promise<{ session: SessionUser; server: Server } | null> {
+): Promise<{ session: SessionUser; server: Server; token: string } | null> {
   const authHeader = request.headers.get("authorization");
   if (!authHeader) {
     return null;
@@ -141,15 +120,13 @@ export async function authenticateMediaBrowser(
   if (!parsed?.token) {
     return null;
   }
+  const token = parsed.token;
 
   // Get all servers and try to validate against each
   const allServers = await db.select().from(servers);
 
   for (const server of allServers) {
-    const userInfo = await validateJellyfinToken(
-      getInternalUrl(server),
-      parsed.token,
-    );
+    const userInfo = await validateJellyfinToken(getInternalUrl(server), token);
     if (userInfo) {
       // Check if this user exists in our database for this server
       const dbUser = await db.query.users.findFirst({
@@ -164,11 +141,41 @@ export async function authenticateMediaBrowser(
           isAdmin: userInfo.isAdmin || dbUser?.isAdministrator || false,
         },
         server,
+        token,
       };
     }
   }
 
   return null;
+}
+
+// Authenticates a MediaBrowser token against a specific (query-resolved) server,
+// re-validating against that server when it differs from the token's own.
+export async function authenticateMediaBrowserForServer({
+  request,
+  server,
+}: {
+  request: NextRequest;
+  server: Server;
+}): Promise<{ userId: string; userName: string; isAdmin: boolean } | null> {
+  const mediaBrowserAuth = await authenticateMediaBrowser(request);
+  if (!mediaBrowserAuth) {
+    return null;
+  }
+
+  if (mediaBrowserAuth.server.id === server.id) {
+    return {
+      userId: mediaBrowserAuth.session.id,
+      userName: mediaBrowserAuth.session.name,
+      isAdmin: mediaBrowserAuth.session.isAdmin,
+    };
+  }
+
+  // Different server: re-check, reusing the token instead of re-parsing the header.
+  return await validateJellyfinToken(
+    getInternalUrl(server),
+    mediaBrowserAuth.token,
+  );
 }
 
 /**

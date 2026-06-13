@@ -43,7 +43,13 @@ export type JellyfinAuthUser = {
   isAdmin: boolean;
 };
 
-function normalizeBaseUrl(baseUrl: string): string {
+// Pseudo-user surfaced when a request authenticates with a server API key.
+export const SYSTEM_API_KEY_USER_ID = "system-api-key";
+export const SYSTEM_API_KEY_USER_NAME = "System API Key";
+
+export const JELLYFIN_REQUEST_TIMEOUT_MS = 5000;
+
+export function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
@@ -51,6 +57,28 @@ function asNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+export function isTransientJellyfinStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+// NOTE: /System/Info accepts ANY non-guest token (incl. regular users), not just
+// API keys — only treat `true` as "admin API key" after /Users/Me has rejected it.
+export async function isValidJellyfinApiKey(
+  serverUrl: string,
+  token: string,
+): Promise<boolean> {
+  try {
+    const sysRes = await fetch(`${normalizeBaseUrl(serverUrl)}/System/Info`, {
+      method: "GET",
+      headers: jellyfinHeaders(token.trim()),
+      signal: AbortSignal.timeout(JELLYFIN_REQUEST_TIMEOUT_MS),
+    });
+    return sysRes.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function getUserFromEmbyToken(args: {
@@ -67,10 +95,24 @@ export async function getUserFromEmbyToken(args: {
     const res = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
       headers: jellyfinHeaders(token),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(JELLYFIN_REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
+      // Server API keys have no user context → 400 here (not 401); probe as a key unless transient.
+      if (
+        !isTransientJellyfinStatus(res.status) &&
+        (await isValidJellyfinApiKey(serverUrl, token))
+      ) {
+        return {
+          ok: true,
+          user: {
+            id: SYSTEM_API_KEY_USER_ID,
+            name: SYSTEM_API_KEY_USER_NAME,
+            isAdmin: true,
+          },
+        };
+      }
       if (res.status === 401) {
         return { ok: false, error: "Invalid Authorization header" };
       }
@@ -81,9 +123,6 @@ export async function getUserFromEmbyToken(args: {
     const id = asNonEmptyString(json.Id);
     if (!id) return { ok: false, error: "Jellyfin did not return a user id" };
     const name = asNonEmptyString(json.Name);
-
-    // API Keys don't return Policy in Users/Me usually, but if it's a user token it might.
-    // However, if we are here, it's a User Token.
     const isAdmin = json.Policy?.IsAdministrator ?? false;
 
     return { ok: true, user: { id, name, isAdmin } };
@@ -91,34 +130,7 @@ export async function getUserFromEmbyToken(args: {
     if (error instanceof Error && error.name === "AbortError") {
       return { ok: false, error: "Jellyfin request timed out" };
     }
-
-    // If /Users/Me failed, it might be an API Key.
-    // Try /System/Info to validate if it's a valid API Key.
-    try {
-      const sysRes = await fetch(
-        `${normalizeBaseUrl(args.serverUrl)}/System/Info`,
-        {
-          method: "GET",
-          headers: jellyfinHeaders(args.token.trim()),
-          signal: AbortSignal.timeout(5000),
-        },
-      );
-
-      if (sysRes.ok) {
-        // It is a valid API Key (Admin)
-        return {
-          ok: true,
-          user: {
-            id: "system-api-key",
-            name: "System API Key",
-            isAdmin: true,
-          },
-        };
-      }
-    } catch {
-      // Ignore error from System/Info and return original error
-    }
-
+    // Network error: don't probe /System/Info (also unreachable) — let the caller retry.
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Jellyfin request failed",
