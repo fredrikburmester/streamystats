@@ -2,15 +2,7 @@
 
 import { FileDigit } from "lucide-react";
 import React from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { CustomBarLabel } from "@/components/ui/CustomBarLabel";
+import { Pie, PieChart } from "recharts";
 import {
   Card,
   CardContent,
@@ -34,118 +26,104 @@ export const CodecUsageCard = ({
   videoCodecs: CategoryStat[];
   audioCodecs: CategoryStat[];
 }) => {
-  const [containerWidth, setContainerWidth] = React.useState(400);
-  const codecData = [
-    ...videoCodecs.map((item) => ({
-      name: `Video: ${item.label}`,
-      count: item.count,
-    })),
-    ...audioCodecs.map((item) => ({
-      name: `Audio: ${item.label}`,
-      count: item.count,
-    })),
-  ].filter((item) => item.count > 0);
+  const videoData = React.useMemo(
+    () =>
+      videoCodecs
+        .filter((c) => c.count > 0)
+        .map((c, i) => ({ ...c, fill: `var(--color-v-${i})` })),
+    [videoCodecs],
+  );
 
-  const codecConfig = {
-    count: {
-      label: "Count",
-      color: "hsl(var(--chart-2))",
-    },
-    label: {
-      color: "hsl(var(--background))",
-    },
+  const audioData = React.useMemo(
+    () =>
+      audioCodecs
+        .filter((c) => c.count > 0)
+        .map((c, i) => ({ ...c, fill: `var(--color-a-${i})` })),
+    [audioCodecs],
+  );
+
+  const chartConfig = {
+    count: { label: "Sessions" },
+    ...Object.fromEntries(
+      videoData.map((c, i) => [
+        `v-${i}`,
+        {
+          label: c.label,
+          color: [
+            "hsl(var(--chart-1))",
+            "hsl(var(--chart-2))",
+            "hsl(var(--chart-5))",
+          ][i % 3],
+        },
+      ]),
+    ),
+    ...Object.fromEntries(
+      audioData.map((c, i) => [
+        `a-${i}`,
+        {
+          label: c.label,
+          color: ["hsl(var(--chart-3))", "hsl(var(--chart-4))", "#ec4899"][
+            i % 3
+          ],
+        },
+      ]),
+    ),
   } satisfies ChartConfig;
 
-  // Calculate bar height based on number of items
-  const getBarHeight = (dataLength: number) => {
-    const minHeightPerBar = 30;
-    const maxHeightPerBar = 40;
-    return Math.min(
-      Math.max(minHeightPerBar, 200 / dataLength),
-      maxHeightPerBar,
-    );
-  };
-
-  const total = codecData.reduce((sum, item) => sum + item.count, 0);
-  const totalVideoCodec = videoCodecs.reduce(
-    (sum, item) => sum + item.count,
-    0,
-  );
-  const totalAudioCodec = audioCodecs.reduce(
-    (sum, item) => sum + item.count,
-    0,
-  );
-  const codecDataWithPercent = codecData.map((item) => ({
-    ...item,
-    labelWithPercent: `${item.name} - ${
-      total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"
-    }%`,
-  }));
+  const totalVideo = videoData.reduce((sum, c) => sum + c.count, 0);
+  const totalAudio = audioData.reduce((sum, c) => sum + c.count, 0);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Codec Usage</CardTitle>
-        <CardDescription>Video and audio codec distribution</CardDescription>
+        <CardTitle>Codec Distribution</CardTitle>
+        <CardDescription>Video and Audio formats used</CardDescription>
       </CardHeader>
-      <CardContent>
-        <ChartContainer
-          id="codec-usage"
-          config={codecConfig}
-          className="h-[200px]"
-          onWidthChange={setContainerWidth}
-        >
-          <BarChart
-            accessibilityLayer
-            data={codecDataWithPercent}
-            layout="vertical"
-            margin={{
-              right: 16,
-              left: 0,
-              top: 5,
-              bottom: 5,
-            }}
-            barSize={getBarHeight(codecData.length)}
+      <CardContent className="flex flex-row justify-around py-4">
+        <div className="flex flex-col items-center">
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-square h-[140px]"
           >
-            <CartesianGrid horizontal={false} />
-            <YAxis
-              dataKey="name"
-              type="category"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              hide
-            />
-            <XAxis dataKey="count" type="number" hide />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
-            />
-            <Bar dataKey="count" radius={4} className="fill-blue-600">
-              <LabelList
-                dataKey="labelWithPercent"
-                content={({ x, y, width: barWidth, height, value }) => (
-                  <CustomBarLabel
-                    x={Number(x)}
-                    y={Number(y)}
-                    width={Number(barWidth)}
-                    height={Number(height)}
-                    value={value}
-                    fill="#d6e3ff"
-                    fontSize={12}
-                    containerWidth={containerWidth}
-                    alwaysOutside
-                  />
-                )}
+            <PieChart>
+              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+              <Pie
+                data={videoData}
+                dataKey="count"
+                nameKey="label"
+                innerRadius={35}
+                outerRadius={55}
+                strokeWidth={2}
               />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+            </PieChart>
+          </ChartContainer>
+          <span className="text-xs font-medium mt-2">Video Codecs</span>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-square h-[140px]"
+          >
+            <PieChart>
+              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+              <Pie
+                data={audioData}
+                dataKey="count"
+                nameKey="label"
+                innerRadius={35}
+                outerRadius={55}
+                strokeWidth={2}
+              />
+            </PieChart>
+          </ChartContainer>
+          <span className="text-xs font-medium mt-2">Audio Codecs</span>
+        </div>
       </CardContent>
       <CardFooter className="text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
           <FileDigit className="h-4 w-4" />
-          Video: {totalVideoCodec || "N/A"}, Audio: {totalAudioCodec || "N/A"}
+          {totalVideo} Video / {totalAudio} Audio sessions
         </div>
       </CardFooter>
     </Card>
