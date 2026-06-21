@@ -52,6 +52,10 @@
     "./job-defaults": {
       "types": "./dist/job-defaults.d.ts",
       "default": "./dist/job-defaults.js"
+    },
+    "./vector": {
+      "types": "./dist/vector.d.ts",
+      "default": "./dist/vector.js"
     }
   }
 }

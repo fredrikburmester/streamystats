@@ -11,10 +11,6 @@ import {
   type ServerIdentifier,
 } from "@/lib/db/server-resolver";
 import {
-  getSimilarSeries,
-  type SeriesRecommendationItem,
-} from "@/lib/db/similar-series-statistics";
-import {
   getSimilarStatistics,
   type RecommendationItem,
 } from "@/lib/db/similar-statistics";
@@ -271,35 +267,36 @@ function parseQueryParams(searchParams: URLSearchParams):
 async function buildRecommendationsResponse(args: {
   server: Server;
   user: ApiUser;
+  viewerUserId: string | null;
   params: Omit<ResolvedParams, "serverId" | "serverName">;
   timeWindow: { start?: Date; end?: Date };
 }) {
-  const { server, user, params, timeWindow } = args;
+  const { server, user, viewerUserId, params } = args;
 
   const fetchLimit = Math.min(200, Math.max(params.limit * 4, params.limit));
 
   // Fetch from appropriate sources based on type
   let movieResults: RecommendationItem[] = [];
-  let seriesResults: SeriesRecommendationItem[] = [];
+  let seriesResults: RecommendationItem[] = [];
 
   if (params.type === "Movie" || params.type === "all") {
     movieResults = await getSimilarStatistics({
       serverId: server.id,
       userId: user.id,
       limit: fetchLimit,
-      timeWindow: {
-        start: timeWindow.start,
-        end: timeWindow.end,
-      },
+      type: "Movie",
+      viewerUserId,
     });
   }
 
   if (params.type === "Series" || params.type === "all") {
-    seriesResults = await getSimilarSeries({
+    seriesResults = (await getSimilarStatistics({
       serverId: server.id,
       userId: user.id,
       limit: fetchLimit,
-    });
+      type: "Series",
+      viewerUserId,
+    })) as RecommendationItem[];
   }
 
   // Combine and sort by similarity (both types have compatible structure)
@@ -336,7 +333,7 @@ async function buildRecommendationsResponse(args: {
     const base = {
       item: r.item,
       similarity: r.similarity,
-      basedOn: params.includeBasedOn ? r.basedOn : [],
+      basedOn: params.includeBasedOn ? (r.basedOn ?? []) : [],
     };
 
     if (!params.includeReasons) return base;
@@ -349,10 +346,12 @@ async function buildRecommendationsResponse(args: {
             name: r.item.name,
             genres: r.item.genres ?? null,
           },
-          basedOn: (params.includeBasedOn ? r.basedOn : []).map((b) => ({
-            name: b.name,
-            genres: b.genres ?? null,
-          })),
+          basedOn: (params.includeBasedOn ? (r.basedOn ?? []) : []).map(
+            (b) => ({
+              name: b.name,
+              genres: b.genres ?? null,
+            }),
+          ),
         },
       }),
     };
@@ -414,6 +413,7 @@ export async function GET(request: NextRequest) {
         const payload = await buildRecommendationsResponse({
           server,
           user: targetUser,
+          viewerUserId: userInfo.isAdmin ? null : userInfo.userId,
           params: parsed.params,
           timeWindow: parsed.timeWindow,
         });
@@ -444,6 +444,9 @@ export async function GET(request: NextRequest) {
   const payload = await buildRecommendationsResponse({
     server,
     user: targetUser,
+    viewerUserId: mediaBrowserAuth.session.isAdmin
+      ? null
+      : mediaBrowserAuth.session.id,
     params: parsed.params,
     timeWindow: parsed.timeWindow,
   });
@@ -502,6 +505,7 @@ export async function POST(request: NextRequest) {
   const payload = await buildRecommendationsResponse({
     server,
     user: { id: auth.user.id, name: auth.user.name },
+    viewerUserId: auth.user.isAdmin ? null : auth.user.id,
     params: parsed.params,
     timeWindow: parsed.timeWindow,
   });

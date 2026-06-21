@@ -9,7 +9,6 @@ import {
 } from "@/lib/db/recently-added";
 import { getSeasonalRecommendations } from "@/lib/db/seasonal-recommendations";
 import { getServer } from "@/lib/db/server";
-import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
 import { getMe, getViewerUserId, isUserAdmin } from "@/lib/db/users";
@@ -76,8 +75,16 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
     recentlyAddedMovies,
     recentlyAddedSeries,
   ] = await Promise.all([
-    getSimilarStatistics({ serverId: server.id, viewerUserId }),
-    getSimilarSeries({ serverId: server.id, viewerUserId }),
+    getSimilarStatistics({
+      serverId: server.id,
+      type: "Movie",
+      viewerUserId: viewerUserId ?? null,
+    }),
+    getSimilarStatistics({
+      serverId: server.id,
+      type: "Series",
+      viewerUserId: viewerUserId ?? null,
+    }),
     getMostWatchedItems({
       serverId: server.id,
       userId: isAdmin ? undefined : me?.id,
@@ -110,10 +117,18 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
         />
       )}
       {similarData.length > 0 && (
-        <SimilarMovieStatistics data={similarData} server={server} />
+        <SimilarMovieStatistics
+          data={similarData}
+          server={server}
+          viewerUserId={viewerUserId ?? null}
+        />
       )}
       {similarSeriesData.length > 0 && (
-        <SimilarSeriesStatistics data={similarSeriesData} server={server} />
+        <SimilarSeriesStatistics
+          data={similarSeriesData}
+          server={server}
+          viewerUserId={viewerUserId ?? null}
+        />
       )}
       <MostWatchedItems data={data} server={server} />
       {isAdmin ? <UserLeaderboard server={server} /> : null}

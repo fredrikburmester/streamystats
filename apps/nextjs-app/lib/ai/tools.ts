@@ -122,10 +122,10 @@ async function embedTextForServer({
 
   try {
     if (provider === "ollama") {
-      const res = await fetch(`${normalizeBaseUrl(baseUrl)}/api/embed`, {
+      const res = await fetch(`${normalizeBaseUrl(baseUrl)}/api/embeddings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, input: text }),
+        body: JSON.stringify({ model, prompt: text }),
       });
 
       if (!res.ok) {
@@ -137,9 +137,10 @@ async function embedTextForServer({
       }
 
       const json = (await res.json()) as {
-        embeddings?: number[][];
+        embedding?: number[];
+        embeddings?: number[];
       };
-      const embedding = json.embeddings?.[0];
+      const embedding = json.embedding ?? json.embeddings;
       if (!Array.isArray(embedding) || embedding.length === 0) {
         return {
           ok: false,
@@ -162,11 +163,7 @@ async function embedTextForServer({
       body.dimensions = dimensions;
     }
 
-    const normalized = normalizeBaseUrl(baseUrl);
-    const embeddingsUrl = normalized.endsWith("/v1")
-      ? `${normalized}/embeddings`
-      : `${normalized}/v1/embeddings`;
-    const res = await fetch(embeddingsUrl, {
+    const res = await fetch(`${normalizeBaseUrl(baseUrl)}/v1/embeddings`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -306,21 +303,17 @@ export function createChatTools(serverId: number, userId: string) {
 
     getPersonalizedRecommendations: tool({
       description:
-        "Get personalized movie and series recommendations based on user's watch history using AI embeddings. Each recommendation includes a 'reason' field (e.g. 'Because you watched X and Y') and a 'basedOn' array with the watched items that led to this recommendation. Always use this data when presenting recommendations to explain what they're based on.",
+        "Get personalized movie and series recommendations based on user's taste profile computed from their watch history using AI embeddings. Recommendations include a similarity score and a reason field. Use this data when presenting recommendations to explain relevance.",
       inputSchema: limitTypeSchema,
       execute: async ({ limit, type }: z.infer<typeof limitTypeSchema>) => {
         const recommendations = await getSimilarStatistics({
           serverId,
           userId,
-          limit: limit * 2,
+          limit,
+          type,
         });
 
-        const filtered =
-          type === "all"
-            ? recommendations
-            : recommendations.filter((r) => r.item.type === type);
-
-        const enrichedRecs = filtered.slice(0, limit).map((r) => {
+        const enrichedRecs = recommendations.slice(0, limit).map((r) => {
           const recGenres = new Set(r.item.genres || []);
           const basedOnItems = r.basedOn.slice(0, 3);
 
@@ -680,11 +673,7 @@ export function createChatTools(serverId: number, userId: string) {
 
         const [currentUserRecs, otherUserRecs] = await Promise.all([
           getSimilarStatistics({ serverId, userId, limit: 50 }),
-          getSimilarStatistics({
-            serverId,
-            userId: otherUser.id,
-            limit: 50,
-          }),
+          getSimilarStatistics({ serverId, userId: otherUser.id, limit: 50 }),
         ]);
 
         const currentUserRecIds = new Set(

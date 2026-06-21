@@ -29,6 +29,10 @@ import {
   schedulerMaintenanceWorker,
   SCHEDULER_MAINTENANCE_JOB_NAME,
 } from "./scheduler-maintenance";
+import {
+  calculateUserEmbeddingsJob,
+  USER_EMBEDDING_JOB_NAME,
+} from "./user-embedding-job";
 
 let bossInstance: PgBoss | null = null;
 
@@ -114,6 +118,7 @@ async function createQueues(boss: PgBoss) {
     BACKFILL_JOB_NAMES.BACKFILL_JELLYFIN_IDS,
     INFER_WATCHTIME_JOB_NAME,
     SCHEDULER_MAINTENANCE_JOB_NAME,
+    USER_EMBEDDING_JOB_NAME,
   ];
 
   for (const name of queueNames) {
@@ -156,6 +161,9 @@ async function registerJobHandlers(boss: PgBoss) {
 
   // Register scheduler maintenance job
   await boss.work(SCHEDULER_MAINTENANCE_JOB_NAME, { batchSize: 1 }, firstJob(schedulerMaintenanceWorker));
+
+  // Register user embeddings job
+  await boss.work(USER_EMBEDDING_JOB_NAME, { batchSize: 1 }, firstJob(calculateUserEmbeddingsJob));
 
   console.log("[pg-boss] All job handlers registered successfully");
 }

@@ -10,6 +10,7 @@ export const CRON_JOB_KEYS = [
   "user-sync",
   "people-sync",
   "embeddings-sync",
+  "user-embeddings-sync",
   "geolocation-sync",
   "fingerprint-sync",
   "job-cleanup",
@@ -86,6 +87,14 @@ export const JOB_DEFAULTS: Record<JobKey, JobDefaultConfig> = {
     label: "Embeddings Sync",
     description: "Generates AI embeddings for media items",
     defaultCron: "*/15 * * * *",
+    category: "ai",
+  },
+  "user-embeddings-sync": {
+    key: "user-embeddings-sync",
+    type: "cron",
+    label: "User Embeddings Sync",
+    description: "Pre-computes user taste profiles for fast recommendations",
+    defaultCron: "0 3 * * *",
     category: "ai",
   },
   "geolocation-sync": {

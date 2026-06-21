@@ -156,6 +156,31 @@ app.post("/scheduler/trigger-library-sync", async (c) => {
   }
 });
 
+app.post("/scheduler/trigger-user-embeddings-sync", async (c) => {
+  try {
+    const { serverId } = await c.req.json();
+
+    if (!serverId) {
+      return c.json({ error: "Server ID is required" }, 400);
+    }
+
+    const server = await getServerById(serverId);
+    if (!server) {
+      return c.json({ error: "Server not found" }, 404);
+    }
+
+    await activityScheduler.triggerServerUserEmbeddingsSync(server.id);
+
+    return c.json({
+      success: true,
+      message: `User embeddings sync triggered for server: ${server.name}`,
+    });
+  } catch (error) {
+    console.error("Error triggering user embeddings sync:", error);
+    return c.json({ error: "Failed to trigger user embeddings sync" }, 500);
+  }
+});
+
 app.post("/scheduler/config", async (c) => {
   try {
     const body = await c.req.json();

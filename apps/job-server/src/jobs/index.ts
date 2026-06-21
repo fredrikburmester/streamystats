@@ -25,6 +25,11 @@ export {
 
 export { TIMEOUT_CONFIG } from "./config";
 
+export {
+  calculateUserEmbeddingsJob,
+  USER_EMBEDDING_JOB_NAME,
+} from "./user-embedding-job";
+
 // Export Jellyfin sync workers from the original location
 export {
   jellyfinSyncWorker,

@@ -17,3 +17,6 @@ export * from "./job-defaults";
 
 // Export migration utilities
 export { migrate } from "./migrate";
+
+// Export vector math utilities (embedding normalization, pgvector literals)
+export * from "./vector";

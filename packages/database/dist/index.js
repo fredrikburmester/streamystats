@@ -34,4 +34,6 @@ __exportStar(require("./job-defaults"), exports);
 // Export migration utilities
 var migrate_1 = require("./migrate");
 Object.defineProperty(exports, "migrate", { enumerable: true, get: function () { return migrate_1.migrate; } });
+// Export vector math utilities (embedding normalization, pgvector literals)
+__exportStar(require("./vector"), exports);
 //# sourceMappingURL=index.js.map
