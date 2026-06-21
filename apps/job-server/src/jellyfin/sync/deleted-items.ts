@@ -2,6 +2,7 @@ import { eq, and, isNull, inArray } from "drizzle-orm";
 import {
   db,
   items,
+  itemLibraries,
   sessions,
   libraries,
   hiddenRecommendations,
@@ -424,6 +425,12 @@ export async function cleanupDeletedItems(
           .set({ deletedAt: new Date() })
           .where(inArray(items.id, batch));
 
+        // Remove library memberships for soft-deleted items
+        metrics.databaseOperations++;
+        await db
+          .delete(itemLibraries)
+          .where(inArray(itemLibraries.itemId, batch));
+
         // Delete hidden recommendations for these items
         metrics.databaseOperations++;
         const deletedRecs = await db
@@ -751,6 +758,12 @@ async function migrateItem(
     .returning({ id: hiddenRecommendations.id });
 
   metrics.hiddenRecommendationsMigrated += migratedRecs.length;
+
+  // Remove library memberships for old item
+  metrics.databaseOperations++;
+  await db
+    .delete(itemLibraries)
+    .where(eq(itemLibraries.itemId, oldItemId));
 
   // Soft delete the old item
   metrics.databaseOperations++;

@@ -1,6 +1,6 @@
 {
-  "id": "01fae73e-e45d-42b6-abd3-64a1b6c7a857",
-  "prevId": "01deb5f6-724d-4756-84f9-0eda8e9a4808",
+  "id": "9a1daf32-de4f-4961-86a4-b09b47c702be",
+  "prevId": "c6094b5d-87ff-4512-a44f-42474174c529",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -690,6 +690,66 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.item_libraries": {
+      "name": "item_libraries",
+      "schema": "",
+      "columns": {
+        "item_id": {
+          "name": "item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "library_id": {
+          "name": "library_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "item_libraries_item_id_items_id_fk": {
+          "name": "item_libraries_item_id_items_id_fk",
+          "tableFrom": "item_libraries",
+          "columnsFrom": [
+            "item_id"
+          ],
+          "tableTo": "items",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "item_libraries_library_id_libraries_id_fk": {
+          "name": "item_libraries_library_id_libraries_id_fk",
+          "tableFrom": "item_libraries",
+          "columnsFrom": [
+            "library_id"
+          ],
+          "tableTo": "libraries",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "item_libraries_item_id_library_id_pk": {
+          "name": "item_libraries_item_id_library_id_pk",
+          "columns": [
+            "item_id",
+            "library_id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -1855,12 +1915,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "internal_url": {
-          "name": "internal_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "api_key": {
           "name": "api_key",
           "type": "text",
@@ -1876,6 +1930,12 @@
         },
         "local_address": {
           "name": "local_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "internal_url": {
+          "name": "internal_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2975,6 +3035,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "enabled_folders": {
+          "name": "enabled_folders",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'"
         },
         "enable_public_sharing": {
           "name": "enable_public_sharing",

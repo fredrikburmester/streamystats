@@ -423,6 +423,9 @@ export async function getWrappedTopItems(
   if (userExclusion) {
     whereConditions.push(userExclusion);
   }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
 
   // Get session stats grouped by item
   const rawSessionStats = await db
@@ -432,6 +435,7 @@ export async function getWrappedTopItems(
       totalPlayDuration: sum(sessions.playDuration),
     })
     .from(sessions)
+    .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions))
     .groupBy(sessions.itemId)
     .orderBy(desc(sum(sessions.playDuration)));
@@ -444,19 +448,15 @@ export async function getWrappedTopItems(
     }))
     .filter((stat) => stat.itemId);
 
-  // Fetch all items
+  // Fetch all items (already filtered by library exclusion in aggregation)
   const itemIds = sessionStats.map((stat) => stat.itemId);
-  const itemConditions: SQL[] = [inArray(items.id, itemIds)];
-  if (itemLibraryExclusion) {
-    itemConditions.push(itemLibraryExclusion);
-  }
 
   const itemsData =
     itemIds.length > 0
       ? await db
           .select()
           .from(items)
-          .where(and(...itemConditions))
+          .where(inArray(items.id, itemIds))
       : [];
 
   const itemsMap = new Map(itemsData.map((item) => [item.id, item]));

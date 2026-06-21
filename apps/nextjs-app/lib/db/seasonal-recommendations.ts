@@ -182,7 +182,6 @@ async function getSeasonalRecommendationsCached(
           isNull(items.deletedAt),
           inArray(items.type, ["Movie", "Series"]),
           or(...searchConditions),
-          // Exclude items from excluded/disallowed libraries
           itemLibraryExclusion ?? sql`true`,
           excludeIds.length > 0 ? notInArray(items.id, excludeIds) : sql`true`,
         ),
