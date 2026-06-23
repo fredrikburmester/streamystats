@@ -86,6 +86,7 @@ export async function backfillJellyfinIdsJob(job: PgBossJob<Record<string, never
         id: servers.id,
         name: servers.name,
         url: servers.url,
+        internalUrl: servers.internalUrl,
         apiKey: servers.apiKey,
       })
       .from(servers)
