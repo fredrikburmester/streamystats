@@ -198,8 +198,12 @@ app.post("/create-server", async (c) => {
       return c.json({ error: "Name, URL, and API key are required" }, 400);
     }
 
+    // Server-to-server requests use the internal URL when configured (falling back
+    // to the external URL), so test connectivity against that effective URL.
+    const effectiveUrl = otherFields.internalUrl || url;
+
     try {
-      const testResponse = await fetch(`${url}/System/Info`, {
+      const testResponse = await fetch(`${effectiveUrl}/System/Info`, {
         headers: {
           "Authorization": `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${apiKey}"`,
           "Content-Type": "application/json",
