@@ -50,6 +50,10 @@ export const login = async ({
 
   const data = await res.json();
 
+  await setToken(data, serverId);
+};
+
+async function setToken(data: any, serverId: number) {
   const accessToken = data.AccessToken;
   const user = data.User;
   const isAdmin = user.Policy.IsAdministrator;
@@ -74,4 +78,79 @@ export const login = async ({
     maxAge,
     secure,
   });
+}
+
+// function to request a quickconnect code using a simple post request and return it to a client
+export const initiateQuickConnect = async ({
+  serverId,
+  userAgent,
+}: {
+  serverId: number;
+  userAgent: string;
+}) => {
+  const server = await getServerWithSecrets({ serverId: serverId.toString() });
+  if (!server) {
+    throw new Error("Server not found");
+  }
+
+  const device = {
+    id: crypto.randomUUID(),
+    name: userAgent ? parseDeviceName(userAgent) : "Streamystats Web",
+  };
+
+  const res = await fetch(`${getInternalUrl(server)}/QuickConnect/Initiate`, {
+    method: "POST",
+    headers: jellyfinHeaders(server.apiKey, device),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to generate Quick Connect code. Maybe it's disabled on this server?",
+    );
+  }
+
+  const decoded = await res.json();
+
+  // Return the secret and device info to the client so it can poll using verifyQuickConnect
+  return {
+    code: decoded.Code,
+    secret: decoded.Secret,
+    device,
+  };
+};
+// function that the client polls every 3 seconds to check the status of the code
+export const verifyQuickConnect = async ({
+  serverId,
+  secret,
+  device,
+}: {
+  serverId: number;
+  secret: string;
+  device: { id: string; name: string };
+}) => {
+  const server = await getServerWithSecrets({ serverId: serverId.toString() });
+  if (!server) {
+    throw new Error("Server not found");
+  }
+
+  // try to get token
+  const res = await fetch(
+    `${getInternalUrl(server)}/Users/AuthenticateWithQuickConnect`,
+    {
+      method: "POST",
+      headers: jellyfinHeaders(server.apiKey, device),
+      body: JSON.stringify({ Secret: secret }),
+    },
+  );
+
+  // 200 = login succeeded, anything else = nothing yet
+  if (res.status === 200) {
+    const decoded = await res.json();
+
+    // return to client
+    await setToken(decoded, serverId);
+    return { authenticated: true };
+  }
+
+  return { authenticated: false };
 };
