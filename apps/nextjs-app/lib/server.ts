@@ -1,7 +1,7 @@
 "use server";
 
-import type { Server } from "@streamystats/database";
 import { z } from "zod/v4";
+import { JobServerError, jobServer } from "@/lib/job-server";
 import type { ServerPublic } from "@/lib/types";
 
 const createServerSchema = z.object({
@@ -52,43 +52,8 @@ export async function createServer(
     return { success: false, details: "Invalid input" };
   }
 
-  const jobServerUrl =
-    process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
-      ? process.env.JOB_SERVER_URL
-      : "http://localhost:3005";
-
   try {
-    const response = await fetch(`${jobServerUrl}/api/jobs/create-server`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(parsed.data),
-    });
-
-    if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-
-      try {
-        const errorData: CreateServerErrorResponse = await response.json();
-        errorMessage = errorData.error || errorData.details || errorMessage;
-      } catch (parseError) {
-        // If we can't parse the error response, use the status text
-        console.warn("Failed to parse error response:", parseError);
-      }
-
-      return {
-        success: false,
-        details: errorMessage,
-      };
-    }
-
-    const result = (await response.json()) as {
-      success: boolean;
-      server: Server;
-      syncJobId: string;
-      message: string;
-    };
+    const result = await jobServer.createServer(parsed.data);
 
     const {
       apiKey: _apiKey,
@@ -109,52 +74,13 @@ export async function createServer(
     };
   } catch (error) {
     console.error("Error creating server:", error);
+    if (error instanceof JobServerError) {
+      return { success: false, details: error.message };
+    }
     return {
       success: false,
       details:
         "Failed to create server. Please check your connection and try again.",
     };
   }
-}
-
-/**
- * Gets the sync status of a server from the job-server
- */
-export async function getServerSyncStatus(serverId: number) {
-  const jobServerUrl =
-    process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
-      ? process.env.JOB_SERVER_URL
-      : "http://localhost:3005";
-
-  try {
-    const response = await fetch(
-      `${jobServerUrl}/api/jobs/servers/${serverId}/sync-status`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error getting server sync status:", error);
-    throw new Error(
-      error instanceof Error
-        ? error.message
-        : "Failed to get server sync status",
-    );
-  }
-}
-
-/**
- * Polls the server sync status until it's complete or fails
- * Returns a promise that resolves when the sync is complete
- */
-export async function pollServerSetupStatus(
-  serverId: number,
-  _maxAttempts = 30,
-  _intervalMs = 2000,
-): Promise<{ success: boolean; status: string }> {
-  const status = await getServerSyncStatus(serverId);
-  return status;
 }

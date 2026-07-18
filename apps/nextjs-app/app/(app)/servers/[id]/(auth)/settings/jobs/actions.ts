@@ -4,8 +4,14 @@ import { JOB_DEFAULTS, type JobKey } from "@streamystats/database";
 import { revalidatePath } from "next/cache";
 import { z } from "zod/v4";
 import { isUserAdmin } from "@/lib/db/users";
+import {
+  type JobConfigItem,
+  jobServer,
+  type ResetJobConfig,
+  type UpdatedJobConfig,
+} from "@/lib/job-server";
 
-const JOB_SERVER_URL = process.env.JOB_SERVER_URL || "http://localhost:3005";
+export type { JobConfigItem };
 
 const serverIdSchema = z.number().int().positive();
 const jobKeySchema = z.string().min(1).max(200);
@@ -14,22 +20,6 @@ const updateJobConfigSchema = z.object({
   intervalSeconds: z.number().int().positive().max(86400).nullish(),
   enabled: z.boolean().optional(),
 });
-
-export interface JobConfigItem {
-  jobKey: string;
-  label: string;
-  description: string;
-  category: string;
-  type: "cron" | "interval";
-  // For cron-based jobs
-  defaultCron?: string;
-  cronExpression?: string | null;
-  // For interval-based jobs
-  defaultInterval?: number;
-  intervalSeconds?: number | null;
-  enabled: boolean;
-  isUsingDefault: boolean;
-}
 
 export interface GetJobConfigsResponse {
   success: boolean;
@@ -55,24 +45,7 @@ export async function getJobConfigs(
       return { success: false, error: "Invalid server ID" };
     }
 
-    const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/servers/${parsedId.data}/config`,
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      return {
-        success: false,
-        error: error.error || "Failed to get job configs",
-      };
-    }
-
-    const data = await response.json();
+    const data = await jobServer.getJobConfigs(parsedId.data);
     return {
       success: true,
       serverId: data.serverId,
@@ -96,13 +69,7 @@ export interface UpdateJobConfigParams {
 
 export interface UpdateJobConfigResponse {
   success: boolean;
-  config?: {
-    jobKey: string;
-    label: string;
-    cronExpression: string | null;
-    enabled: boolean;
-    isUsingDefault: boolean;
-  };
+  config?: UpdatedJobConfig;
   error?: string;
 }
 
@@ -127,24 +94,11 @@ export async function updateJobConfig(
       return { success: false, error: "Invalid input" };
     }
 
-    const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/servers/${parsedId.data}/config/${parsedKey.data}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsedConfig.data),
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      return {
-        success: false,
-        error: error.error || "Failed to update job config",
-      };
-    }
-
-    const data = await response.json();
+    const data = await jobServer.updateJobConfig({
+      serverId: parsedId.data,
+      jobKey: parsedKey.data,
+      config: parsedConfig.data,
+    });
 
     // Revalidate the jobs page
     revalidatePath(`/servers/${serverId}/settings/jobs`);
@@ -165,14 +119,7 @@ export async function updateJobConfig(
 
 export interface ResetJobConfigResponse {
   success: boolean;
-  config?: {
-    jobKey: string;
-    label: string;
-    cronExpression: null;
-    enabled: true;
-    isUsingDefault: true;
-    defaultCron: string;
-  };
+  config?: ResetJobConfig;
   error?: string;
 }
 
@@ -195,23 +142,10 @@ export async function resetJobConfig(
       return { success: false, error: "Invalid input" };
     }
 
-    const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/servers/${parsedId.data}/config/${parsedKey.data}`,
-      {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      return {
-        success: false,
-        error: error.error || "Failed to reset job config",
-      };
-    }
-
-    const data = await response.json();
+    const data = await jobServer.resetJobConfig({
+      serverId: parsedId.data,
+      jobKey: parsedKey.data,
+    });
 
     // Revalidate the jobs page
     revalidatePath(`/servers/${serverId}/settings/jobs`);

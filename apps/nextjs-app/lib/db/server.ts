@@ -7,6 +7,7 @@ import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { parseDeviceName } from "@/lib/device";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { jobServer } from "@/lib/job-server";
 import type { ServerPublic } from "@/lib/types";
 
 type ServerPublicSelectRow = Omit<
@@ -102,18 +103,8 @@ export const getServerWithSecrets = async ({
  * @param serverId - The ID of the server
  */
 const cancelServerJobs = async (serverId: number): Promise<void> => {
-  const jobServerUrl =
-    process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
-      ? process.env.JOB_SERVER_URL
-      : "http://localhost:3005";
-
   try {
-    await fetch(`${jobServerUrl}/api/jobs/cancel-all-for-server`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serverId }),
-      signal: AbortSignal.timeout(10000),
-    });
+    await jobServer.cancelAllJobs(serverId);
   } catch {
     // Non-critical: jobs will eventually expire or fail when server is missing
   }
@@ -249,17 +240,8 @@ export const clearChatApiKey = async ({ serverId }: { serverId: number }) => {
 export const clearEmbeddings = async ({ serverId }: { serverId: number }) => {
   try {
     // Stop any running embedding job first
-    const jobServerUrl =
-      process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
-        ? process.env.JOB_SERVER_URL
-        : "http://localhost:3005";
-
     try {
-      await fetch(`${jobServerUrl}/api/jobs/stop-embedding`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serverId }),
-      });
+      await jobServer.stopEmbedding(serverId);
     } catch {
       // Non-critical: job might not be running
     }
@@ -285,10 +267,7 @@ export const clearEmbeddings = async ({ serverId }: { serverId: number }) => {
 
     // Clear the job server's in-memory embedding index cache
     try {
-      await fetch(`${jobServerUrl}/api/jobs/clear-embedding-cache`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+      await jobServer.clearEmbeddingCache();
     } catch {
       // Non-critical: cache will be rebuilt on next check
     }
@@ -553,24 +532,7 @@ export const startEmbedding = async ({ serverId }: { serverId: number }) => {
       );
     }
 
-    // Construct job server URL with proper fallback
-    const jobServerUrl =
-      process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
-        ? process.env.JOB_SERVER_URL
-        : "http://localhost:3005";
-
-    // Queue the embedding job (this will be implemented in the job server)
-    const response = await fetch(`${jobServerUrl}/api/jobs/start-embedding`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ serverId }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to start embedding job");
-    }
+    await jobServer.startEmbedding(serverId);
   } catch (error) {
     console.error(`Error starting embedding for server ${serverId}:`, error);
     throw new Error(
@@ -583,24 +545,7 @@ export const startEmbedding = async ({ serverId }: { serverId: number }) => {
 
 export const stopEmbedding = async ({ serverId }: { serverId: number }) => {
   try {
-    // Construct job server URL with proper fallback
-    const jobServerUrl =
-      process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
-        ? process.env.JOB_SERVER_URL
-        : "http://localhost:3005";
-
-    // Stop the embedding job (this will be implemented in the job server)
-    const response = await fetch(`${jobServerUrl}/api/jobs/stop-embedding`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ serverId }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to stop embedding job");
-    }
+    await jobServer.stopEmbedding(serverId);
   } catch (error) {
     console.error(`Error stopping embedding for server ${serverId}:`, error);
     throw new Error(

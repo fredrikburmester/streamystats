@@ -5,12 +5,8 @@ import "server-only";
 import { db, sessions } from "@streamystats/database";
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { jobServer } from "@/lib/job-server";
 import { getSession } from "@/lib/session";
-
-const JOB_SERVER_URL =
-  process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
-    ? process.env.JOB_SERVER_URL
-    : "http://localhost:3005";
 
 /**
  * Get count of inferred sessions for a server/user
@@ -61,29 +57,12 @@ export async function triggerInferWatchtime(
       };
     }
 
-    const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/infer-watchtime/trigger`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serverId,
-          userId: targetUserId,
-          triggeredBy: session.id,
-          isAdmin: session.isAdmin,
-        }),
-        signal: AbortSignal.timeout(10000),
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-      );
-    }
-
-    const data = await response.json();
+    const data = await jobServer.triggerInferWatchtime({
+      serverId,
+      userId: targetUserId,
+      triggeredBy: session.id,
+      isAdmin: session.isAdmin,
+    });
 
     // Revalidate user page to show updated stats
     revalidatePath(`/servers/${serverId}/users/${targetUserId}`);
@@ -122,29 +101,12 @@ export async function triggerInferWatchtimeForAll(
       };
     }
 
-    const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/infer-watchtime/trigger`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serverId,
-          userId: undefined, // All users
-          triggeredBy: session.id,
-          isAdmin: true,
-        }),
-        signal: AbortSignal.timeout(10000),
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-      );
-    }
-
-    const data = await response.json();
+    const data = await jobServer.triggerInferWatchtime({
+      serverId,
+      userId: undefined, // All users
+      triggeredBy: session.id,
+      isAdmin: true,
+    });
 
     // Revalidate users page
     revalidatePath(`/servers/${serverId}/users`);
@@ -190,27 +152,7 @@ export async function cleanupInferredSessions(
       }
     }
 
-    const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/infer-watchtime/cleanup`,
-      {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serverId,
-          userId,
-        }),
-        signal: AbortSignal.timeout(30000),
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-      );
-    }
-
-    const data = await response.json();
+    const data = await jobServer.cleanupInferredSessions({ serverId, userId });
 
     // Revalidate relevant pages
     if (userId) {

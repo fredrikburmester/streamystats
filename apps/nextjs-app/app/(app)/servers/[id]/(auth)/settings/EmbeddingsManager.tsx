@@ -268,41 +268,6 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
     }
   };
 
-  const _handleCleanupStaleJobs = async () => {
-    try {
-      const jobServerUrl =
-        process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
-          ? process.env.JOB_SERVER_URL
-          : "http://localhost:3005";
-
-      const response = await fetch(`${jobServerUrl}/api/jobs/cleanup-stale`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to cleanup stale jobs");
-      }
-
-      const result = await response.json();
-
-      if (result.cleanedJobs > 0) {
-        toast.success(
-          `Cleaned up ${result.cleanedJobs} stale embedding job(s)`,
-        );
-      } else {
-        toast.info("No stale embedding jobs to cleanup");
-      }
-
-      refetch();
-    } catch (error) {
-      console.error("Error cleaning up stale jobs:", error);
-      toast.error("Failed to cleanup stale jobs");
-    }
-  };
-
   const handleClearEmbeddings = async () => {
     setIsClearing(true);
     try {

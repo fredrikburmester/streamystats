@@ -11,6 +11,7 @@ import {
   users,
 } from "@streamystats/database";
 import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { JobServerError, jobServer } from "@/lib/job-server";
 
 export interface LocationPoint {
   latitude: number;
@@ -717,26 +718,13 @@ export async function triggerGeolocationBackfill(serverId: number): Promise<{
       };
     }
 
-    const jobServerUrl = process.env.JOB_SERVER_URL || "http://localhost:3001";
-    const response = await fetch(
-      `${jobServerUrl}/api/servers/${serverId}/locations/backfill`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-
-    if (!response.ok) {
-      const data = await response.json();
-      return {
-        success: false,
-        error: data.error || "Failed to start backfill",
-      };
-    }
-
+    await jobServer.triggerGeolocationBackfill(serverId);
     return { success: true };
   } catch (error) {
     console.error("Error triggering backfill:", error);
+    if (error instanceof JobServerError && error.status !== undefined) {
+      return { success: false, error: error.message };
+    }
     return { success: false, error: "Failed to connect to job server" };
   }
 }
@@ -751,26 +739,13 @@ export async function triggerFingerprintRecalculation(
   error?: string;
 }> {
   try {
-    const jobServerUrl = process.env.JOB_SERVER_URL || "http://localhost:3001";
-    const response = await fetch(
-      `${jobServerUrl}/api/servers/${serverId}/fingerprints/recalculate`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-
-    if (!response.ok) {
-      const data = await response.json();
-      return {
-        success: false,
-        error: data.error || "Failed to start recalculation",
-      };
-    }
-
+    await jobServer.triggerFingerprintRecalculation(serverId);
     return { success: true };
   } catch (error) {
     console.error("Error triggering fingerprint recalculation:", error);
+    if (error instanceof JobServerError && error.status !== undefined) {
+      return { success: false, error: error.message };
+    }
     return { success: false, error: "Failed to connect to job server" };
   }
 }
