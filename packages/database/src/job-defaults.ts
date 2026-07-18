@@ -12,6 +12,7 @@ export const CRON_JOB_KEYS = [
   "embeddings-sync",
   "geolocation-sync",
   "fingerprint-sync",
+  "recommendation-sync",
   "job-cleanup",
   "old-job-cleanup",
   "full-sync",
@@ -103,6 +104,15 @@ export const JOB_DEFAULTS: Record<JobKey, JobDefaultConfig> = {
     description: "Calculates user behavioral fingerprints for security",
     defaultCron: "0 4 * * *",
     category: "sync",
+  },
+  "recommendation-sync": {
+    key: "recommendation-sync",
+    type: "cron",
+    label: "Recommendation Sync",
+    description:
+      "Builds the recommendation graph (co-watch, people, and semantic edges) and enriched user taste profiles",
+    defaultCron: "30 4 * * *",
+    category: "ai",
   },
   "job-cleanup": {
     key: "job-cleanup",

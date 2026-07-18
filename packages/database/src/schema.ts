@@ -911,6 +911,100 @@ export const watchlistItems = pgTable(
   ]
 );
 
+// Recommendation graph edges - typed, weighted item-to-item relationships.
+// Built by the job-server "recommendation-sync" job and read by the
+// recommendation engine. Edge types:
+//   co_watched     - users who watched the source also watched the target
+//   shared_people  - items share directors/writers/top-billed actors
+//   embedding      - semantic nearest neighbours from pgvector embeddings
+export const itemEdges = pgTable(
+  "item_edges",
+  {
+    id: serial("id").primaryKey(),
+    serverId: integer("server_id")
+      .notNull()
+      .references(() => servers.id, { onDelete: "cascade" }),
+    sourceItemId: text("source_item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    targetItemId: text("target_item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    edgeType: text("edge_type").notNull(), // co_watched | shared_people | embedding
+    weight: doublePrecision("weight").notNull(), // normalized 0..1
+    metadata: jsonb("metadata").$type<ItemEdgeMetadata>(),
+    computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("item_edges_unique").on(
+      table.serverId,
+      table.sourceItemId,
+      table.targetItemId,
+      table.edgeType
+    ),
+    index("item_edges_source_idx").on(table.serverId, table.sourceItemId),
+    index("item_edges_target_idx").on(table.serverId, table.targetItemId),
+  ]
+);
+
+// Enriched per-user taste profiles - persisted indicators computed by the
+// job-server "recommendation-sync" job. Read by the recommendation engine
+// and the AI chat tools.
+export const userTasteProfiles = pgTable(
+  "user_taste_profiles",
+  {
+    id: serial("id").primaryKey(),
+    serverId: integer("server_id")
+      .notNull()
+      .references(() => servers.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(), // Jellyfin user ID
+
+    // Watch-time + recency weighted centroid of watched item embeddings
+    tasteEmbedding: vector("taste_embedding"),
+
+    // Affinity indicators
+    genreWeights: jsonb("genre_weights").$type<Record<string, number>>(),
+    decadeWeights: jsonb("decade_weights").$type<Record<string, number>>(),
+    peopleAffinities: jsonb("people_affinities").$type<PersonAffinity[]>(),
+
+    // Behavioural indicators
+    preferredRuntimeMins: doublePrecision("preferred_runtime_mins"),
+    ratingAffinity: doublePrecision("rating_affinity"), // avg community rating of watched items
+    noveltyScore: doublePrecision("novelty_score"), // 0 focused .. 1 eclectic
+    completionRate: doublePrecision("completion_rate"), // 0..1 share of started items finished
+    watchedItemCount: integer("watched_item_count").default(0).notNull(),
+    totalWatchSeconds: bigint("total_watch_seconds", { mode: "number" }).default(0).notNull(),
+
+    // Precomputed anchor set for graph traversal: the items that best
+    // represent this user's taste, with per-anchor weights
+    anchorItems: jsonb("anchor_items").$type<AnchorItem[]>(),
+
+    computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("user_taste_profiles_unique").on(table.serverId, table.userId),
+    index("user_taste_profiles_server_idx").on(table.serverId),
+  ]
+);
+
+export interface ItemEdgeMetadata {
+  commonUsers?: number;
+  people?: string[]; // "Name (Director)" style labels
+}
+
+export interface PersonAffinity {
+  id: string;
+  name: string;
+  type: string; // Actor, Director, Writer
+  weight: number;
+}
+
+export interface AnchorItem {
+  itemId: string;
+  weight: number;
+  mediaType: string; // Movie | Series
+}
+
 // Define relationships
 export const serversRelations = relations(servers, ({ many }) => ({
   libraries: many(libraries),
@@ -1152,3 +1246,9 @@ export type NewPerson = typeof people.$inferInsert;
 
 export type ItemPerson = typeof itemPeople.$inferSelect;
 export type NewItemPerson = typeof itemPeople.$inferInsert;
+
+export type ItemEdge = typeof itemEdges.$inferSelect;
+export type NewItemEdge = typeof itemEdges.$inferInsert;
+
+export type UserTasteProfile = typeof userTasteProfiles.$inferSelect;
+export type NewUserTasteProfile = typeof userTasteProfiles.$inferInsert;

@@ -37,6 +37,11 @@ interface RecommendationsSectionProps {
   formatRuntime?: (ticks: number | null) => string | null;
   emptyMessage: string;
   fetchNextPage?: (offset: number) => Promise<RecommendationListItem[]>;
+  /**
+   * When true (default), an unset embedding provider shows a setup prompt.
+   * Graph-based sections work without embeddings, so they pass false.
+   */
+  requiresEmbeddings?: boolean;
 }
 
 export function RecommendationsSection({
@@ -49,6 +54,7 @@ export function RecommendationsSection({
   formatRuntime,
   emptyMessage,
   fetchNextPage,
+  requiresEmbeddings = true,
 }: RecommendationsSectionProps & {
   recommendations: RecommendationListItem[];
 }) {
@@ -170,7 +176,8 @@ export function RecommendationsSection({
             </p>
           </div>
 
-          {!server.embeddingBaseUrl || !server.embeddingModel ? (
+          {requiresEmbeddings &&
+          (!server.embeddingBaseUrl || !server.embeddingModel) ? (
             <div className="flex flex-col gap-2 px-4 pb-4">
               <Link
                 href={`/servers/${server.id}/settings/ai`}
@@ -276,6 +283,11 @@ export function RecommendationsSection({
                                         </>
                                       )}
                                   </p>
+                                  {recommendation.reason && (
+                                    <p className="text-muted-foreground/80 text-[10px] mt-1 italic line-clamp-2">
+                                      {recommendation.reason}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             </Link>

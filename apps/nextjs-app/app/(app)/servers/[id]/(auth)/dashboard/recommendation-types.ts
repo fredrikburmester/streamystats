@@ -30,4 +30,6 @@ export type RecommendationListItem = {
   item: RecommendationCardItem;
   similarity: number;
   basedOn: RecommendationCardItem[];
+  /** Optional explanation of the strongest signal behind this pick */
+  reason?: string | null;
 };

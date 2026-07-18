@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
+exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.userTasteProfiles = exports.itemEdges = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 // Custom vector type that supports variable dimensions
 // This allows storing embeddings of any size without hardcoding dimensions
@@ -657,6 +657,62 @@ exports.watchlistItems = (0, pg_core_1.pgTable)("watchlist_items", {
     (0, pg_core_1.index)("watchlist_items_watchlist_idx").on(table.watchlistId),
     (0, pg_core_1.index)("watchlist_items_item_idx").on(table.itemId),
     (0, pg_core_1.unique)("watchlist_items_unique").on(table.watchlistId, table.itemId),
+]);
+// Recommendation graph edges - typed, weighted item-to-item relationships.
+// Built by the job-server "recommendation-sync" job and read by the
+// recommendation engine. Edge types:
+//   co_watched     - users who watched the source also watched the target
+//   shared_people  - items share directors/writers/top-billed actors
+//   embedding      - semantic nearest neighbours from pgvector embeddings
+exports.itemEdges = (0, pg_core_1.pgTable)("item_edges", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    serverId: (0, pg_core_1.integer)("server_id")
+        .notNull()
+        .references(() => exports.servers.id, { onDelete: "cascade" }),
+    sourceItemId: (0, pg_core_1.text)("source_item_id")
+        .notNull()
+        .references(() => exports.items.id, { onDelete: "cascade" }),
+    targetItemId: (0, pg_core_1.text)("target_item_id")
+        .notNull()
+        .references(() => exports.items.id, { onDelete: "cascade" }),
+    edgeType: (0, pg_core_1.text)("edge_type").notNull(), // co_watched | shared_people | embedding
+    weight: (0, pg_core_1.doublePrecision)("weight").notNull(), // normalized 0..1
+    metadata: (0, pg_core_1.jsonb)("metadata").$type(),
+    computedAt: (0, pg_core_1.timestamp)("computed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    (0, pg_core_1.unique)("item_edges_unique").on(table.serverId, table.sourceItemId, table.targetItemId, table.edgeType),
+    (0, pg_core_1.index)("item_edges_source_idx").on(table.serverId, table.sourceItemId),
+    (0, pg_core_1.index)("item_edges_target_idx").on(table.serverId, table.targetItemId),
+]);
+// Enriched per-user taste profiles - persisted indicators computed by the
+// job-server "recommendation-sync" job. Read by the recommendation engine
+// and the AI chat tools.
+exports.userTasteProfiles = (0, pg_core_1.pgTable)("user_taste_profiles", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    serverId: (0, pg_core_1.integer)("server_id")
+        .notNull()
+        .references(() => exports.servers.id, { onDelete: "cascade" }),
+    userId: (0, pg_core_1.text)("user_id").notNull(), // Jellyfin user ID
+    // Watch-time + recency weighted centroid of watched item embeddings
+    tasteEmbedding: vector("taste_embedding"),
+    // Affinity indicators
+    genreWeights: (0, pg_core_1.jsonb)("genre_weights").$type(),
+    decadeWeights: (0, pg_core_1.jsonb)("decade_weights").$type(),
+    peopleAffinities: (0, pg_core_1.jsonb)("people_affinities").$type(),
+    // Behavioural indicators
+    preferredRuntimeMins: (0, pg_core_1.doublePrecision)("preferred_runtime_mins"),
+    ratingAffinity: (0, pg_core_1.doublePrecision)("rating_affinity"), // avg community rating of watched items
+    noveltyScore: (0, pg_core_1.doublePrecision)("novelty_score"), // 0 focused .. 1 eclectic
+    completionRate: (0, pg_core_1.doublePrecision)("completion_rate"), // 0..1 share of started items finished
+    watchedItemCount: (0, pg_core_1.integer)("watched_item_count").default(0).notNull(),
+    totalWatchSeconds: (0, pg_core_1.bigint)("total_watch_seconds", { mode: "number" }).default(0).notNull(),
+    // Precomputed anchor set for graph traversal: the items that best
+    // represent this user's taste, with per-anchor weights
+    anchorItems: (0, pg_core_1.jsonb)("anchor_items").$type(),
+    computedAt: (0, pg_core_1.timestamp)("computed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    (0, pg_core_1.unique)("user_taste_profiles_unique").on(table.serverId, table.userId),
+    (0, pg_core_1.index)("user_taste_profiles_server_idx").on(table.serverId),
 ]);
 // Define relationships
 exports.serversRelations = (0, drizzle_orm_1.relations)(exports.servers, ({ many }) => ({

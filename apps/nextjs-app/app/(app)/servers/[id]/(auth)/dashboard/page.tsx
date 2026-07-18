@@ -3,24 +3,16 @@ import { Suspense } from "react";
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  getRecentlyAddedItems,
-  getRecentlyAddedSeriesWithEpisodes,
-} from "@/lib/db/recently-added";
+import { getForYouRecommendations } from "@/lib/db/recommendations";
 import { getSeasonalRecommendations } from "@/lib/db/seasonal-recommendations";
 import { getServer } from "@/lib/db/server";
-import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
-import { getSimilarStatistics } from "@/lib/db/similar-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
 import { getMe, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { ActiveSessions } from "./ActiveSessions";
+import { ForYouMovies, ForYouSeries } from "./ForYouSection";
 import { MostWatchedItems } from "./MostWatchedItems";
-import { RecentlyAdded } from "./RecentlyAdded";
-import { RecentlyAddedSeries } from "./RecentlyAddedSeries";
 import { SeasonalRecommendations } from "./SeasonalRecommendations";
-import { SimilarSeriesStatistics } from "./SimilarSeriesStatistics";
-import { SimilarMovieStatistics } from "./SimilarStatistics";
 import { UserLeaderboard } from "./UserLeaderboard";
 
 export default async function DashboardPage({
@@ -68,53 +60,34 @@ async function GeneralStats({ server }: { server: ServerPublic }) {
     getViewerUserId(),
   ]);
 
-  const [
-    similarData,
-    similarSeriesData,
-    data,
-    seasonalData,
-    recentlyAddedMovies,
-    recentlyAddedSeries,
-  ] = await Promise.all([
-    getSimilarStatistics({ serverId: server.id, viewerUserId }),
-    getSimilarSeries({ serverId: server.id, viewerUserId }),
+  const [forYouMovies, forYouSeries, data, seasonalData] = await Promise.all([
+    getForYouRecommendations({
+      serverId: server.id,
+      userId: me?.id,
+      mediaType: "Movie",
+      viewerUserId,
+    }),
+    getForYouRecommendations({
+      serverId: server.id,
+      userId: me?.id,
+      mediaType: "Series",
+      viewerUserId,
+    }),
     getMostWatchedItems({
       serverId: server.id,
       userId: isAdmin ? undefined : me?.id,
       viewerUserId,
     }),
     getSeasonalRecommendations({ serverId: server.id, viewerUserId }),
-    getRecentlyAddedItems(server.id, "Movie", 20, 0, viewerUserId),
-    getRecentlyAddedSeriesWithEpisodes(server.id, 7, 20, 0, viewerUserId),
   ]);
 
   return (
     <div className="flex flex-col gap-6">
-      {/* <ServerSetupMonitor serverId={server.id} serverName={server.name} /> */}
       {seasonalData && (
         <SeasonalRecommendations data={seasonalData} server={server} />
       )}
-      {recentlyAddedMovies.length > 0 && me && (
-        <RecentlyAdded
-          items={recentlyAddedMovies}
-          server={server}
-          itemType="Movie"
-          userId={me.id}
-        />
-      )}
-      {recentlyAddedSeries.length > 0 && me && (
-        <RecentlyAddedSeries
-          items={recentlyAddedSeries}
-          server={server}
-          userId={me.id}
-        />
-      )}
-      {similarData.length > 0 && (
-        <SimilarMovieStatistics data={similarData} server={server} />
-      )}
-      {similarSeriesData.length > 0 && (
-        <SimilarSeriesStatistics data={similarSeriesData} server={server} />
-      )}
+      <ForYouMovies data={forYouMovies} server={server} />
+      <ForYouSeries data={forYouSeries} server={server} />
       <MostWatchedItems data={data} server={server} />
       {isAdmin ? <UserLeaderboard server={server} /> : null}
     </div>

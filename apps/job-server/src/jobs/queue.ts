@@ -20,6 +20,8 @@ import {
   JELLYFIN_JOB_NAMES,
   inferWatchtimeJob,
   INFER_WATCHTIME_JOB_NAME,
+  buildRecommendationGraphJob,
+  RECOMMENDATION_GRAPH_JOB_NAME,
 } from "./workers";
 import {
   securityFullSyncJob,
@@ -114,6 +116,7 @@ async function createQueues(boss: PgBoss) {
     BACKFILL_JOB_NAMES.BACKFILL_JELLYFIN_IDS,
     INFER_WATCHTIME_JOB_NAME,
     SCHEDULER_MAINTENANCE_JOB_NAME,
+    RECOMMENDATION_GRAPH_JOB_NAME,
   ];
 
   for (const name of queueNames) {
@@ -156,6 +159,9 @@ async function registerJobHandlers(boss: PgBoss) {
 
   // Register scheduler maintenance job
   await boss.work(SCHEDULER_MAINTENANCE_JOB_NAME, { batchSize: 1 }, firstJob(schedulerMaintenanceWorker));
+
+  // Register recommendation graph job
+  await boss.work(RECOMMENDATION_GRAPH_JOB_NAME, { batchSize: 1 }, firstJob(buildRecommendationGraphJob));
 
   console.log("[pg-boss] All job handlers registered successfully");
 }

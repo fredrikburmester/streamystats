@@ -12,6 +12,7 @@ import { getJobQueue } from "./queue";
 import { JELLYFIN_JOB_NAMES } from "../jellyfin/workers";
 import { GEOLOCATION_JOB_NAMES } from "./geolocation-jobs";
 import { BACKFILL_JOB_NAMES } from "./server-jobs";
+import { RECOMMENDATION_GRAPH_JOB_NAME } from "./recommendation-graph-job";
 import { cancelJobsByName } from "../routes/jobs/utils";
 import { SCHEDULER_MAINTENANCE_JOB_NAME } from "./scheduler-maintenance";
 
@@ -83,6 +84,11 @@ const SCHEDULER_JOB_CONFIG: Record<JobKey, {
     pgBossName: GEOLOCATION_JOB_NAMES.CALCULATE_FINGERPRINTS,
     buildData: (serverId) => ({ serverId }),
     sendOptions: SEND_OPTIONS.MEDIUM,
+  },
+  "recommendation-sync": {
+    pgBossName: RECOMMENDATION_GRAPH_JOB_NAME,
+    buildData: (serverId) => ({ serverId }),
+    sendOptions: SEND_OPTIONS.LONG,
   },
   "deleted-items-cleanup": null,
   "job-cleanup": null,

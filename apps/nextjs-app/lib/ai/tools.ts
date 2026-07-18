@@ -23,9 +23,11 @@ import {
 import { z } from "zod";
 import { getHistoryByFilters } from "@/lib/db/history";
 import {
-  getSimilarItemsForItem,
-  getSimilarStatistics,
-} from "@/lib/db/similar-statistics";
+  type ForYouRecommendation,
+  getForYouRecommendationsForUser,
+  getTasteProfileSummaryForUser,
+} from "@/lib/db/recommendations-core";
+import { getSimilarItemsForItem } from "@/lib/db/similar-statistics";
 import { getMostWatchedItems } from "@/lib/db/statistics";
 import {
   getUserStatsSummaryForServer,
@@ -306,58 +308,48 @@ export function createChatTools(serverId: number, userId: string) {
 
     getPersonalizedRecommendations: tool({
       description:
-        "Get personalized movie and series recommendations based on user's watch history using AI embeddings. Each recommendation includes a 'reason' field (e.g. 'Because you watched X and Y') and a 'basedOn' array with the watched items that led to this recommendation. Always use this data when presenting recommendations to explain what they're based on.",
+        "Get personalized movie and series recommendations from the recommendation graph: co-watch patterns, shared cast/crew, semantic similarity, and the user's taste profile. Each recommendation includes a 'reason' field (e.g. 'Loved by viewers who watched X') and a 'basedOn' array with the watched items that led to it. Always use this data when presenting recommendations to explain what they're based on.",
       inputSchema: limitTypeSchema,
       execute: async ({ limit, type }: z.infer<typeof limitTypeSchema>) => {
-        const recommendations = await getSimilarStatistics({
-          serverId,
-          userId,
-          limit: limit * 2,
-        });
+        const mediaTypes: Array<"Movie" | "Series"> =
+          type === "all" ? ["Movie", "Series"] : [type];
 
-        const filtered =
-          type === "all"
-            ? recommendations
-            : recommendations.filter((r) => r.item.type === type);
+        const perType = await Promise.all(
+          mediaTypes.map((mediaType) =>
+            getForYouRecommendationsForUser({
+              serverId,
+              userId,
+              mediaType,
+              limit,
+            }),
+          ),
+        );
 
-        const enrichedRecs = filtered.slice(0, limit).map((r) => {
-          const recGenres = new Set(r.item.genres || []);
+        const merged: ForYouRecommendation[] = perType
+          .flat()
+          .sort((a, b) => b.similarity - a.similarity)
+          .slice(0, limit);
+
+        const enrichedRecs = merged.map((r) => {
           const basedOnItems = r.basedOn.slice(0, 3);
+          const baseNames = basedOnItems
+            .map((b) => b.name)
+            .filter((n): n is string => Boolean(n));
 
-          const sharedGenres = basedOnItems.flatMap((b) =>
-            (b.genres || []).filter((g) => recGenres.has(g)),
-          );
-          const uniqueSharedGenres = [...new Set(sharedGenres)];
-
-          let reason = "";
-          if (basedOnItems.length > 0) {
-            const baseNames = basedOnItems.map((b) => b.name);
-            if (basedOnItems.length === 1) {
-              reason = `Because you watched "${baseNames[0]}"`;
-            } else {
-              reason = `Because you watched "${baseNames
-                .slice(0, -1)
-                .join('", "')}" and "${baseNames[baseNames.length - 1]}"`;
-            }
-            if (uniqueSharedGenres.length > 0) {
-              reason += ` (shared: ${uniqueSharedGenres
-                .slice(0, 3)
-                .join(", ")})`;
-            }
-          } else {
-            reason = "Popular on this server";
-          }
+          const fallbackReason =
+            baseNames.length > 0
+              ? `Because you watched ${baseNames.map((n) => `"${n}"`).join(", ")}`
+              : "Matches your taste profile";
 
           return {
             ...formatItem(r.item),
             similarityPercent: Math.round(r.similarity * 100),
-            reason,
+            reason: r.reason ?? fallbackReason,
             basedOn: basedOnItems.map((b) => ({
               name: b.name,
               type: b.type,
               genres: b.genres?.slice(0, 3),
             })),
-            sharedGenres: uniqueSharedGenres.slice(0, 5),
           };
         });
 
@@ -366,7 +358,62 @@ export function createChatTools(serverId: number, userId: string) {
           message:
             enrichedRecs.length > 0
               ? `Found ${enrichedRecs.length} personalized recommendations with reasoning`
-              : "Unable to generate recommendations. Make sure embeddings are configured and you have watch history.",
+              : "Unable to generate recommendations yet. The user needs some watch history; the recommendation graph is rebuilt daily by the recommendation-sync job.",
+        };
+      },
+    }),
+
+    getUserTasteProfile: tool({
+      description:
+        "Get the user's enriched taste profile: top genres and decades with affinity weights, favourite actors/directors/writers, preferred runtime, rating affinity, novelty score (0 = focused taste, 1 = eclectic), completion rate, and the anchor titles that best represent their taste. Use this to answer questions about the user's taste or to ground other answers in their preferences.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const profile = await getTasteProfileSummaryForUser({
+          serverId,
+          userId,
+        });
+        if (!profile) {
+          return {
+            profile: null,
+            message:
+              "No taste profile computed yet. It is built by the daily recommendation-sync job once the user has watch history.",
+          };
+        }
+        return {
+          profile: {
+            topGenres: Object.entries(profile.genreWeights)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 10)
+              .map(([genre, weight]) => ({
+                genre,
+                weight: Number(weight.toFixed(2)),
+              })),
+            topDecades: Object.entries(profile.decadeWeights)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5)
+              .map(([decade, weight]) => ({
+                decade,
+                weight: Number(weight.toFixed(2)),
+              })),
+            favouritePeople: profile.peopleAffinities.slice(0, 10),
+            preferredRuntimeMins: profile.preferredRuntimeMins
+              ? Math.round(profile.preferredRuntimeMins)
+              : null,
+            ratingAffinity: profile.ratingAffinity
+              ? Number(profile.ratingAffinity.toFixed(1))
+              : null,
+            noveltyScore: profile.noveltyScore
+              ? Number(profile.noveltyScore.toFixed(2))
+              : null,
+            completionRate: profile.completionRate
+              ? Number(profile.completionRate.toFixed(2))
+              : null,
+            watchedItemCount: profile.watchedItemCount,
+            totalWatchTime: formatDuration(profile.totalWatchSeconds),
+            anchorTitles: profile.anchorTitles,
+            computedAt: profile.computedAt,
+          },
+          message: "Taste profile retrieved",
         };
       },
     }),
@@ -678,13 +725,27 @@ export function createChatTools(serverId: number, userId: string) {
           };
         }
 
+        const recsForUser = async (targetUserId: string) => {
+          const [movies, series] = await Promise.all([
+            getForYouRecommendationsForUser({
+              serverId,
+              userId: targetUserId,
+              mediaType: "Movie",
+              limit: 30,
+            }),
+            getForYouRecommendationsForUser({
+              serverId,
+              userId: targetUserId,
+              mediaType: "Series",
+              limit: 30,
+            }),
+          ]);
+          return [...movies, ...series];
+        };
+
         const [currentUserRecs, otherUserRecs] = await Promise.all([
-          getSimilarStatistics({ serverId, userId, limit: 50 }),
-          getSimilarStatistics({
-            serverId,
-            userId: otherUser.id,
-            limit: 50,
-          }),
+          recsForUser(userId),
+          recsForUser(otherUser.id),
         ]);
 
         const currentUserRecIds = new Set(

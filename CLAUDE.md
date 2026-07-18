@@ -131,6 +131,7 @@ All data flows from Jellyfin into the database. Streamystats never writes back t
 | `embeddings-sync` | `*/15 * * * *` | Generates AI embeddings (batch: 100 from DB, 20 per API call) |
 | `geolocation-sync` | `*/15 * * * *` | Parses IPs, looks up coordinates via geoip-lite |
 | `fingerprint-sync` | `0 4 * * *` | Calculates user behavioral patterns |
+| `recommendation-sync` | `30 4 * * *` | Builds recommendation graph (co-watch/people/semantic edges) + user taste profiles |
 | `full-sync` | `0 2 * * *` | Complete re-sync of all data |
 | `deleted-items-cleanup` | `0 * * * *` | Removes soft-deleted items older than threshold |
 | `job-cleanup` | `*/1 * * * *` | Resets stuck jobs |
@@ -146,7 +147,7 @@ Sync status tracked on `servers` table: `syncStatus` (pending/syncing/completed/
 
 **Analytics tables**: `activities` (server events), `activityLocations` (geolocated IPs), `userFingerprints` (behavioral patterns), `anomalyEvents` (suspicious activity flags with severity/resolution).
 
-**Feature tables**: `watchlists` + `watchlistItems` (user-created media lists), `hiddenRecommendations`, `people` + `itemPeople` (cast/crew relationships).
+**Feature tables**: `watchlists` + `watchlistItems` (user-created media lists), `hiddenRecommendations`, `people` + `itemPeople` (cast/crew relationships), `itemEdges` (recommendation graph: typed weighted item-item edges — co_watched/shared_people/embedding), `userTasteProfiles` (enriched per-user taste indicators + anchor items).
 
 **System tables**: `jobResults` (execution log), `serverJobConfigurations` (per-server cron overrides), `activeSessions` (durable snapshot of current playback), `activityLogCursors` (pagination state).
 
@@ -179,6 +180,10 @@ For custom migrations without schema changes:
 ```bash
 bunx drizzle-kit generate --custom --name=your_migration_name
 ```
+
+### Recommendation Engine
+
+Graph-backed personalization. The `recommendation-sync` job (job-server, `jobs/recommendation-graph-job.ts`) materializes a graph in PostgreSQL: `itemEdges` with edge types `co_watched` (Jaccard audience overlap, episodes roll up to series), `shared_people` (weighted director/writer/top-billed actor overlap), and `embedding` (pgvector KNN). It also computes `userTasteProfiles` (taste embedding centroid, genre/decade weights, people affinities, rating affinity, novelty, completion rate, anchor items). Query-time scoring lives in `lib/recommendation-engine.ts` (pure, unit-tested) + `lib/db/recommendations-core.ts` (trusted I/O shell): graph traversal from profile anchors blended with taste-vector similarity and profile priors, then diversity re-rank. `lib/db/recommendations.ts` is the session-guarded server-action wrapper for the UI ("For You" dashboard rows); AI chat tools call the trusted core directly. Falls back to the legacy embedding-only engine (`similar-statistics.ts`) until the graph/profile exist.
 
 ### Statistics Exclusions
 
