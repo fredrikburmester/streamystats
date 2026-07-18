@@ -3,6 +3,8 @@
  *
  * - Internal URL: Used for server-to-server requests (job-server, API routes, Next.js Image optimization)
  * - External URL: Used for client browser access (Jellyfin Web UI links)
+ *
+ * This module is dependency-free so it is safe to import from browser bundles.
  */
 
 /**

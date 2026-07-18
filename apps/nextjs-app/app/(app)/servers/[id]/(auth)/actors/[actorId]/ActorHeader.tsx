@@ -1,12 +1,12 @@
 "use client";
 
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { Clock, Film, Play, User } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ActorDetailsResponse } from "@/lib/db/actors";
-import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 

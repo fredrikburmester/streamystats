@@ -1,9 +1,9 @@
 "use client";
 
+import { getInternalUrl } from "@streamystats/database/server-url";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { getInternalUrl } from "@/lib/server-url";
 import type { User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 

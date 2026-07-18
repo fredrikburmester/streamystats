@@ -1,10 +1,10 @@
 import { db, items, users } from "@streamystats/database";
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
 import type { ActiveSession } from "@/lib/db/active-sessions";
 import { getServerWithSecrets } from "@/lib/db/server";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
-import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET(request: Request) {
   // Require valid session to view active sessions

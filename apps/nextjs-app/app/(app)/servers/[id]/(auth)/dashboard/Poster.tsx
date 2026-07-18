@@ -1,10 +1,10 @@
 "use client";
 
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { Film, Tv } from "lucide-react";
 import Image from "next/image";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Blurhash } from "react-blurhash";
-import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 import type { RecommendationCardItem } from "./recommendation-types";
 

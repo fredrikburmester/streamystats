@@ -10,11 +10,11 @@ import {
   sessions,
   users,
 } from "@streamystats/database";
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
-import { getInternalUrl } from "@/lib/server-url";
 import { getSession } from "@/lib/session";
 
 export interface MarkWatchedResult {

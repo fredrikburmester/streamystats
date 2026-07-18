@@ -1,8 +1,8 @@
 import { db, servers } from "@streamystats/database";
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { ilike } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
-import { getInternalUrl } from "@/lib/server-url";
 
 async function getServerByName(name: string) {
   const result = await db

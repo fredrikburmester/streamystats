@@ -1,5 +1,6 @@
 "use client";
 
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,7 +10,6 @@ import type {
   PersonStats,
   PlayCountSortBy,
 } from "@/lib/db/people-stats";
-import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 

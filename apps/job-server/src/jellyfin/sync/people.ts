@@ -9,7 +9,7 @@ import {
 } from "@streamystats/database";
 import { JellyfinClient } from "../client";
 import { formatSyncLogLine } from "./sync-log";
-import { getInternalUrl } from "../../utils/server-url";
+import { getInternalUrl } from "@streamystats/database/server-url";
 
 export interface PeopleSyncJobData {
   serverId: number;

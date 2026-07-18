@@ -2,12 +2,12 @@
 
 import "server-only";
 
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
 import { getServerWithSecrets } from "./db/server";
 import { parseDeviceName } from "./device";
 import { jellyfinHeaders } from "./jellyfin-auth";
-import { getInternalUrl } from "./server-url";
 import { createSession } from "./session";
 
 export const login = async ({

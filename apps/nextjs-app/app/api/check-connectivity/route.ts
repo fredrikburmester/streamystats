@@ -1,9 +1,9 @@
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { getServersWithSecrets } from "@/lib/db/server";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
-import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET() {
   const { error } = await requireSession();

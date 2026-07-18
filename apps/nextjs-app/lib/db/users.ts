@@ -3,6 +3,7 @@
 import "server-only";
 
 import { db, items, sessions, type User, users } from "@streamystats/database";
+import { getInternalUrl } from "@streamystats/database/server-url";
 import {
   and,
   eq,
@@ -16,7 +17,6 @@ import {
 } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
-import { getInternalUrl } from "../server-url";
 import { destroySession, getSession } from "../session";
 import { getStatisticsExclusions } from "./exclusions";
 import { isBetterDisplayName, normalizeGenre } from "./genres";

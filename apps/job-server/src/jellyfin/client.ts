@@ -3,7 +3,7 @@ import Bottleneck from "bottleneck";
 import pRetry from "p-retry";
 import { Server } from "@streamystats/database";
 import { JellyfinSession } from "./types";
-import { getInternalUrl } from "../utils/server-url";
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { STREAMYSTATS_VERSION } from "../jobs/server-jobs";
 
 export interface JellyfinConfig {

@@ -4,10 +4,10 @@ import "server-only";
 
 import type { Server } from "@streamystats/database";
 import { db, servers, users } from "@streamystats/database";
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { jellyfinHeaders } from "./jellyfin-auth";
-import { getInternalUrl } from "./server-url";
 import { getSession, type SessionUser } from "./session";
 
 /**

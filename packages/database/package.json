@@ -52,6 +52,10 @@
     "./job-defaults": {
       "types": "./dist/job-defaults.d.ts",
       "default": "./dist/job-defaults.js"
+    },
+    "./server-url": {
+      "types": "./dist/server-url.d.ts",
+      "default": "./dist/server-url.js"
     }
   }
 }

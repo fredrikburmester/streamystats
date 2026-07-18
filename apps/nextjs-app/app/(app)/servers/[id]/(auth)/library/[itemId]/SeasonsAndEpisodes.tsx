@@ -1,6 +1,7 @@
 "use client";
 
 import type { Item } from "@streamystats/database/schema";
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { Calendar, Clock, Play, Tv } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,7 +15,6 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SeasonEpisode } from "@/lib/db/items";
-import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 

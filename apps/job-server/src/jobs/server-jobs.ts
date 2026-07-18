@@ -3,7 +3,7 @@ import axios from "axios";
 import { eq, isNull } from "drizzle-orm";
 import { logJobResult } from "./job-logger";
 import { structuredLog as log } from "../utils/structured-log";
-import { getInternalUrl } from "../utils/server-url";
+import { getInternalUrl } from "@streamystats/database/server-url";
 import type { PgBossJob, AddServerJobData } from "../types/job-status";
 
 export const BACKFILL_JOB_NAMES = {

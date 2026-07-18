@@ -1,10 +1,10 @@
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { basePath } from "@/lib/utils";
 import { getServer, getServers } from "./lib/db/server";
 import { jellyfinHeaders } from "./lib/jellyfin-auth";
-import { getInternalUrl } from "./lib/server-url";
 
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",

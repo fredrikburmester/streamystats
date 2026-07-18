@@ -1,5 +1,6 @@
 "use client";
 
+import { getInternalUrl } from "@streamystats/database/server-url";
 import { Clapperboard, PenTool, User, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,7 +8,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { PersonFromDb } from "@/lib/db/actor-types";
-import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 
 interface CastSectionProps {
