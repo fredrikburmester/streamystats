@@ -1,3 +1,5 @@
+import { formatLogTimestamp } from "../../utils/log-timestamp";
+
 type SyncLogBaseFields = {
   server: string;
   page: number;
@@ -32,7 +34,7 @@ function formatValue(value: SyncLogExtraValue): string {
 }
 
 export function formatSyncLogLine(prefix: string, fields: SyncLogFields): string {
-  const parts: string[] = [new Date().toISOString(), `[${prefix}]`];
+  const parts: string[] = [formatLogTimestamp(), `[${prefix}]`];
 
   for (const key of BASE_KEY_ORDER) {
     parts.push(`${key}=${formatValue(fields[key])}`);
