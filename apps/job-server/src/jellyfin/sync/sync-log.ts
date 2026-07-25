@@ -32,7 +32,7 @@ function formatValue(value: SyncLogExtraValue): string {
 }
 
 export function formatSyncLogLine(prefix: string, fields: SyncLogFields): string {
-  const parts: string[] = [`[${prefix}]`];
+  const parts: string[] = [new Date().toISOString(), `[${prefix}]`];
 
   for (const key of BASE_KEY_ORDER) {
     parts.push(`${key}=${formatValue(fields[key])}`);
