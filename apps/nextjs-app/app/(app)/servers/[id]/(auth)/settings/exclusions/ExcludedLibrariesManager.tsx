@@ -64,7 +64,9 @@ export function ExcludedLibrariesManager({
     });
   };
 
-  const excludedCount = excludedLibraryIds.length;
+  const excludedCount = libraries.filter((library) =>
+    excludedLibraryIds.includes(library.id),
+  ).length;
 
   return (
     <Card>

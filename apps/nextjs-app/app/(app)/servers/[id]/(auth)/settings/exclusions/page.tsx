@@ -22,7 +22,7 @@ export default async function ExclusionsSettings(props: {
 
   const [users, libraries] = await Promise.all([
     getUsers({ serverId: server.id }),
-    getLibraries({ serverId: server.id }),
+    getLibraries({ serverId: server.id, includeExcluded: true }),
   ]);
 
   return (
