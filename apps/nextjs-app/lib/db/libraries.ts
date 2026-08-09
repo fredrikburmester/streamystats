@@ -7,14 +7,18 @@ import { getStatisticsExclusions } from "./exclusions";
 export const getLibraries = async ({
   serverId,
   userId,
-  includeExcluded = false,
+  includeStatisticsExcluded = false,
 }: {
   serverId: number;
   userId?: string;
-  /** When true, skip statistics exclusion filters (needed for the exclusions manager UI). */
-  includeExcluded?: boolean;
+  /**
+   * When true, skip only the library filters from `getStatisticsExclusions`
+   * (server excludedLibraryIds / user folder allowlist). Other query constraints
+   * are unchanged. Intended for the statistics exclusions manager UI.
+   */
+  includeStatisticsExcluded?: boolean;
 }) => {
-  if (includeExcluded) {
+  if (includeStatisticsExcluded) {
     return await db.query.libraries.findMany({
       where: eq(libraries.serverId, serverId),
     });
