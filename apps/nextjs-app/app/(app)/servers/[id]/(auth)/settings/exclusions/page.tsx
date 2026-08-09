@@ -22,7 +22,8 @@ export default async function ExclusionsSettings(props: {
 
   const [users, libraries] = await Promise.all([
     getUsers({ serverId: server.id }),
-    getLibraries({ serverId: server.id }),
+    // Skip statistics exclusion filters so excluded libraries remain manageable
+    getLibraries({ serverId: server.id, includeStatisticsExcluded: true }),
   ]);
 
   return (
