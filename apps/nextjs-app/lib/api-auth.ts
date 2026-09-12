@@ -281,6 +281,34 @@ export async function requireApiKey({
   return null;
 }
 
+function getServerAccessError({
+  sessionServerId,
+  expectedServerId,
+}: {
+  sessionServerId: number;
+  expectedServerId?: number | string;
+}): Response | null {
+  if (expectedServerId === undefined) return null;
+
+  // Accept only decimal IDs so Number() and downstream parseInt() agree.
+  const isDecimalId =
+    typeof expectedServerId === "number" ||
+    (typeof expectedServerId === "string" && /^\d+$/.test(expectedServerId));
+  const expectedId = isDecimalId ? Number(expectedServerId) : NaN;
+  if (
+    Number.isSafeInteger(expectedId) &&
+    expectedId > 0 &&
+    sessionServerId === expectedId
+  ) {
+    return null;
+  }
+
+  return Response.json(
+    { error: "Forbidden", message: "Access denied for this server." },
+    { status: 403 },
+  );
+}
+
 /**
  * Requires a valid signed session cookie for API routes.
  * Returns null if valid, Response object with 401 if invalid.
@@ -317,26 +345,11 @@ export async function requireSession(
     };
   }
 
-  if (expectedServerId !== undefined && expectedServerId !== null) {
-    const expectedId = Number(expectedServerId);
-    if (!Number.isNaN(expectedId) && Number(session.serverId) !== expectedId) {
-      return {
-        error: new Response(
-          JSON.stringify({
-            error: "Forbidden",
-            message: "Access denied for this server.",
-          }),
-          {
-            status: 403,
-            headers: {
-              "Content-Type": "application/json",
-            },
-          },
-        ),
-        session: null,
-      };
-    }
-  }
+  const error = getServerAccessError({
+    sessionServerId: session.serverId,
+    expectedServerId,
+  });
+  if (error) return { error, session: null };
 
   return { error: null, session };
 }
@@ -394,29 +407,11 @@ export async function requireAuth(
     };
   }
 
-  if (expectedServerId !== undefined && expectedServerId !== null) {
-    const expectedId = Number(expectedServerId);
-    if (
-      !Number.isNaN(expectedId) &&
-      Number(sessionUser.serverId) !== expectedId
-    ) {
-      return {
-        error: new Response(
-          JSON.stringify({
-            error: "Forbidden",
-            message: "Access denied for this server.",
-          }),
-          {
-            status: 403,
-            headers: {
-              "Content-Type": "application/json",
-            },
-          },
-        ),
-        session: null,
-      };
-    }
-  }
+  const error = getServerAccessError({
+    sessionServerId: sessionUser.serverId,
+    expectedServerId,
+  });
+  if (error) return { error, session: null };
 
   return { error: null, session: sessionUser };
 }
