@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.19.0](https://github.com/fredrikburmester/streamystats/compare/v2.18.1...v2.19.0) (2026-09-12)
+
+
+### Features
+
+* add Jellyfin 12 support ([#568](https://github.com/fredrikburmester/streamystats/issues/568)) ([4a56b84](https://github.com/fredrikburmester/streamystats/commit/4a56b84b4aa9c482bf704433975e262fdf128a12))
+* add UTC timestamps to job-server log lines ([#552](https://github.com/fredrikburmester/streamystats/issues/552)) ([50c35a3](https://github.com/fredrikburmester/streamystats/commit/50c35a3db996c4d8be0330f8158c7964ed93ed40))
+* **ai:** people and character search tool ([#530](https://github.com/fredrikburmester/streamystats/issues/530)) ([80e9b5c](https://github.com/fredrikburmester/streamystats/commit/80e9b5c6fb43c076a88848cac221ca11f1273234))
+* create SECURITY.md ([#531](https://github.com/fredrikburmester/streamystats/issues/531)) ([13bb4ec](https://github.com/fredrikburmester/streamystats/commit/13bb4ec7fbb40723e618d9fdceebf02877d4ac70))
+* **jellyfin:** add tag synchronization support ([#529](https://github.com/fredrikburmester/streamystats/issues/529)) ([60bf080](https://github.com/fredrikburmester/streamystats/commit/60bf08046598d90a0a3f44ff86e44c40a0df7fcf))
+
+
+### Bug Fixes
+
+* allow postgres to shut down cleanly in AIO container ([#551](https://github.com/fredrikburmester/streamystats/issues/551)) ([cf6d9a1](https://github.com/fredrikburmester/streamystats/commit/cf6d9a14d633621676e994959e9e3a2225081dc2))
+* keep excluded libraries visible in exclusions manager ([#557](https://github.com/fredrikburmester/streamystats/issues/557)) ([83951b2](https://github.com/fredrikburmester/streamystats/commit/83951b21495b5fa0db4a9a52696685e219971c0b))
+* prevent job-server spin loop and memory leak on database failure ([#570](https://github.com/fredrikburmester/streamystats/issues/570)) ([d193926](https://github.com/fredrikburmester/streamystats/commit/d19392614314229182d1336ac4d96392079a4421))
+* specify user and database in AIO postgres healthcheck ([#550](https://github.com/fredrikburmester/streamystats/issues/550)) ([9e1fecf](https://github.com/fredrikburmester/streamystats/commit/9e1fecf63af855c26bc64c44a36b9ca9c4cfde60))
+* use internal url for all server-to-server jellyfin communication ([#541](https://github.com/fredrikburmester/streamystats/issues/541)) ([4b12c03](https://github.com/fredrikburmester/streamystats/commit/4b12c0385e71472ee5c4168dda9eb10d2207676d))
+
 ## [2.18.1](https://github.com/fredrikburmester/streamystats/compare/v2.18.0...v2.18.1) (2026-06-10)
 
 
