@@ -94,3 +94,8 @@ apps/job-server/dist/
 .claude
 .cursor
 .mcp.json
+
+# Local dev stack (docker/dev)
+docker/dev/.stack.env
+docker/dev/jellyfin/.state.env
+docker/dev/jellyfin/media/

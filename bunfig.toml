@@ -1,0 +1,4 @@
+[install]
+# Hoisted layout keeps a single drizzle-orm copy shared by the database package and both apps,
+# otherwise TypeScript sees two declarations of the same drizzle types and typecheck fails.
+linker = "hoisted"

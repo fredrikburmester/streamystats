@@ -47,6 +47,11 @@ Recommendations use vector similarity (cosine distance) to find content similar 
 
 ## Getting started
 
+### Supported Jellyfin versions
+
+Streamystats uses only Jellyfin's current REST API with `Authorization: MediaBrowser` headers, so it keeps working on servers that have legacy authorization disabled. It is tested against Jellyfin 12.0 and 10.11; 10.10.7, the oldest release Jellyfin supports upgrading from, should work as well.
+
+
 > Playback reporting plugin is no longer needed and Streamystats solely relies on the Jellyfin API for statistics.
 
 ### Docker

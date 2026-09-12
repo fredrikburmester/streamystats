@@ -1,6 +1,8 @@
 import {
   db,
   activeSessions,
+  items,
+  mediaSources,
   servers,
   sessions,
   users,
@@ -18,6 +20,11 @@ import {
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { formatError } from "../utils/format-error";
 import { structuredLog as log } from "../utils/structured-log";
+import {
+  resolveSessionItemId,
+  type ResolvedSessionItem,
+  type SessionItemLookups,
+} from "./session-item-resolver";
 
 // ============================================================================
 // Configuration (hardcoded - no per-server customization for interval)
@@ -208,7 +215,7 @@ class SessionPoller {
     const changes = this.detectSessionChanges(filteredSessions, trackedSessions);
 
     // Handle new sessions
-    const newTracked = this.handleNewSessions(server, changes.newSessions);
+    const newTracked = await this.handleNewSessions(server, changes.newSessions);
     const mergedSessions = new Map([...trackedSessions, ...newTracked]);
 
     // Handle updated sessions
@@ -235,10 +242,10 @@ class SessionPoller {
     }
   }
 
-  private handleNewSessions(
+  private async handleNewSessions(
     server: Server,
     newSessions: JellyfinSession[]
-  ): Map<string, TrackedSession> {
+  ): Promise<Map<string, TrackedSession>> {
     const now = new Date();
     const tracked = new Map<string, TrackedSession>();
 
@@ -249,6 +256,7 @@ class SessionPoller {
       const playState = session.PlayState || {};
       const transcodingInfo = session.TranscodingInfo;
       const isPaused = playState.IsPaused || false;
+      const resolvedItem = await this.resolveNowPlayingItem(server, session);
 
       const record: TrackedSession = {
         sessionKey,
@@ -257,7 +265,8 @@ class SessionPoller {
         clientName: session.Client,
         deviceId: session.DeviceId,
         deviceName: session.DeviceName,
-        itemId: item.Id,
+        itemId: resolvedItem.itemId,
+        jellyfinItemId: item.Id,
         itemName: item.Name,
         seriesId: item.SeriesId,
         seriesName: item.SeriesName,
@@ -327,8 +336,9 @@ class SessionPoller {
       const currentItemId = item?.Id || "";
       const currentPosition = playState.PositionTicks || 0;
 
-      // Detect item change or position reset (new playback)
-      const itemChanged = currentItemId !== tracked.itemId;
+      // Detect item change or position reset (new playback). Compare against the id
+      // Jellyfin reports, which differs from the stored item for alternate versions.
+      const itemChanged = currentItemId !== (tracked.jellyfinItemId ?? tracked.itemId);
       const positionReset =
         tracked.positionTicks > 600_000_000 &&
         currentPosition < 100_000_000 &&
@@ -350,7 +360,7 @@ class SessionPoller {
         }
 
         // Start new tracking
-        const newTracked = this.createTrackedSession(session, now);
+        const newTracked = await this.createTrackedSession(server, session, now);
         if (!newTracked) continue;
         log("session", {
           action: "new",
@@ -460,11 +470,16 @@ class SessionPoller {
     return trackedSessions;
   }
 
-  private createTrackedSession(session: JellyfinSession, now: Date): TrackedSession | null {
+  private async createTrackedSession(
+    server: Server,
+    session: JellyfinSession,
+    now: Date
+  ): Promise<TrackedSession | null> {
     const item = session.NowPlayingItem;
     if (!item) return null; // Safety check
     const playState = session.PlayState || {};
     const transcodingInfo = session.TranscodingInfo;
+    const resolvedItem = await this.resolveNowPlayingItem(server, session);
 
     return {
       sessionKey: this.generateSessionKey(session),
@@ -473,7 +488,8 @@ class SessionPoller {
       clientName: session.Client,
       deviceId: session.DeviceId,
       deviceName: session.DeviceName,
-      itemId: item.Id,
+      itemId: resolvedItem.itemId,
+      jellyfinItemId: item.Id,
       itemName: item.Name,
       seriesId: item.SeriesId,
       seriesName: item.SeriesName,
@@ -511,6 +527,74 @@ class SessionPoller {
       transcodingHardwareAccelerationType: transcodingInfo?.HardwareAccelerationType,
       transcodeReasons: transcodingInfo?.TranscodeReasons,
     };
+  }
+
+  /**
+   * Alternate versions (movies on every Jellyfin release, episodes since 12)
+   * are hidden items whose ids never appear in library listings; map them to
+   * the listed item so the playback record satisfies the items foreign key.
+   */
+  private async resolveNowPlayingItem(
+    server: Server,
+    session: JellyfinSession
+  ): Promise<ResolvedSessionItem> {
+    const item = session.NowPlayingItem;
+    if (!item) return { itemId: "", resolvedVia: "unresolved" };
+
+    const lookups: SessionItemLookups = {
+      itemExists: async (itemId) => {
+        const rows = await db
+          .select({ id: items.id })
+          .from(items)
+          .where(and(eq(items.id, itemId), eq(items.serverId, server.id)))
+          .limit(1);
+        return rows.length > 0;
+      },
+      itemIdForMediaSource: async (mediaSourceId) => {
+        const rows = await db
+          .select({ itemId: mediaSources.itemId })
+          .from(mediaSources)
+          .where(
+            and(eq(mediaSources.id, mediaSourceId), eq(mediaSources.serverId, server.id))
+          )
+          .limit(1);
+        return rows[0]?.itemId ?? null;
+      },
+      fetchMediaSourceIds: async (itemId) => {
+        try {
+          const client = JellyfinClient.fromServer(server);
+          return await client.getItemMediaSourceIds(itemId, session.UserId);
+        } catch (err) {
+          log("session", {
+            action: "version-lookup-failed",
+            serverId: server.id,
+            itemId,
+            error: formatError(err),
+          });
+          return [];
+        }
+      },
+    };
+
+    const resolved = await resolveSessionItemId({
+      nowPlayingItemId: item.Id,
+      mediaSourceId: session.PlayState?.MediaSourceId,
+      lookups,
+    });
+
+    if (resolved.resolvedVia !== "item") {
+      log("session", {
+        action: resolved.resolvedVia === "unresolved" ? "item-unresolved" : "item-resolved",
+        serverId: server.id,
+        user: session.UserName,
+        content: item.Name,
+        nowPlayingItemId: item.Id,
+        itemId: resolved.itemId,
+        via: resolved.resolvedVia,
+      });
+    }
+
+    return resolved;
   }
 
   // ============================================================================
@@ -591,6 +675,7 @@ class SessionPoller {
           rawData: {
             sessionKey: tracked.sessionKey,
             transcodeReasons: tracked.transcodeReasons,
+            nowPlayingItemId: tracked.jellyfinItemId ?? tracked.itemId,
           },
         };
 

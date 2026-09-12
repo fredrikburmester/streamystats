@@ -118,7 +118,7 @@ export async function markItemWatched(
   try {
     const method = watched ? "POST" : "DELETE";
     const response = await fetch(
-      `${getInternalUrl(server)}/Users/${session.id}/PlayedItems/${itemId}`,
+      `${getInternalUrl(server)}/UserPlayedItems/${itemId}?userId=${encodeURIComponent(session.id)}`,
       {
         method,
         headers: jellyfinHeaders(token),

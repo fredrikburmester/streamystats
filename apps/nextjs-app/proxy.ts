@@ -272,7 +272,7 @@ const validateJellyfinToken = async (
       };
     }
 
-    if (jellyfinUser.IsDisabled) {
+    if (jellyfinUser.Policy?.IsDisabled) {
       return {
         type: ResultType.Error,
         error: "User account is disabled on Jellyfin server",

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db, users, Server, NewUser } from "@streamystats/database";
+import { db, users, Server } from "@streamystats/database";
 import { JellyfinClient, JellyfinUser } from "../client";
 import {
   SyncMetricsTracker,
@@ -9,6 +9,7 @@ import {
 import pMap from "p-map";
 import { formatSyncLogLine } from "./sync-log";
 import { formatError } from "../../utils/format-error";
+import { mapJellyfinUser } from "./user-mapping";
 
 export interface UserSyncOptions {
   batchSize?: number;
@@ -159,55 +160,7 @@ async function processUser(
 
   const isNewUser = existingUser.length === 0;
 
-  const userData: NewUser = {
-    id: jellyfinUser.Id,
-    name: jellyfinUser.Name,
-    serverId,
-    lastLoginDate: jellyfinUser.LastLoginDate
-      ? new Date(jellyfinUser.LastLoginDate)
-      : null,
-    lastActivityDate: jellyfinUser.LastActivityDate
-      ? new Date(jellyfinUser.LastActivityDate)
-      : null,
-    hasPassword: jellyfinUser.HasPassword,
-    hasConfiguredPassword: jellyfinUser.HasConfiguredPassword,
-    hasConfiguredEasyPassword: jellyfinUser.HasConfiguredEasyPassword,
-    enableAutoLogin: jellyfinUser.EnableAutoLogin,
-    isAdministrator: jellyfinUser.IsAdministrator,
-    isHidden: jellyfinUser.IsHidden,
-    isDisabled: jellyfinUser.IsDisabled,
-    enableUserPreferenceAccess: jellyfinUser.EnableUserPreferenceAccess,
-    enableRemoteControlOfOtherUsers:
-      jellyfinUser.EnableRemoteControlOfOtherUsers,
-    enableSharedDeviceControl: jellyfinUser.EnableSharedDeviceControl,
-    enableRemoteAccess: jellyfinUser.EnableRemoteAccess,
-    enableLiveTvManagement: jellyfinUser.EnableLiveTvManagement,
-    enableLiveTvAccess: jellyfinUser.EnableLiveTvAccess,
-    enableMediaPlayback: jellyfinUser.EnableMediaPlayback,
-    enableAudioPlaybackTranscoding: jellyfinUser.EnableAudioPlaybackTranscoding,
-    enableVideoPlaybackTranscoding: jellyfinUser.EnableVideoPlaybackTranscoding,
-    enablePlaybackRemuxing: jellyfinUser.EnablePlaybackRemuxing,
-    enableContentDeletion: jellyfinUser.EnableContentDeletion,
-    enableContentDownloading: jellyfinUser.EnableContentDownloading,
-    enableSyncTranscoding: jellyfinUser.EnableSyncTranscoding,
-    enableMediaConversion: jellyfinUser.EnableMediaConversion,
-    enableAllDevices: jellyfinUser.EnableAllDevices,
-    enableAllChannels: jellyfinUser.EnableAllChannels,
-    enableAllFolders: jellyfinUser.EnableAllFolders,
-    enabledFolders:
-      jellyfinUser.EnabledFolders ??
-      jellyfinUser.Policy?.EnabledFolders ??
-      [],
-    enablePublicSharing: jellyfinUser.EnablePublicSharing,
-    invalidLoginAttemptCount: jellyfinUser.InvalidLoginAttemptCount,
-    loginAttemptsBeforeLockout: jellyfinUser.LoginAttemptsBeforeLockout,
-    maxActiveSessions: jellyfinUser.MaxActiveSessions,
-    remoteClientBitrateLimit: jellyfinUser.RemoteClientBitrateLimit,
-    authenticationProviderId: jellyfinUser.AuthenticationProviderId,
-    passwordResetProviderId: jellyfinUser.PasswordResetProviderId,
-    syncPlayAccess: jellyfinUser.SyncPlayAccess,
-    updatedAt: new Date(),
-  };
+  const userData = mapJellyfinUser(jellyfinUser, serverId);
 
   // Upsert user (insert or update if exists)
   await db

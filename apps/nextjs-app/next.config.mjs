@@ -4,6 +4,9 @@ const nextConfig = {
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
   deploymentId: process.env.DEPLOYMENT_ID,
   cacheComponents: true,
+  // Next 16.3 writes agent rule files into the app dir on dev start; the repo
+  // keeps its own guidance for coding agents at the root instead.
+  agentRules: false,
   images: {
     dangerouslyAllowLocalIP: true,
     // Broad remote patterns are required because Jellyfin servers are

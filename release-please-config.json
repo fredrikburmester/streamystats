@@ -4,30 +4,65 @@
     ".": {
       "release-type": "node",
       "package-name": "streamystats-v2",
-      "extra-files": ["CHANGELOG.md",
-        {
-          "type": "generic",
-          "path": "apps/job-server/src/jobs/server-jobs.ts"
-        },
-        {
-          "type": "generic",
-          "path": "apps/nextjs-app/lib/jellyfin-auth.ts"
-        }
+      "extra-files": [
+        "CHANGELOG.md"
       ],
       "include-v-in-tag": true,
       "changelog-sections": [
-        {"type": "feat", "section": "Features"},
-        {"type": "fix", "section": "Bug Fixes"},
-        {"type": "perf", "section": "Performance Improvements"},
-        {"type": "deps", "section": "Dependencies"},
-        {"type": "revert", "section": "Reverts"},
-        {"type": "docs", "section": "Documentation"},
-        {"type": "style", "section": "Styles", "hidden": true},
-        {"type": "chore", "section": "Miscellaneous Chores", "hidden": true},
-        {"type": "refactor", "section": "Code Refactoring", "hidden": true},
-        {"type": "test", "section": "Tests", "hidden": true},
-        {"type": "build", "section": "Build System", "hidden": true},
-        {"type": "ci", "section": "Continuous Integration", "hidden": true}
+        {
+          "type": "feat",
+          "section": "Features"
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes"
+        },
+        {
+          "type": "perf",
+          "section": "Performance Improvements"
+        },
+        {
+          "type": "deps",
+          "section": "Dependencies"
+        },
+        {
+          "type": "revert",
+          "section": "Reverts"
+        },
+        {
+          "type": "docs",
+          "section": "Documentation"
+        },
+        {
+          "type": "style",
+          "section": "Styles",
+          "hidden": true
+        },
+        {
+          "type": "chore",
+          "section": "Miscellaneous Chores",
+          "hidden": true
+        },
+        {
+          "type": "refactor",
+          "section": "Code Refactoring",
+          "hidden": true
+        },
+        {
+          "type": "test",
+          "section": "Tests",
+          "hidden": true
+        },
+        {
+          "type": "build",
+          "section": "Build System",
+          "hidden": true
+        },
+        {
+          "type": "ci",
+          "section": "Continuous Integration",
+          "hidden": true
+        }
       ]
     },
     "apps/nextjs-app": {

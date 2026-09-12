@@ -15,6 +15,7 @@ import {
 } from "@/lib/db/similar-statistics";
 import { getMe, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 import { getToken } from "@/lib/token";
 import { CastSection } from "./CastSection";
 import { ItemHeader } from "./ItemHeader";
@@ -30,7 +31,7 @@ async function getItemPlayedStatus(
 ): Promise<boolean> {
   try {
     const response = await fetch(
-      `${serverUrl}/Users/${userId}/Items/${itemId}`,
+      `${serverUrl}/Items/${itemId}?userId=${encodeURIComponent(userId)}`,
       {
         headers: jellyfinHeaders(token),
         signal: AbortSignal.timeout(5000),
@@ -78,10 +79,9 @@ export default async function ItemDetailsPage({
   }
 
   // Fetch played status from Jellyfin
-  const isPlayed =
-    token && server.url
-      ? await getItemPlayedStatus(server.url, token, me.id, itemId)
-      : false;
+  const isPlayed = token
+    ? await getItemPlayedStatus(getInternalUrl(server), token, me.id, itemId)
+    : false;
 
   // Get similar items based on the specific item (not user-based)
   let similarItems: Array<RecommendationItem | SeriesRecommendationItem> = [];
