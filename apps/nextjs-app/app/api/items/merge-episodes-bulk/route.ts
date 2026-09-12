@@ -87,7 +87,7 @@ async function mergeSingleEpisode(
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
+    const { error, session } = await requireAdmin();
     if (error) return error;
 
     const body = await request.json();
@@ -166,6 +166,13 @@ export async function POST(request: Request) {
         }
 
         const { serverId } = deletedEpisode[0];
+        if (session.serverId !== serverId) {
+          errors.push(
+            `Episode ${pair.deletedEpisodeId} does not belong to your server`,
+          );
+          continue;
+        }
+
         if (serverId !== activeEpisode[0].serverId) {
           errors.push(
             `Episodes ${pair.deletedEpisodeId} and ${pair.activeEpisodeId} are from different servers`,

@@ -130,10 +130,6 @@ interface JellystatsSession {
 
 export async function POST(req: NextRequest) {
   try {
-    // Require admin for data import
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const url = new URL(req.url);
     const serverId = url.searchParams.get("serverId");
 
@@ -148,6 +144,10 @@ export async function POST(req: NextRequest) {
     if (Number.isNaN(serverIdNum)) {
       return NextResponse.json({ error: "Invalid server ID" }, { status: 400 });
     }
+
+    // Require admin for data import on this server
+    const { error } = await requireAdmin(serverIdNum);
+    if (error) return error;
 
     if (!req.body) {
       return NextResponse.json({ error: "No body provided" }, { status: 400 });

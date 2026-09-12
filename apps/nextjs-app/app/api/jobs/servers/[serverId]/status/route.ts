@@ -5,10 +5,10 @@ export async function GET(
   props: { params: Promise<{ serverId: string }> },
 ) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const { serverId } = await props.params;
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     const jobServerUrl =
       process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"

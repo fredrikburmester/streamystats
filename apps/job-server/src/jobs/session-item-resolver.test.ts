@@ -95,7 +95,7 @@ describe("resolveSessionItemId", () => {
     expect(result).toEqual({ itemId: LISTED_MOVIE, resolvedVia: "jellyfin" });
   });
 
-  test("returns the original id unchanged when nothing matches", async () => {
+  test("returns null when nothing matches", async () => {
     const lookups = fakeLookups({});
 
     const result = await resolveSessionItemId({
@@ -105,7 +105,7 @@ describe("resolveSessionItemId", () => {
     });
 
     expect(result).toEqual({
-      itemId: HIDDEN_720P_VERSION,
+      itemId: null,
       resolvedVia: "unresolved",
     });
     expect(lookups.calls).toContain(`remote:${HIDDEN_720P_VERSION}`);
@@ -122,5 +122,6 @@ describe("resolveSessionItemId", () => {
     });
 
     expect(result.resolvedVia).toBe("unresolved");
+    expect(result.itemId).toBeNull();
   });
 });

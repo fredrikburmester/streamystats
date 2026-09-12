@@ -14,6 +14,7 @@ import {
   isNotNull,
   isNull,
 } from "drizzle-orm";
+import { getSession } from "@/lib/session";
 import { getStatisticsExclusions } from "./exclusions";
 import type {
   RecentlyAddedEpisode,
@@ -60,11 +61,17 @@ export async function getRecentlyAddedItems(
   offset = 0,
   viewerUserId?: string,
 ): Promise<RecentlyAddedItem[]> {
+  const session = await getSession();
   const serverIdNum = Number(serverId);
+  if (!session || session.serverId !== serverIdNum) {
+    return [];
+  }
+
+  const effectiveViewerUserId = session.isAdmin ? viewerUserId : session.id;
 
   const { itemLibraryExclusion } = await getStatisticsExclusions(
     serverIdNum,
-    viewerUserId,
+    effectiveViewerUserId,
   );
 
   const results = await db
@@ -97,12 +104,18 @@ export async function getRecentlyAddedSeriesWithEpisodes(
   offset = 0,
   viewerUserId?: string,
 ): Promise<RecentlyAddedSeriesGroup[]> {
+  const session = await getSession();
   const serverIdNum = Number(serverId);
+  if (!session || session.serverId !== serverIdNum) {
+    return [];
+  }
+
+  const effectiveViewerUserId = session.isAdmin ? viewerUserId : session.id;
   const thresholdDate = new Date();
   thresholdDate.setDate(thresholdDate.getDate() - days);
 
   const { itemLibraryExclusion: libraryExclusion } =
-    await getStatisticsExclusions(serverIdNum, viewerUserId);
+    await getStatisticsExclusions(serverIdNum, effectiveViewerUserId);
 
   // 1. Get recently added episodes grouped by series
   const recentEpisodes = await db

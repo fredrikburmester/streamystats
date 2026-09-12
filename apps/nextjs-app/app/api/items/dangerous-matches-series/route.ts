@@ -42,9 +42,6 @@ interface SeriesGroup {
 
 export async function GET(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const url = new URL(request.url);
     const serverId = url.searchParams.get("serverId");
 
@@ -60,6 +57,9 @@ export async function GET(request: Request) {
         },
       );
     }
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     const serverIdNum = Number.parseInt(serverId, 10);
     if (Number.isNaN(serverIdNum)) {

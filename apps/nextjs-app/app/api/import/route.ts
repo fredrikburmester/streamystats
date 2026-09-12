@@ -150,10 +150,6 @@ interface ImportData {
 
 export async function POST(req: NextRequest) {
   try {
-    // Require admin for data import
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     // Parse form data
     const formData = await req.formData();
     const file = formData.get("file") as File;
@@ -171,6 +167,10 @@ export async function POST(req: NextRequest) {
     if (Number.isNaN(serverIdNum)) {
       return NextResponse.json({ error: "Invalid server ID" }, { status: 400 });
     }
+
+    // Require admin for data import on this server
+    const { error } = await requireAdmin(serverIdNum);
+    if (error) return error;
 
     // Verify the target server exists
     const targetServer = await getServerWithSecrets({ serverId: serverIdNum });

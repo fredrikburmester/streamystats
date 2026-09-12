@@ -31,13 +31,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import type { ServerPublic } from "@/lib/types";
 import {
   type ChatProvider,
-  clearChatConfig,
-  saveChatConfig,
-  testChatConnection,
-} from "@/lib/db/server";
-import type { ServerPublic } from "@/lib/types";
+  clearChatConfigAction,
+  saveChatConfigAction,
+  testChatConnectionAction,
+} from "./actions";
 
 const PROVIDER_PRESETS = {
   openai: {
@@ -158,14 +158,11 @@ export function ChatAIManager({ server }: { server: ServerPublic }) {
   const handleSaveConfig = async () => {
     setIsSaving(true);
     try {
-      await saveChatConfig({
-        serverId: server.id,
-        config: {
-          provider,
-          baseUrl,
-          apiKey: apiKey || undefined,
-          model,
-        },
+      await saveChatConfigAction(server.id, {
+        provider,
+        baseUrl,
+        apiKey: apiKey || undefined,
+        model,
       });
       toast.success("AI Chat configuration saved");
     } catch (_error) {
@@ -178,13 +175,11 @@ export function ChatAIManager({ server }: { server: ServerPublic }) {
   const handleTestConnection = async () => {
     setIsTesting(true);
     try {
-      const result = await testChatConnection({
-        config: {
-          provider,
-          baseUrl,
-          apiKey: apiKey || undefined,
-          model,
-        },
+      const result = await testChatConnectionAction(server.id, {
+        provider,
+        baseUrl,
+        apiKey: apiKey || undefined,
+        model,
       });
       if (result.success) {
         toast.success(result.message);
@@ -211,7 +206,7 @@ export function ChatAIManager({ server }: { server: ServerPublic }) {
   const handleClearConfig = async () => {
     setIsClearing(true);
     try {
-      await clearChatConfig({ serverId: server.id });
+      await clearChatConfigAction(server.id);
       toast.success("AI Chat configuration cleared");
       setBaseUrl(PROVIDER_PRESETS.openai.baseUrl);
       setApiKey("");

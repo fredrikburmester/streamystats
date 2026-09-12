@@ -262,7 +262,11 @@ const limitTypeSchema = z.object({
     .describe("Filter by item type"),
 });
 
-export function createChatTools(serverId: number, userId: string) {
+export function createChatTools(
+  serverId: number,
+  userId: string,
+  isAdmin: boolean = false,
+) {
   return {
     getUserMostWatchedMovies: tool({
       description:
@@ -608,12 +612,18 @@ export function createChatTools(serverId: number, userId: string) {
           .default("all")
           .describe("Filter by item type. Defaults to 'all'."),
       }),
-      execute: async ({ startDate, endDate, userId, itemType }) => {
+      execute: async ({
+        startDate,
+        endDate,
+        userId: inputUserId,
+        itemType,
+      }) => {
+        const effectiveUserId = isAdmin ? inputUserId : userId;
         const results = await getUserStatsSummaryForServer({
           serverId,
           startDate,
           endDate,
-          userId,
+          userId: effectiveUserId,
           itemType: itemType || "all",
         });
 
@@ -666,10 +676,17 @@ export function createChatTools(serverId: number, userId: string) {
             "Maximum number of history items to return. Defaults to 50.",
           ),
       }),
-      execute: async ({ userId, itemType, startDate, endDate, limit }) => {
+      execute: async ({
+        userId: inputUserId,
+        itemType,
+        startDate,
+        endDate,
+        limit,
+      }) => {
+        const effectiveUserId = isAdmin ? inputUserId : userId;
         const history = await getHistoryByFilters({
           serverId,
-          userId,
+          userId: effectiveUserId,
           itemType: itemType || "all",
           startDate,
           endDate,
@@ -737,11 +754,16 @@ export function createChatTools(serverId: number, userId: string) {
       inputSchema: z.object({}),
       execute: async () => {
         const allUsers = await getUsers({ serverId });
+        const visibleUsers = isAdmin
+          ? allUsers.filter((u) => !u.isHidden && !u.isDisabled)
+          : allUsers.filter(
+              (u) => u.id === userId && !u.isHidden && !u.isDisabled,
+            );
         return {
-          users: allUsers
-            .filter((u) => !u.isHidden && !u.isDisabled)
-            .map((u) => ({ id: u.id, name: u.name })),
-          message: `Found ${allUsers.length} users`,
+          users: visibleUsers.map((u) => ({ id: u.id, name: u.name })),
+          message: `Found ${visibleUsers.length} user${
+            visibleUsers.length === 1 ? "" : "s"
+          }`,
         };
       },
     }),

@@ -2,10 +2,6 @@ import { requireAdmin } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
   try {
-    // Require admin to trigger sync
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const body = await request.json();
     const { serverId } = body;
 
@@ -22,6 +18,10 @@ export async function POST(request: Request) {
         },
       );
     }
+
+    // Require admin to trigger sync for this server
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     const jobServerUrl =
       process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"

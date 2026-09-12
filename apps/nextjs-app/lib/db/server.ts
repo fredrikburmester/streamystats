@@ -1,5 +1,3 @@
-"use server";
-
 import "server-only";
 
 import { db, items, jobResults, servers } from "@streamystats/database";
@@ -753,7 +751,7 @@ export const updateServerConnection = async ({
       const authData = await authResponse.json();
 
       // Validate authentication response structure
-      if (!authData || !authData.AccessToken) {
+      if (!authData?.AccessToken) {
         return {
           success: false,
           message: "Invalid authentication response from server",
@@ -763,7 +761,7 @@ export const updateServerConnection = async ({
       const accessToken = authData.AccessToken;
       const user = authData.User;
 
-      if (!user || !user.Id) {
+      if (!user?.Id) {
         return {
           success: false,
           message: "Invalid user data in authentication response",
@@ -903,7 +901,7 @@ export const getChatConfig = async ({
 }): Promise<ChatAIConfig | null> => {
   try {
     const server = await getServerWithSecrets({ serverId });
-    if (!server || !server.chatProvider || !server.chatModel) {
+    if (!server?.chatProvider || !server.chatModel) {
       return null;
     }
     return {

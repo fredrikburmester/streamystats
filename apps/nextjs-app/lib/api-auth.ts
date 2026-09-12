@@ -1,5 +1,3 @@
-"use server";
-
 import "server-only";
 
 import type { Server } from "@streamystats/database";
@@ -287,7 +285,9 @@ export async function requireApiKey({
  * Requires a valid signed session cookie for API routes.
  * Returns null if valid, Response object with 401 if invalid.
  */
-export async function requireSession(): Promise<
+export async function requireSession(
+  expectedServerId?: number | string,
+): Promise<
   | {
       error: Response;
       session: null;
@@ -317,6 +317,27 @@ export async function requireSession(): Promise<
     };
   }
 
+  if (expectedServerId !== undefined && expectedServerId !== null) {
+    const expectedId = Number(expectedServerId);
+    if (!Number.isNaN(expectedId) && Number(session.serverId) !== expectedId) {
+      return {
+        error: new Response(
+          JSON.stringify({
+            error: "Forbidden",
+            message: "Access denied for this server.",
+          }),
+          {
+            status: 403,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        ),
+        session: null,
+      };
+    }
+  }
+
   return { error: null, session };
 }
 
@@ -327,7 +348,10 @@ export async function requireSession(): Promise<
  *
  * Use this for API endpoints that should support external access.
  */
-export async function requireAuth(request: NextRequest): Promise<
+export async function requireAuth(
+  request: NextRequest,
+  expectedServerId?: number | string,
+): Promise<
   | {
       error: Response;
       session: null;
@@ -337,42 +361,71 @@ export async function requireAuth(request: NextRequest): Promise<
       session: SessionUser;
     }
 > {
+  let sessionUser: SessionUser | null = null;
+
   // Try session cookie first (web app)
   const session = await getSession();
   if (session) {
-    return { error: null, session };
+    sessionUser = session;
+  } else {
+    // Try MediaBrowser token (external API clients)
+    const mediaBrowserAuth = await authenticateMediaBrowser(request);
+    if (mediaBrowserAuth) {
+      sessionUser = mediaBrowserAuth.session;
+    }
   }
 
-  // Try MediaBrowser token (external API clients)
-  const mediaBrowserAuth = await authenticateMediaBrowser(request);
-  if (mediaBrowserAuth) {
-    return { error: null, session: mediaBrowserAuth.session };
-  }
-
-  // No valid authentication found
-  return {
-    error: new Response(
-      JSON.stringify({
-        error: "Unauthorized",
-        message:
-          'Valid authentication required. Use session cookie or Authorization: MediaBrowser Token="..." header.',
-      }),
-      {
-        status: 401,
-        headers: {
-          "Content-Type": "application/json",
+  if (!sessionUser) {
+    return {
+      error: new Response(
+        JSON.stringify({
+          error: "Unauthorized",
+          message:
+            'Valid authentication required. Use session cookie or Authorization: MediaBrowser Token="..." header.',
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      },
-    ),
-    session: null,
-  };
+      ),
+      session: null,
+    };
+  }
+
+  if (expectedServerId !== undefined && expectedServerId !== null) {
+    const expectedId = Number(expectedServerId);
+    if (
+      !Number.isNaN(expectedId) &&
+      Number(sessionUser.serverId) !== expectedId
+    ) {
+      return {
+        error: new Response(
+          JSON.stringify({
+            error: "Forbidden",
+            message: "Access denied for this server.",
+          }),
+          {
+            status: 403,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        ),
+        session: null,
+      };
+    }
+  }
+
+  return { error: null, session: sessionUser };
 }
 
 /**
  * Requires the user to be an admin based on the signed session.
  * Returns null if valid admin, Response object if unauthorized.
  */
-export async function requireAdmin(): Promise<
+export async function requireAdmin(expectedServerId?: number | string): Promise<
   | {
       error: Response;
       session: null;
@@ -382,7 +435,7 @@ export async function requireAdmin(): Promise<
       session: SessionUser;
     }
 > {
-  const result = await requireSession();
+  const result = await requireSession(expectedServerId);
 
   if (result.error) {
     return result;

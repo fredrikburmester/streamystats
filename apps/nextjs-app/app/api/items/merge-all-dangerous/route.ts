@@ -79,9 +79,6 @@ async function mergeSinglePair(
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const body = await request.json();
     const { serverId } = body as { serverId: number };
 
@@ -97,6 +94,9 @@ export async function POST(request: Request) {
         },
       );
     }
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     const deletedItemsSub = db
       .select({
