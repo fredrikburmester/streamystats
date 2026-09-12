@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.20.0](https://github.com/fredrikburmester/streamystats/compare/v2.19.2...v2.20.0) (2026-09-12)
+
+
+### Features
+
+* Gemini embeddings ([#419](https://github.com/fredrikburmester/streamystats/issues/419)) ([422e46d](https://github.com/fredrikburmester/streamystats/commit/422e46d8d17b7f4509d4abcfd4b62d93a83d206b))
+
+
+### Bug Fixes
+
+* deduplicate media source records in batch insert to prevent duplicate key errors ([#444](https://github.com/fredrikburmester/streamystats/issues/444)) ([2e041ec](https://github.com/fredrikburmester/streamystats/commit/2e041ecfe80d0f3497c2d0724990022c1594a5c6))
+* detect preset should exempt ollama (similar to anthropic) ([#381](https://github.com/fredrikburmester/streamystats/issues/381)) ([a43911d](https://github.com/fredrikburmester/streamystats/commit/a43911db7a07ef7462d95a7604d387fec059946e))
+* resolve 5 critical security and data integrity vulnerabilities ([#577](https://github.com/fredrikburmester/streamystats/issues/577)) ([838c2c2](https://github.com/fredrikburmester/streamystats/commit/838c2c2513036d8d3af5aabc3b4a0f1cc8142053))
+
+
+### Performance Improvements
+
+* optimize vector search, middleware proxy, bundle size, poller, and db indexes ([#576](https://github.com/fredrikburmester/streamystats/issues/576)) ([6b721d5](https://github.com/fredrikburmester/streamystats/commit/6b721d545f58c9a9087049f82ed4f9c50ce6ecf1))
+
 ## [2.19.2](https://github.com/fredrikburmester/streamystats/compare/v2.19.1...v2.19.2) (2026-09-12)
 
 
