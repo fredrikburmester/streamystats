@@ -54,6 +54,13 @@ const PROVIDER_PRESETS = {
     requiresApiKey: true,
     provider: "anthropic" as ChatProvider,
   },
+  gemini: {
+    name: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    defaultModel: "gemini-3.8-flash-high",
+    requiresApiKey: true,
+    provider: "gemini" as ChatProvider,
+  },
   "together-ai": {
     name: "Together AI",
     baseUrl: "https://api.together.xyz/v1",
@@ -114,6 +121,9 @@ function detectPreset(server: ServerPublic): PresetKey {
   }
   if (server.chatProvider === "ollama") {
     return "ollama";
+  }
+  if (server.chatProvider === "gemini") {
+    return "gemini";
   }
 
   const baseUrl = server.chatBaseUrl || "";
@@ -252,6 +262,7 @@ export function ChatAIManager({ server }: { server: ServerPublic }) {
                 <SelectContent>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                  <SelectItem value="gemini">Google Gemini</SelectItem>
                   <SelectItem value="together-ai">Together AI</SelectItem>
                   <SelectItem value="fireworks">Fireworks AI</SelectItem>
                   <SelectItem value="groq">Groq</SelectItem>

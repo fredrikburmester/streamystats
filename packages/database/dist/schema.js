@@ -66,8 +66,8 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
     embeddingModel: (0, pg_core_1.text)("embedding_model"),
     embeddingDimensions: (0, pg_core_1.integer)("embedding_dimensions").default(1536),
     // AI Chat configuration (separate from embedding AI)
-    // Supports OpenAI-compatible, Anthropic, Ollama, etc.
-    chatProvider: (0, pg_core_1.text)("chat_provider"), // "openai-compatible" | "ollama" | "anthropic"
+    // Supports OpenAI-compatible, Anthropic, Ollama, and Google Gemini.
+    chatProvider: (0, pg_core_1.text)("chat_provider"), // "openai-compatible" | "ollama" | "anthropic" | "gemini"
     chatBaseUrl: (0, pg_core_1.text)("chat_base_url"),
     chatApiKey: (0, pg_core_1.text)("chat_api_key"),
     chatModel: (0, pg_core_1.text)("chat_model"),

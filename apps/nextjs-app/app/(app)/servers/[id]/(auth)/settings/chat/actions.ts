@@ -4,6 +4,7 @@ import {
   type ChatAIConfig,
   type ChatProvider,
   clearChatConfig as clearChatConfigDb,
+  getChatConfig as getChatConfigDb,
   saveChatConfig as saveChatConfigDb,
   testChatConnection as testChatConnectionDb,
 } from "@/lib/db/server";
@@ -37,6 +38,18 @@ export async function testChatConnectionAction(
   const isAdmin = await isUserAdmin(serverId);
   if (!isAdmin) {
     throw new Error("Admin privileges required");
+  }
+  if (config.provider === "gemini" && !config.apiKey) {
+    const saved = await getChatConfigDb({ serverId });
+    // Reuse a saved secret only for the provider and endpoint it belongs to.
+    if (
+      saved?.provider === config.provider &&
+      saved.baseUrl.replace(/\/+$/, "") === config.baseUrl.replace(/\/+$/, "")
+    ) {
+      return await testChatConnectionDb({
+        config: { ...config, apiKey: saved.apiKey },
+      });
+    }
   }
   return await testChatConnectionDb({ config });
 }
