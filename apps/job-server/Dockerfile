@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1.3.14 AS builder
+FROM oven/bun:1.4.2 AS builder
 WORKDIR /app
 
 # Copy configuration files
@@ -26,13 +26,13 @@ RUN bun build ./src/migrate-entrypoint.ts --compile --minify --outfile migrate-b
 WORKDIR /app/apps/job-server
 
 # Install geoip-lite with its data (the package includes pre-built data files)
-RUN bun add geoip-lite@1.4.10
+RUN bun add geoip-lite@2.0.3
 
 # Compile for the current architecture (matches builder and runner)
 RUN bun build ./src/index.ts --compile --minify --outfile server
 
 # Production runtime stage - Debian Slim (glibc compatible)
-FROM debian:bookworm-20260518-slim AS runner
+FROM debian:bookworm-20260824-slim AS runner
 
 # Install minimal dependencies (wget/curl for healthcheck)
 RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -49,7 +49,7 @@ COPY --from=builder /app/apps/job-server/server ./server
 
 # Copy geoip-lite data files to the exact path bun expects at runtime
 # Bun stores packages in .bun cache with version-specific paths
-COPY --from=builder /app/apps/job-server/node_modules/geoip-lite/data ./node_modules/.bun/geoip-lite@1.4.10/node_modules/geoip-lite/data
+COPY --from=builder /app/apps/job-server/node_modules/geoip-lite/data ./node_modules/.bun/geoip-lite@2.0.3/node_modules/geoip-lite/data
 
 # Environment setup
 ENV NODE_ENV=production

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
   "files": {
     "includes": [
       "**",
@@ -12,7 +12,8 @@
       "!**/dist",
       "!**/server",
       "!**/components/ui",
-      "!**/components/ai-elements"
+      "!**/components/ai-elements",
+      "!public"
     ]
   },
   "linter": {
@@ -22,7 +23,7 @@
         "useImportType": "warn",
         "noNonNullAssertion": "off"
       },
-      "recommended": true,
+      "preset": "recommended",
       "correctness": {
         "useExhaustiveDependencies": "off",
         "noUnusedVariables": "off",

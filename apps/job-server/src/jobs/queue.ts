@@ -1,4 +1,5 @@
 import type { Job } from "pg-boss";
+import type { QueueStats } from "pg-boss";
 import { PgBoss } from "pg-boss";
 import {
   addServerJob,
@@ -172,3 +173,15 @@ export const JobTypes = {
   ADD_SERVER: "add-server",
   GENERATE_ITEM_EMBEDDINGS: "generate-item-embeddings",
 } as const;
+
+/**
+ * pg-boss 12.31+ returns a list of stat snapshots from getQueueStats (a history
+ * when persistQueueStats is enabled), so callers need the most recent one.
+ */
+export function latestQueueStats(stats: QueueStats[]): QueueStats | undefined {
+  return stats.reduce<QueueStats | undefined>(
+    (newest, current) =>
+      !newest || current.capturedOn > newest.capturedOn ? current : newest,
+    undefined,
+  );
+}
