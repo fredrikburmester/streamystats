@@ -4,13 +4,19 @@ import type { Server } from "@streamystats/database";
 import { z } from "zod/v4";
 import type { ServerPublic } from "@/lib/types";
 
+const CREATE_SERVER_EMBEDDING_PROVIDERS = [
+  "openai-compatible",
+  "ollama",
+  "gemini",
+] as const;
+
 const createServerSchema = z.object({
   name: z.string().min(1).max(200),
   url: z.string().min(1).max(1000),
   apiKey: z.string().min(1).max(500),
   localAddress: z.string().max(500).optional(),
   autoGenerateEmbeddings: z.boolean().optional(),
-  embeddingProvider: z.enum(["openai-compatible", "ollama"]).optional(),
+  embeddingProvider: z.enum(CREATE_SERVER_EMBEDDING_PROVIDERS).optional(),
   embeddingBaseUrl: z.string().max(500).optional(),
   embeddingApiKey: z.string().max(500).optional(),
   embeddingModel: z.string().max(200).optional(),
@@ -24,7 +30,7 @@ interface CreateServerRequest {
   apiKey: string;
   localAddress?: string;
   autoGenerateEmbeddings?: boolean;
-  embeddingProvider?: "openai-compatible" | "ollama";
+  embeddingProvider?: (typeof CREATE_SERVER_EMBEDDING_PROVIDERS)[number];
   embeddingBaseUrl?: string;
   embeddingApiKey?: string;
   embeddingModel?: string;
