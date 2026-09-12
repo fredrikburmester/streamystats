@@ -79,12 +79,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     supervisor \
+    libatomic1 \
     libvips42 \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Node.js runtime (pinned)
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+
+# Verify the copied binary's shared libraries are present on each target platform.
+RUN node --version
 
 WORKDIR /app
 
