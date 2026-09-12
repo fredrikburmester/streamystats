@@ -1,6 +1,6 @@
 {
   "name": "streamystats",
-  "version": "2.19.2",
+  "version": "2.20.0",
   "description": "Streamystats - Jellyfin analytics platform",
   "private": true,
   "engines": {
