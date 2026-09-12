@@ -43,6 +43,16 @@ export interface ItemSyncData {
   sessionsMigrated?: number;
 }
 
+export function needsTagsUpdate(
+  existingTags: string[] | null,
+  jellyfinTags: string[] | undefined
+): boolean {
+  return (
+    (!existingTags || existingTags.length === 0) &&
+    Boolean(jellyfinTags && jellyfinTags.length > 0)
+  );
+}
+
 export async function syncItems(
   server: Server,
   options: ItemSyncOptions = {}
@@ -371,6 +381,7 @@ async function processItem(
       etag: items.etag,
       deletedAt: items.deletedAt,
       providerIds: items.providerIds,
+      tags: items.tags,
       mediaSourcesSynced: items.mediaSourcesSynced,
     })
     .from(items)
@@ -392,6 +403,9 @@ async function processItem(
     jellyfinItem.ProviderIds &&
     typeof jellyfinItem.ProviderIds === "object" &&
     Object.keys(jellyfinItem.ProviderIds).length > 0;
+  const needsItemTagsUpdate =
+    !isNewItem &&
+    needsTagsUpdate(existingItem[0]?.tags ?? null, jellyfinItem.Tags);
 
   // If item exists but was deleted, clear the deletedAt flag (item is back)
   if (wasDeleted) {
@@ -417,6 +431,7 @@ async function processItem(
     !hasChanged &&
     !wasDeleted &&
     !needsProviderIdsUpdate &&
+    !needsItemTagsUpdate &&
     needsMediaSourcesSync
   ) {
     const serverId = await getServerIdFromLibrary(libraryId);
@@ -425,10 +440,16 @@ async function processItem(
     return;
   }
 
-  if (!isNewItem && !hasChanged && !wasDeleted && !needsProviderIdsUpdate) {
+  if (
+    !isNewItem &&
+    !hasChanged &&
+    !wasDeleted &&
+    !needsProviderIdsUpdate &&
+    !needsItemTagsUpdate
+  ) {
     metrics.incrementItemsUnchanged();
     metrics.incrementItemsProcessed();
-    return; // Skip if item hasn't changed and wasn't deleted and doesn't need ProviderIds update
+    return; // Skip if item hasn't changed and has no missing metadata to backfill
   }
 
   const serverId = await getServerIdFromLibrary(libraryId);
@@ -971,16 +992,16 @@ async function processValidItems(
   itemsMigrated: number;
   sessionsMigrated: number;
 }> {
-  // Fetch existing items' etags to compare
+  // Fetch existing item metadata to detect changes and backfill missing tags.
   const jellyfinIds = validItems.map((item) => item.id);
 
   const existingItems = await db
-    .select({ id: items.id, etag: items.etag })
+    .select({ id: items.id, etag: items.etag, tags: items.tags })
     .from(items)
     .where(and(inArray(items.id, jellyfinIds), eq(items.serverId, serverId)));
 
   const existingMap = new Map(
-    existingItems.map((item) => [item.id, item.etag])
+    existingItems.map((item) => [item.id, item])
   );
 
   // Separate items into inserts, updates, and unchanged based on etag
@@ -989,12 +1010,15 @@ async function processValidItems(
   const unchangedItems: NewItem[] = [];
 
   for (const item of validItems) {
-    const existingEtag = existingMap.get(item.id);
+    const existingItem = existingMap.get(item.id);
 
-    if (existingEtag === undefined) {
+    if (existingItem === undefined) {
       // New item
       itemsToInsert.push(item);
-    } else if (existingEtag !== item.etag) {
+    } else if (
+      existingItem.etag !== item.etag ||
+      needsTagsUpdate(existingItem.tags, item.tags ?? undefined)
+    ) {
       // Etag changed, needs update
       itemsToUpdate.push(item);
     } else {
