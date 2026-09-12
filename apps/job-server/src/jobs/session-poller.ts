@@ -20,6 +20,7 @@ import {
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { formatError } from "../utils/format-error";
 import { structuredLog as log } from "../utils/structured-log";
+import { shouldLog } from "../utils/log-throttle";
 import {
   resolveSessionItemId,
   type ResolvedSessionItem,
@@ -53,8 +54,11 @@ interface SessionChanges {
 // ============================================================================
 class SessionPoller {
   private trackedSessions: Map<string, Map<string, TrackedSession>> = new Map();
-  private timerId: ReturnType<typeof setInterval> | null = null;
+  private timerId: ReturnType<typeof setTimeout> | null = null;
   private isRunning = false;
+  private isTicking = false;
+  private consecutiveDbErrors = 0;
+  private currentPollIntervalMs = POLL_INTERVAL_MS;
   private lastPollAt: number | null = null;
   private totalPollCount = 0;
   private totalSuccessCount = 0;
@@ -82,12 +86,8 @@ class SessionPoller {
     // Initial tick
     await this.tick();
 
-    // Start interval
-    this.timerId = setInterval(() => {
-      void this.tick().catch((err) => {
-        log("session-poller", { action: "tick-error", error: formatError(err) });
-      });
-    }, POLL_INTERVAL_MS);
+    // Schedule subsequent ticks
+    this.scheduleNextTick();
 
     log("session-poller", { action: "started" });
   }
@@ -98,7 +98,7 @@ class SessionPoller {
     this.isRunning = false;
 
     if (this.timerId) {
-      clearInterval(this.timerId);
+      clearTimeout(this.timerId);
       this.timerId = null;
     }
 
@@ -106,12 +106,27 @@ class SessionPoller {
     log("session-poller", { action: "stopped" });
   }
 
+  private scheduleNextTick(delayMs: number = this.currentPollIntervalMs): void {
+    if (!this.isRunning) return;
+    if (this.timerId) {
+      clearTimeout(this.timerId);
+      this.timerId = null;
+    }
+    this.timerId = setTimeout(() => {
+      void this.tick().catch((err) => {
+        log("session-poller", { action: "tick-error", error: formatError(err) });
+      });
+    }, delayMs);
+  }
+
   getStatus() {
     const now = Date.now();
     return {
       enabled: true, // Always enabled (hardcoded)
       isRunning: this.isRunning,
-      intervalMs: POLL_INTERVAL_MS,
+      intervalMs: this.currentPollIntervalMs,
+      consecutiveDbErrors: this.consecutiveDbErrors,
+      isDbHealthy: this.consecutiveDbErrors === 0,
       trackedServers: this.trackedSessions.size,
       totalTrackedSessions: this.countTrackedSessions(),
       totalPollCount: this.totalPollCount,
@@ -121,7 +136,7 @@ class SessionPoller {
           ? Math.round((this.totalSuccessCount / this.totalPollCount) * 100)
           : 100,
       lastPollAgoMs: this.lastPollAt ? now - this.lastPollAt : null,
-      healthy: this.isRunning,
+      healthy: this.isRunning && this.consecutiveDbErrors < 3,
     };
   }
 
@@ -161,6 +176,10 @@ class SessionPoller {
   // ============================================================================
 
   private async tick(): Promise<void> {
+    if (this.isTicking) {
+      return;
+    }
+    this.isTicking = true;
     this.totalPollCount++;
     const tickStart = Date.now();
 
@@ -168,20 +187,50 @@ class SessionPoller {
       const allServers = await this.listServers();
 
       for (const server of allServers) {
+        if (!this.isRunning) break;
         if (!(await this.isServerPollingEnabled(server.id))) continue;
 
         try {
           await this.pollServer(server);
         } catch (err) {
           log("session-poller", { action: "server-error", serverId: server.id, error: formatError(err) });
-          // Continue to next server - will retry in 5s
+          // Continue to next server - will retry in next tick
         }
       }
 
       this.lastPollAt = Date.now();
       this.totalSuccessCount++;
+
+      if (this.consecutiveDbErrors > 0) {
+        log("session-poller", {
+          action: "db-recovered",
+          consecutiveErrors: this.consecutiveDbErrors,
+          restoredIntervalMs: POLL_INTERVAL_MS,
+        });
+      }
+      this.consecutiveDbErrors = 0;
+      this.currentPollIntervalMs = POLL_INTERVAL_MS;
     } catch (err) {
-      log("session-poller", { action: "tick-failed", error: formatError(err) });
+      this.consecutiveDbErrors++;
+      // Exponential backoff: 5s -> 10s -> 20s -> 40s -> 60s max
+      this.currentPollIntervalMs = Math.min(
+        60_000,
+        POLL_INTERVAL_MS * Math.pow(2, Math.min(this.consecutiveDbErrors, 4))
+      );
+
+      if (shouldLog("session-poller-tick-failed", 30_000)) {
+        log("session-poller", {
+          action: "tick-failed",
+          error: formatError(err),
+          consecutiveErrors: this.consecutiveDbErrors,
+          nextPollInMs: this.currentPollIntervalMs,
+        });
+      }
+    } finally {
+      this.isTicking = false;
+      if (this.isRunning) {
+        this.scheduleNextTick(this.currentPollIntervalMs);
+      }
     }
 
     const tickDuration = Date.now() - tickStart;

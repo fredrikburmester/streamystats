@@ -4,7 +4,9 @@ import { secureHeaders } from "hono/secure-headers";
 import { getJobQueue, closeJobQueue } from "./jobs/queue";
 import { activityScheduler } from "./jobs/scheduler";
 import { sessionPoller } from "./jobs/session-poller";
-import { closeConnection } from "@streamystats/database";
+import { db, closeConnection } from "@streamystats/database";
+import { sql } from "drizzle-orm";
+import { shouldLog } from "./utils/log-throttle";
 import jobRoutes from "./routes/jobs/index";
 import locationRoutes from "./routes/locations";
 import eventsRoutes from "./routes/events-sse";
@@ -21,7 +23,9 @@ process.on("unhandledRejection", (reason, promise) => {
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
-  console.error("[job-server] uncaughtException:", error);
+  if (shouldLog("uncaught-exception", 5000)) {
+    console.error("[job-server] uncaughtException:", error);
+  }
   // Don't exit - try to keep the server running for session tracking
 });
 
@@ -43,14 +47,53 @@ app.route("/api/jobs", jobRoutes);
 app.route("/api", locationRoutes);
 app.route("/api", eventsRoutes);
 
-app.get("/health", (c) => {
-  return c.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    scheduler: activityScheduler.getStatus(),
-    sessionPoller: sessionPoller.getStatus(),
-  });
+async function checkDatabaseHealth(
+  timeoutMs = 2000
+): Promise<{ ok: boolean; latencyMs?: number; error?: string }> {
+  const start = Date.now();
+  try {
+    const queryPromise = db.execute(sql`SELECT 1`);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Database health check timed out")),
+        timeoutMs
+      )
+    );
+    await Promise.race([queryPromise, timeoutPromise]);
+    return { ok: true, latencyMs: Date.now() - start };
+  } catch (err) {
+    return {
+      ok: false,
+      latencyMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+app.get("/health/live", (c) => {
+  return c.json({ status: "alive", uptime: process.uptime() });
+});
+
+app.get("/health", async (c) => {
+  const dbHealth = await checkDatabaseHealth();
+  const sessionStatus = sessionPoller.getStatus();
+  const isHealthy = dbHealth.ok && sessionStatus.healthy;
+
+  return c.json(
+    {
+      status: isHealthy ? "ok" : "degraded",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: {
+        status: dbHealth.ok ? "connected" : "disconnected",
+        latencyMs: dbHealth.latencyMs,
+        ...(dbHealth.error ? { error: dbHealth.error } : {}),
+      },
+      scheduler: activityScheduler.getStatus(),
+      sessionPoller: sessionStatus,
+    },
+    isHealthy ? 200 : 503
+  );
 });
 
 app.get("/", (c) => {

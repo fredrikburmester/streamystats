@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   vectorchord:
-    image: tensorchord/vchord-postgres:pg17-v0.4.1
+    image: tensorchord/vchord-postgres:pg17-v1.1.1
     command: ["postgres", "-c", "log_checkpoints=off"]
     ports:
       - "${DEV_POSTGRES_PORT:-5432}:5432"

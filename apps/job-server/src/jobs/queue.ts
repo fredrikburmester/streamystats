@@ -30,6 +30,8 @@ import {
   schedulerMaintenanceWorker,
   SCHEDULER_MAINTENANCE_JOB_NAME,
 } from "./scheduler-maintenance";
+import { formatError } from "../utils/format-error";
+import { shouldLog } from "../utils/log-throttle";
 
 let bossInstance: PgBoss | null = null;
 
@@ -85,6 +87,12 @@ export async function getJobQueue(): Promise<PgBoss> {
 
   bossInstance = new PgBoss({
     connectionString,
+  });
+
+  bossInstance.on("error", (error) => {
+    if (shouldLog("pg-boss-instance-error", 30_000)) {
+      console.error("[pg-boss] error:", formatError(error));
+    }
   });
 
   await bossInstance.start();
