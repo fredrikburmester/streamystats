@@ -667,16 +667,45 @@ class SessionPoller {
           .where(eq(users.id, tracked.userJellyfinId))
           .limit(1);
 
-        let validItemId: string | null = null;
-        if (tracked.itemId) {
-          const itemExists = await tx
+        const itemExists = async (itemId: string): Promise<boolean> => {
+          const rows = await tx
             .select({ id: items.id })
             .from(items)
-            .where(eq(items.id, tracked.itemId))
+            .where(and(eq(items.id, itemId), eq(items.serverId, server.id)))
             .limit(1);
-          if (itemExists.length > 0) {
-            validItemId = tracked.itemId;
-          }
+          return rows.length > 0;
+        };
+
+        let validItemId =
+          tracked.itemId && (await itemExists(tracked.itemId))
+            ? tracked.itemId
+            : null;
+        const originalItemId = tracked.jellyfinItemId ?? tracked.itemId;
+        if (!validItemId && originalItemId) {
+          // Sync may have added the item or its version mapping during playback.
+          // Use local lookups to avoid Jellyfin I/O inside the transaction.
+          const resolved = await resolveSessionItemId({
+            nowPlayingItemId: originalItemId,
+            mediaSourceId: tracked.mediaSourceId,
+            lookups: {
+              itemExists,
+              itemIdForMediaSource: async (mediaSourceId) => {
+                const rows = await tx
+                  .select({ itemId: mediaSources.itemId })
+                  .from(mediaSources)
+                  .where(
+                    and(
+                      eq(mediaSources.id, mediaSourceId),
+                      eq(mediaSources.serverId, server.id)
+                    )
+                  )
+                  .limit(1);
+                return rows[0]?.itemId ?? null;
+              },
+              fetchMediaSourceIds: async () => [],
+            },
+          });
+          validItemId = resolved.itemId;
         }
 
         const stableId = tracked.sessionId
