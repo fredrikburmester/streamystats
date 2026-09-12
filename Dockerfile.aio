@@ -133,6 +133,6 @@ EXPOSE 3000
 VOLUME /var/lib/postgresql/data
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-  CMD curl -f http://127.0.0.1:3000/api/health && curl -f http://127.0.0.1:3005/health && pg_isready -h localhost || exit 1
+  CMD curl -f http://127.0.0.1:3000/api/health && curl -f http://127.0.0.1:3005/health && pg_isready -h localhost -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-streamystats}" || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
