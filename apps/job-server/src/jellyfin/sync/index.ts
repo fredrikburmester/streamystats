@@ -205,17 +205,12 @@ export async function performFullSync(
       formatSyncLogLine("full-sync", {
         server: server.name,
         page: 3,
-        processed: 0,
-        inserted: 0,
-        updated: 0,
-        errors:
-          itemsResult.status === "partial"
-            ? itemsResult.errors.length
-            : itemsResult.status === "error"
-              ? 1
-              : 0,
+        processed: itemsResult.metrics.itemsProcessed,
+        inserted: itemsResult.metrics.itemsInserted,
+        updated: itemsResult.metrics.itemsUpdated,
+        errors: itemsResult.metrics.errors,
         processMs: Date.now() - itemsStart,
-        totalProcessed: 0,
+        totalProcessed: itemsResult.metrics.itemsProcessed,
         step: "items",
         phase: "done",
         status: itemsResult.status,
