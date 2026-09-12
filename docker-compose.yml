@@ -55,11 +55,15 @@ services:
         condition: service_healthy
     restart: unless-stopped
     logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     networks:
       - app-network
 
   vectorchord:
-    image: tensorchord/vchord-postgres:pg17-v0.4.1
+    image: tensorchord/vchord-postgres:pg17-v1.1.1
     command: ["postgres", "-c", "log_checkpoints=off"]
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -71,6 +75,10 @@ services:
       - vectorchord_data:/var/lib/postgresql/data
     restart: unless-stopped
     logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     healthcheck:
       test:
         [
