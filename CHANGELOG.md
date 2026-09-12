@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.2](https://github.com/fredrikburmester/streamystats/compare/v2.19.1...v2.19.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* migrate replaced item history atomically and report sync failures ([#573](https://github.com/fredrikburmester/streamystats/issues/573)) ([14d69d4](https://github.com/fredrikburmester/streamystats/commit/14d69d4d0cf0ebae297e2740724104e5e32760cd))
+
 ## [2.19.1](https://github.com/fredrikburmester/streamystats/compare/v2.19.0...v2.19.1) (2026-09-12)
 
 
