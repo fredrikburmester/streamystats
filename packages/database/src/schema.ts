@@ -133,8 +133,8 @@ export const servers = pgTable(
     embeddingDimensions: integer("embedding_dimensions").default(1536),
 
     // AI Chat configuration (separate from embedding AI)
-    // Supports OpenAI-compatible, Anthropic, Ollama, etc.
-    chatProvider: text("chat_provider"), // "openai-compatible" | "ollama" | "anthropic"
+    // Supports OpenAI-compatible, Anthropic, Ollama, and Google Gemini.
+    chatProvider: text("chat_provider"), // "openai-compatible" | "ollama" | "anthropic" | "gemini"
     chatBaseUrl: text("chat_base_url"),
     chatApiKey: text("chat_api_key"),
     chatModel: text("chat_model"),

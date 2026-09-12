@@ -2,7 +2,9 @@ import "server-only";
 
 import { db, items, jobResults, servers } from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
+import { generateText } from "ai";
 import { and, count, desc, eq, sql } from "drizzle-orm";
+import { type ChatProvider, createChatModel } from "@/lib/ai/providers";
 import { parseDeviceName } from "@/lib/device";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import type { ServerPublic } from "@/lib/types";
@@ -857,7 +859,7 @@ export const updateServerConnection = async ({
 
 // AI Chat configuration functions
 
-export type ChatProvider = "openai-compatible" | "ollama" | "anthropic";
+export type { ChatProvider };
 
 export interface ChatAIConfig {
   provider: ChatProvider;
@@ -943,6 +945,24 @@ export const testChatConnection = async ({
   config: ChatAIConfig;
 }): Promise<{ success: boolean; message: string }> => {
   try {
+    if (config.provider === "gemini") {
+      const model = createChatModel({
+        ...config,
+        apiKey: config.apiKey || null,
+      });
+      if (!model) {
+        return { success: false, message: "A chat model is required" };
+      }
+      await generateText({
+        model,
+        prompt: "Hi",
+        maxOutputTokens: 32,
+        maxRetries: 0,
+        abortSignal: AbortSignal.timeout(15000),
+      });
+      return { success: true, message: "Connection successful" };
+    }
+
     if (config.provider === "anthropic") {
       const response = await fetch(
         `${config.baseUrl || "https://api.anthropic.com"}/v1/messages`,
