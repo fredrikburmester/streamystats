@@ -41,12 +41,14 @@ const DEFAULT_QUEUE_OPTIONS = {
   retryDelay: 30,
   retentionSeconds: 60 * 60 * 24, // 24 hours
   deleteAfterSeconds: 60 * 60 * 24 * 2, // 2 days
+  notify: true,
 };
 
-// Default worker options - relax idle poll backstop to 15s since useListenNotify wakes instantly
+// Keep prompt polling if the notification listener is unavailable.
 const DEFAULT_WORK_OPTIONS = {
   batchSize: 1,
-  pollingIntervalSeconds: 15,
+  pollingIntervalSeconds: 2,
+  notifyPollingIntervalSeconds: 15,
 };
 
 // Helper to extract first job from batch and call handler with proper typing
@@ -135,6 +137,8 @@ async function createQueues(boss: PgBoss) {
 
   for (const name of queueNames) {
     await boss.createQueue(name, DEFAULT_QUEUE_OPTIONS);
+    // createQueue leaves existing queues unchanged during upgrades.
+    await boss.updateQueue(name, DEFAULT_QUEUE_OPTIONS);
   }
 
   console.log(`[pg-boss] Created ${queueNames.length} job queues`);

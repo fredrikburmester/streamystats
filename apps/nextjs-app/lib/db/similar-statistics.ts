@@ -23,6 +23,7 @@ import {
 } from "drizzle-orm";
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
+import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
 
@@ -389,8 +390,9 @@ async function getUserSpecificRecommendations(
     debugLog(`\n🔍 Finding items similar to "${watchedItem.name}"`);
 
     // Calculate cosine similarity with other items using indexed expression
-    const dimensions = watchedItem.embedding.length;
-    const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${watchedItem.embedding}::vector(${dimensions}))`;
+    const { distance, dimensionFilter } = getItemEmbeddingComparison(
+      watchedItem.embedding,
+    );
     const similarity = sql<number>`1 - (${distance})`;
 
     // Get a large pool of similar items with low threshold, sorted by distance ascending (nearest first)
@@ -406,7 +408,7 @@ async function getUserSpecificRecommendations(
           isNull(items.deletedAt),
           eq(items.type, "Movie"),
           isNotNull(items.embedding),
-          sql`vector_dims(${items.embedding}) = ${dimensions}`,
+          dimensionFilter,
           notInArray(items.id, watchedItemIds), // Exclude already watched items
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
@@ -608,8 +610,9 @@ export const getSimilarItemsForItem = async (
     debugLog(`🎬 Target item: "${targetItem.name}" (${targetItem.type})`);
 
     // Calculate cosine similarity with other items of the same type using indexed expression
-    const dimensions = targetItem.embedding.length;
-    const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${targetItem.embedding}::vector(${dimensions}))`;
+    const { distance, dimensionFilter } = getItemEmbeddingComparison(
+      targetItem.embedding,
+    );
     const similarity = sql<number>`1 - (${distance})`;
 
     const similarItems = await db
@@ -624,7 +627,7 @@ export const getSimilarItemsForItem = async (
           isNull(items.deletedAt),
           eq(items.type, targetItem.type), // Same type (Movie, Series, etc.)
           isNotNull(items.embedding),
-          sql`vector_dims(${items.embedding}) = ${dimensions}`,
+          dimensionFilter,
           sql`${items.id} != ${itemId}`, // Exclude the target item itself
         ),
       )

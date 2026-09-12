@@ -23,6 +23,7 @@ import {
 } from "drizzle-orm";
 import { cacheLife } from "next/cache";
 import { getActiveHolidays, type Holiday } from "../holidays";
+import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
 
@@ -289,8 +290,9 @@ async function getSeasonalRecommendationsCached(
       for (const seedItem of matchesWithEmbeddings.slice(0, 3)) {
         if (!seedItem.embedding) continue;
 
-        const dimensions = seedItem.embedding.length;
-        const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${seedItem.embedding}::vector(${dimensions}))`;
+        const { distance, dimensionFilter } = getItemEmbeddingComparison(
+          seedItem.embedding,
+        );
         const similarity = sql<number>`1 - (${distance})`;
 
         const similar = await db
@@ -305,7 +307,7 @@ async function getSeasonalRecommendationsCached(
               isNull(items.deletedAt),
               inArray(items.type, ["Movie", "Series"]),
               isNotNull(items.embedding),
-              sql`vector_dims(${items.embedding}) = ${dimensions}`,
+              dimensionFilter,
               allExcludeIds.length > 0
                 ? notInArray(items.id, allExcludeIds)
                 : sql`true`,

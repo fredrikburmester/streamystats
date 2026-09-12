@@ -267,7 +267,7 @@ const TOKEN_CACHE_TTL_MS = 60_000; // 60 seconds
 
 function isPrefetchRequest(request: NextRequest): boolean {
   return (
-    request.headers.get("x-next-router-prefetch") === "1" ||
+    request.headers.has("next-router-prefetch") ||
     request.headers.get("purpose") === "prefetch" ||
     request.headers.get("sec-purpose") === "prefetch"
   );

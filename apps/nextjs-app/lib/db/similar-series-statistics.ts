@@ -21,6 +21,7 @@ import {
 } from "drizzle-orm";
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
+import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
 
@@ -421,8 +422,9 @@ async function getUserSpecificSeriesRecommendations(
     debugLog(`\n🔍 Finding series similar to "${watchedSeries.name}"`);
 
     // Calculate cosine similarity with other series using indexed expression
-    const dimensions = watchedSeries.embedding.length;
-    const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${watchedSeries.embedding}::vector(${dimensions}))`;
+    const { distance, dimensionFilter } = getItemEmbeddingComparison(
+      watchedSeries.embedding,
+    );
     const similarity = sql<number>`1 - (${distance})`;
 
     // Get a large pool of similar series with low threshold, sorted by distance ascending (nearest first)
@@ -438,7 +440,7 @@ async function getUserSpecificSeriesRecommendations(
           isNull(items.deletedAt),
           eq(items.type, "Series"),
           isNotNull(items.embedding),
-          sql`vector_dims(${items.embedding}) = ${dimensions}`,
+          dimensionFilter,
           notInArray(items.id, watchedSeriesIds), // Exclude already watched series
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
@@ -556,8 +558,9 @@ export const getSimilarSeriesForItem = async (
     debugLog(`📺 Target series: "${targetSeries.name}"`);
 
     // Calculate cosine similarity with other series using indexed expression
-    const dimensions = targetSeries.embedding.length;
-    const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${targetSeries.embedding}::vector(${dimensions}))`;
+    const { distance, dimensionFilter } = getItemEmbeddingComparison(
+      targetSeries.embedding,
+    );
     const similarity = sql<number>`1 - (${distance})`;
 
     const similarSeries = await db
@@ -572,7 +575,7 @@ export const getSimilarSeriesForItem = async (
           isNull(items.deletedAt),
           eq(items.type, "Series"),
           isNotNull(items.embedding),
-          sql`vector_dims(${items.embedding}) = ${dimensions}`,
+          dimensionFilter,
           sql`${items.id} != ${itemId}`, // Exclude the target series itself
         ),
       )

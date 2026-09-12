@@ -26,6 +26,7 @@ export function ChatDialogWrapper({
   server,
 }: ChatDialogWrapperProps) {
   const [open, setOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
 
   return (
     <>
@@ -33,13 +34,16 @@ export function ChatDialogWrapper({
         variant="outline"
         size="icon"
         className="h-9 w-9"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setHasOpened(true);
+          setOpen(true);
+        }}
         aria-label="Open AI Assistant"
       >
         <Sparkles className="h-4 w-4" />
       </Button>
 
-      {open && (
+      {hasOpened && (
         <ChatDialog
           chatConfigured={chatConfigured}
           me={me}

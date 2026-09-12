@@ -21,6 +21,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
+import { getItemEmbeddingComparison } from "@/lib/db/embedding-comparison";
 import { getHistoryByFilters } from "@/lib/db/history";
 import {
   findItemsByCharacter,
@@ -1225,14 +1226,15 @@ export function createChatTools(serverId: number, userId: string) {
           };
         }
 
-        const dimensions = embed.embedding.length;
-        const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${embed.embedding}::vector(${dimensions}))`;
+        const { distance, dimensionFilter } = getItemEmbeddingComparison(
+          embed.embedding,
+        );
         const similarity = sql<number>`1 - (${distance})`;
 
         const conditions = [
           eq(items.serverId, serverId),
           isNotNull(items.embedding),
-          sql`vector_dims(${items.embedding}) = ${dimensions}`,
+          dimensionFilter,
         ];
         if (type !== "all") {
           conditions.push(eq(items.type, type));
