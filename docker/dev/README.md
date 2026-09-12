@@ -48,7 +48,8 @@ DEV_JOB_PORT=3005
 JELLYFIN_IMAGE_TAG=12.0     # e.g. 10.11 to regression-test the previous major
 ```
 
-The app processes get `DATABASE_URL`, `JOB_SERVER_URL`, `SESSION_SECRET` and
+The Postgres password and both app secrets are generated on first run. The app
+processes get `DATABASE_URL`, `JOB_SERVER_URL`, `SESSION_SECRET` and
 `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` from the shell, which takes precedence
 over any `.env` files in the repo.
 
