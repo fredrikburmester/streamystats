@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.1](https://github.com/fredrikburmester/streamystats/compare/v2.19.0...v2.19.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* include Node.js atomic runtime library in AIO image ([#571](https://github.com/fredrikburmester/streamystats/issues/571)) ([de44bb3](https://github.com/fredrikburmester/streamystats/commit/de44bb3d137aef5873df88a6acc0ff79abd85db0))
+
 ## [2.19.0](https://github.com/fredrikburmester/streamystats/compare/v2.18.1...v2.19.0) (2026-09-12)
 
 
