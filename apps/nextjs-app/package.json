@@ -72,6 +72,7 @@
     "react-hook-form": "^7.88.0",
     "react-leaflet": "^5.0.0",
     "recharts": "^3.10.1",
+    "rehype-sanitize": "^6.0.0",
     "server-only": "^0.0.1",
     "sharp": "^0.35.4",
     "shiki": "^4.4.3",
