@@ -169,16 +169,22 @@ export const servers = pgTable(
   (table) => [unique("servers_url_unique").on(table.url)]
 );
 
-export const libraries = pgTable("libraries", {
-  id: text("id").primaryKey(), // External library ID from server
-  name: text("name").notNull(),
-  type: text("type").notNull(), // Movie, TV, Music, etc.
-  serverId: integer("server_id")
-    .notNull()
-    .references(() => servers.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const libraries = pgTable(
+  "libraries",
+  {
+    id: text("id").primaryKey(), // External library ID from server
+    name: text("name").notNull(),
+    type: text("type").notNull(), // Movie, TV, Music, etc.
+    serverId: integer("server_id")
+      .notNull()
+      .references(() => servers.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("libraries_server_id_idx").on(table.serverId),
+  ]
+);
 
 // Users table - users from various servers
 export const users = pgTable(
@@ -309,21 +315,30 @@ export const activities = pgTable(
   },
   (table) => [
     index("activities_server_id_idx").on(table.serverId),
+    index("activities_server_date_idx").on(table.serverId, table.date),
     index("activities_search_vector_idx").using("gin", table.searchVector),
   ]
 );
 
 // Job results table
-export const jobResults = pgTable("job_results", {
-  id: serial("id").primaryKey(),
-  jobId: varchar("job_id", { length: 255 }).notNull(),
-  jobName: varchar("job_name", { length: 255 }).notNull(),
-  status: varchar("status", { length: 50 }).notNull(), // 'completed', 'failed', 'processing'
-  result: jsonb("result"),
-  error: text("error"),
-  processingTime: integer("processing_time"), // in milliseconds (capped at 1 hour)
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const jobResults = pgTable(
+  "job_results",
+  {
+    id: serial("id").primaryKey(),
+    jobId: varchar("job_id", { length: 255 }).notNull(),
+    jobName: varchar("job_name", { length: 255 }).notNull(),
+    status: varchar("status", { length: 50 }).notNull(), // 'completed', 'failed', 'processing'
+    result: jsonb("result"),
+    error: text("error"),
+    processingTime: integer("processing_time"), // in milliseconds (capped at 1 hour)
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("job_results_job_id_idx").on(table.jobId),
+    index("job_results_job_name_idx").on(table.jobName),
+    index("job_results_created_at_idx").on(table.createdAt),
+  ]
+);
 
 // Server job configurations table - per-server cron job settings
 export const serverJobConfigurations = pgTable(
@@ -456,6 +471,7 @@ export const items = pgTable(
   (table) => [
     index("items_server_type_idx").on(table.serverId, table.type),
     index("items_series_id_idx").on(table.seriesId),
+    index("items_library_id_idx").on(table.libraryId),
     index("items_search_vector_idx").using("gin", table.searchVector),
   ]
 );
@@ -599,6 +615,7 @@ export const sessions = pgTable(
     // Performance indexes for common query patterns
     index("sessions_server_user_idx").on(table.serverId, table.userId),
     index("sessions_server_item_idx").on(table.serverId, table.itemId),
+    index("sessions_item_id_idx").on(table.itemId),
     index("sessions_server_created_at_idx").on(table.serverId, table.createdAt),
     index("sessions_server_start_time_idx").on(table.serverId, table.startTime),
     index("sessions_user_start_time_idx").on(table.userId, table.startTime),
@@ -635,17 +652,23 @@ export const activityLogCursors = pgTable("activity_log_cursors", {
 });
 
 // Hidden recommendations table - stores user's hidden recommendations
-export const hiddenRecommendations = pgTable("hidden_recommendations", {
-  id: serial("id").primaryKey(),
-  serverId: integer("server_id")
-    .references(() => servers.id, { onDelete: "cascade" })
-    .notNull(),
-  userId: text("user_id").notNull(), // Jellyfin user ID
-  itemId: text("item_id")
-    .references(() => items.id, { onDelete: "cascade" })
-    .notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const hiddenRecommendations = pgTable(
+  "hidden_recommendations",
+  {
+    id: serial("id").primaryKey(),
+    serverId: integer("server_id")
+      .references(() => servers.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: text("user_id").notNull(), // Jellyfin user ID
+    itemId: text("item_id")
+      .references(() => items.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
+  ]
+);
 
 // Activity locations table - geolocated IP data for activities
 export const activityLocations = pgTable(

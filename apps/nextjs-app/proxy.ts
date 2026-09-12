@@ -98,9 +98,9 @@ export const config = {
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico, icon.png (metadata files)
+     * - favicon, icons, metadata, and static assets
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|favicon.svg|favicon-96x96.png|icon.png|web-app-manifest-|manifest.json).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|favicon.svg|favicon-96x96.png|icon.png|apple-touch-icon.*|web-app-manifest-|manifest.json|sql-js/.*|.*\\.wasm|.*\\.png|.*\\.svg|.*\\.ico).*)",
   ],
 };
 
@@ -218,6 +218,61 @@ const getSessionUser = async (
   }
 };
 
+// In-memory cache for server lookups
+let cachedServers: {
+  data: Awaited<ReturnType<typeof getServers>>;
+  expiresAt: number;
+} | null = null;
+
+async function getCachedServers() {
+  const now = Date.now();
+  if (cachedServers && cachedServers.expiresAt > now) {
+    return cachedServers.data;
+  }
+  const data = await getServers();
+  if (data.length > 0) {
+    cachedServers = { data, expiresAt: now + 15_000 };
+  } else {
+    cachedServers = null;
+  }
+  return data;
+}
+
+const serverCache = new Map<
+  string,
+  { data: Awaited<ReturnType<typeof getServer>>; expiresAt: number }
+>();
+
+async function getCachedServer(serverId: string) {
+  const now = Date.now();
+  const entry = serverCache.get(serverId);
+  if (entry && entry.expiresAt > now) {
+    return entry.data;
+  }
+  const data = await getServer({ serverId });
+  if (serverCache.size > 100) serverCache.clear();
+  if (data) {
+    serverCache.set(serverId, { data, expiresAt: now + 15_000 });
+  }
+  return data;
+}
+
+// In-memory cache for Jellyfin token validation
+interface TokenValidationCacheEntry {
+  result: Result<boolean>;
+  expiresAt: number;
+}
+const tokenValidationCache = new Map<string, TokenValidationCacheEntry>();
+const TOKEN_CACHE_TTL_MS = 60_000; // 60 seconds
+
+function isPrefetchRequest(request: NextRequest): boolean {
+  return (
+    request.headers.has("next-router-prefetch") ||
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose") === "prefetch"
+  );
+}
+
 /**
  * Validates that the Jellyfin access token is still valid.
  * This catches expired/revoked tokens even though the session JWT is valid.
@@ -234,7 +289,19 @@ const validateJellyfinToken = async (
     };
   }
 
-  const server = await getServer({ serverId: session.serverId.toString() });
+  const cacheKey = `${tokenCookie.value}:${session.serverId}:${session.id}`;
+  const cached = tokenValidationCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return cached.result;
+  }
+
+  // Skip live external call on prefetch requests when signed JWT session is already verified
+  if (isPrefetchRequest(request)) {
+    return { type: ResultType.Success, data: true };
+  }
+
+  const server = await getCachedServer(session.serverId.toString());
   if (!server) {
     return {
       type: ResultType.Error,
@@ -279,7 +346,13 @@ const validateJellyfinToken = async (
       };
     }
 
-    return { type: ResultType.Success, data: true };
+    const result: Result<boolean> = { type: ResultType.Success, data: true };
+    if (tokenValidationCache.size > 500) tokenValidationCache.clear();
+    tokenValidationCache.set(cacheKey, {
+      result,
+      expiresAt: now + TOKEN_CACHE_TTL_MS,
+    });
+    return result;
   } catch (error) {
     if (
       error instanceof Error &&
@@ -310,7 +383,7 @@ async function handleProxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const { id, page, subPage, name, userSubPage } = parsePathname(pathname);
 
-  const servers = await getServers();
+  const servers = await getCachedServers();
 
   // If there are no servers, redirect to /setup
   if (servers.length === 0) {

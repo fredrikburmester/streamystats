@@ -12,7 +12,7 @@ import type { Item } from "@streamystats/database/schema";
 import { tool } from "ai";
 import {
   and,
-  cosineDistance,
+  asc,
   desc,
   eq,
   ilike,
@@ -21,6 +21,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
+import { getItemEmbeddingComparison } from "@/lib/db/embedding-comparison";
 import { getHistoryByFilters } from "@/lib/db/history";
 import {
   findItemsByCharacter,
@@ -1225,14 +1226,15 @@ export function createChatTools(serverId: number, userId: string) {
           };
         }
 
-        const similarity = sql<number>`1 - (${cosineDistance(
-          items.embedding,
+        const { distance, dimensionFilter } = getItemEmbeddingComparison(
           embed.embedding,
-        )})`;
+        );
+        const similarity = sql<number>`1 - (${distance})`;
 
         const conditions = [
           eq(items.serverId, serverId),
           isNotNull(items.embedding),
+          dimensionFilter,
         ];
         if (type !== "all") {
           conditions.push(eq(items.type, type));
@@ -1247,7 +1249,7 @@ export function createChatTools(serverId: number, userId: string) {
           })
           .from(items)
           .where(and(...conditions))
-          .orderBy(desc(similarity), desc(items.communityRating))
+          .orderBy(asc(distance), desc(items.communityRating))
           .limit(Math.max(limit * 12, 50));
 
         const ranked = candidates

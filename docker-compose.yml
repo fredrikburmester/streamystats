@@ -15,6 +15,7 @@ services:
       - JOB_SERVER_URL=http://job-server:3005
       - HOSTNAME=0.0.0.0
       - SESSION_SECRET=${SESSION_SECRET}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-${SESSION_SECRET}}
       # Stable encryption key for server action closures (prevents session breakage on redeploy)
       - NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
     depends_on:
@@ -34,6 +35,8 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
       - PORT=3005
       - HOST=0.0.0.0
+      - NEXTJS_URL=http://nextjs-app:3000
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-${SESSION_SECRET}}
       # Session polling interval in milliseconds (default: 5000)
       - SESSION_POLL_INTERVAL_MS=${SESSION_POLL_INTERVAL_MS:-5000}
       # Cron schedules (standard cron syntax)
@@ -64,7 +67,26 @@ services:
 
   vectorchord:
     image: tensorchord/vchord-postgres:pg17-v1.1.1
-    command: ["postgres", "-c", "log_checkpoints=off"]
+    command:
+      [
+        "postgres",
+        "-c",
+        "log_checkpoints=off",
+        "-c",
+        "shared_buffers=512MB",
+        "-c",
+        "work_mem=16MB",
+        "-c",
+        "maintenance_work_mem=256MB",
+        "-c",
+        "effective_cache_size=1536MB",
+        "-c",
+        "random_page_cost=1.1",
+        "-c",
+        "effective_io_concurrency=200",
+      ]
+    stop_signal: SIGINT
+    shm_size: 1g
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}

@@ -31,8 +31,8 @@ import {
 // Configuration (hardcoded - no per-server customization for interval)
 // ============================================================================
 const POLL_INTERVAL_MS = 5000; // Hardcoded 5 seconds
-const JELLYFIN_TIMEOUT_MS = 60_000; // 60s timeout for slow Jellyfin servers
-const JELLYFIN_RETRIES = 3;
+const JELLYFIN_TIMEOUT_MS = 10_000; // 10s timeout per server
+const JELLYFIN_RETRIES = 1;
 const DB_STATEMENT_TIMEOUT_MS = 10_000;
 
 function setLocalStatementTimeoutSql(ms: number) {
@@ -62,6 +62,11 @@ class SessionPoller {
   private lastPollAt: number | null = null;
   private totalPollCount = 0;
   private totalSuccessCount = 0;
+  private lastPersistedSessionCounts: Map<number, number> = new Map();
+  private pollingEnabledCache: Map<
+    number,
+    { enabled: boolean; expiresAt: number }
+  > = new Map();
 
   // ============================================================================
   // Public API
@@ -167,7 +172,7 @@ class SessionPoller {
   }
 
   async reloadServerConfig(serverId: number): Promise<void> {
-    // Only enable/disable is configurable now, no interval changes
+    this.pollingEnabledCache.delete(serverId);
     log("session-poller", { action: "config-reloaded", serverId });
   }
 
@@ -186,17 +191,22 @@ class SessionPoller {
     try {
       const allServers = await this.listServers();
 
-      for (const server of allServers) {
-        if (!this.isRunning) break;
-        if (!(await this.isServerPollingEnabled(server.id))) continue;
+      await Promise.allSettled(
+        allServers.map(async (server) => {
+          if (!this.isRunning) return;
+          if (!(await this.isServerPollingEnabled(server.id))) return;
 
-        try {
-          await this.pollServer(server);
-        } catch (err) {
-          log("session-poller", { action: "server-error", serverId: server.id, error: formatError(err) });
-          // Continue to next server - will retry in next tick
-        }
-      }
+          try {
+            await this.pollServer(server);
+          } catch (err) {
+            log("session-poller", {
+              action: "server-error",
+              serverId: server.id,
+              error: formatError(err),
+            });
+          }
+        })
+      );
 
       this.lastPollAt = Date.now();
       this.totalSuccessCount++;
@@ -756,6 +766,12 @@ class SessionPoller {
     serverId: number,
     sessionsMap: Map<string, TrackedSession>
   ): Promise<void> {
+    const prevCount = this.lastPersistedSessionCounts.get(serverId) ?? -1;
+    if (sessionsMap.size === 0 && prevCount === 0) {
+      // Both previous and current active session counts are 0; skip DB transaction
+      return;
+    }
+
     const now = new Date();
     const rows: NewActiveSession[] = Array.from(sessionsMap.values()).map((s) => ({
       serverId,
@@ -793,6 +809,8 @@ class SessionPoller {
           );
       }
     });
+
+    this.lastPersistedSessionCounts.set(serverId, rows.length);
   }
 
   private async loadPersistedState(): Promise<void> {
@@ -867,6 +885,12 @@ class SessionPoller {
   }
 
   private async isServerPollingEnabled(serverId: number): Promise<boolean> {
+    const cached = this.pollingEnabledCache.get(serverId);
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) {
+      return cached.enabled;
+    }
+
     const configs = await db
       .select({ enabled: serverJobConfigurations.enabled })
       .from(serverJobConfigurations)
@@ -879,7 +903,12 @@ class SessionPoller {
       .limit(1);
 
     // Default to enabled if no config exists
-    return configs.length === 0 || configs[0].enabled;
+    const enabled = configs.length === 0 || configs[0].enabled;
+    this.pollingEnabledCache.set(serverId, {
+      enabled,
+      expiresAt: now + 60_000,
+    });
+    return enabled;
   }
 
   // ============================================================================

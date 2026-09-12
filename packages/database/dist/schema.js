@@ -102,7 +102,9 @@ exports.libraries = (0, pg_core_1.pgTable)("libraries", {
         .references(() => exports.servers.id, { onDelete: "cascade" }),
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+    (0, pg_core_1.index)("libraries_server_id_idx").on(table.serverId),
+]);
 // Users table - users from various servers
 exports.users = (0, pg_core_1.pgTable)("users", {
     id: (0, pg_core_1.text)("id").primaryKey(), // External user ID from server
@@ -214,6 +216,7 @@ exports.activities = (0, pg_core_1.pgTable)("activities", {
     searchVector: tsvector("search_vector"),
 }, (table) => [
     (0, pg_core_1.index)("activities_server_id_idx").on(table.serverId),
+    (0, pg_core_1.index)("activities_server_date_idx").on(table.serverId, table.date),
     (0, pg_core_1.index)("activities_search_vector_idx").using("gin", table.searchVector),
 ]);
 // Job results table
@@ -226,7 +229,11 @@ exports.jobResults = (0, pg_core_1.pgTable)("job_results", {
     error: (0, pg_core_1.text)("error"),
     processingTime: (0, pg_core_1.integer)("processing_time"), // in milliseconds (capped at 1 hour)
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+    (0, pg_core_1.index)("job_results_job_id_idx").on(table.jobId),
+    (0, pg_core_1.index)("job_results_job_name_idx").on(table.jobName),
+    (0, pg_core_1.index)("job_results_created_at_idx").on(table.createdAt),
+]);
 // Server job configurations table - per-server cron job settings
 exports.serverJobConfigurations = (0, pg_core_1.pgTable)("server_job_configurations", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
@@ -337,6 +344,7 @@ exports.items = (0, pg_core_1.pgTable)("items", {
 (table) => [
     (0, pg_core_1.index)("items_server_type_idx").on(table.serverId, table.type),
     (0, pg_core_1.index)("items_series_id_idx").on(table.seriesId),
+    (0, pg_core_1.index)("items_library_id_idx").on(table.libraryId),
     (0, pg_core_1.index)("items_search_vector_idx").using("gin", table.searchVector),
 ]);
 // Media sources table - file information for items (size, bitrate, etc.)
@@ -451,6 +459,7 @@ exports.sessions = (0, pg_core_1.pgTable)("sessions", {
     // Performance indexes for common query patterns
     (0, pg_core_1.index)("sessions_server_user_idx").on(table.serverId, table.userId),
     (0, pg_core_1.index)("sessions_server_item_idx").on(table.serverId, table.itemId),
+    (0, pg_core_1.index)("sessions_item_id_idx").on(table.itemId),
     (0, pg_core_1.index)("sessions_server_created_at_idx").on(table.serverId, table.createdAt),
     (0, pg_core_1.index)("sessions_server_start_time_idx").on(table.serverId, table.startTime),
     (0, pg_core_1.index)("sessions_user_start_time_idx").on(table.userId, table.startTime),
@@ -489,7 +498,9 @@ exports.hiddenRecommendations = (0, pg_core_1.pgTable)("hidden_recommendations",
         .references(() => exports.items.id, { onDelete: "cascade" })
         .notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+    (0, pg_core_1.index)("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
+]);
 // Activity locations table - geolocated IP data for activities
 exports.activityLocations = (0, pg_core_1.pgTable)("activity_locations", {
     id: (0, pg_core_1.serial)("id").primaryKey(),

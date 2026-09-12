@@ -99,3 +99,6 @@ apps/job-server/dist/
 docker/dev/.stack.env
 docker/dev/jellyfin/.state.env
 docker/dev/jellyfin/media/
+
+# Git worktrees
+.worktrees/
