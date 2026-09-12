@@ -46,6 +46,10 @@ services:
     volumes:
       - streamystats_data:/var/lib/postgresql/data
     restart: unless-stopped
+    # Docker's default 10s stop timeout is not enough for postgres to shut down
+    # cleanly, which forces WAL recovery on the next start. This is an upper
+    # bound, not a fixed delay.
+    stop_grace_period: 60s
     logging:
       driver: json-file
       options:
