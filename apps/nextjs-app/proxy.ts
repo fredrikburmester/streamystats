@@ -115,7 +115,7 @@ const ADMIN_ONLY_SUB_PATHS: Record<string, string[]> = {
   dashboard: ["security"],
 };
 const ADMIN_ONLY_USER_SUB_PATHS = ["security"];
-const PUBLIC_PATHS = ["login", "reconnect", "setup"];
+const PUBLIC_PATHS = ["login", "reconnect"];
 
 const BASE_PATH_REGEX = basePath.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 

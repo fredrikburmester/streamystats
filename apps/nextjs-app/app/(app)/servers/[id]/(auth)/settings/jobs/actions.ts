@@ -45,7 +45,7 @@ export async function getJobConfigs(
   serverId: number,
 ): Promise<GetJobConfigsResponse> {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, error: "Admin privileges required" };
     }
@@ -115,7 +115,7 @@ export async function updateJobConfig(
   config: UpdateJobConfigParams,
 ): Promise<UpdateJobConfigResponse> {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, error: "Admin privileges required" };
     }
@@ -184,7 +184,7 @@ export async function resetJobConfig(
   jobKey: JobKey,
 ): Promise<ResetJobConfigResponse> {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, error: "Admin privileges required" };
     }

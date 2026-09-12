@@ -38,10 +38,6 @@ export async function GET(
   { params }: { params: Promise<{ serverId: string }> },
 ) {
   try {
-    // Require admin for data export
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const { serverId } = await params;
     const serverIdNum = Number(serverId);
     if (Number.isNaN(serverIdNum)) {
@@ -50,6 +46,10 @@ export async function GET(
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // Require admin for data export on this server
+    const { error } = await requireAdmin(serverIdNum);
+    if (error) return error;
 
     const server = await getServerWithSecrets({ serverId });
     if (!server) {

@@ -21,7 +21,7 @@ export type SessionItemResolution =
   | "unresolved";
 
 export interface ResolvedSessionItem {
-  itemId: string;
+  itemId: string | null;
   resolvedVia: SessionItemResolution;
 }
 
@@ -57,7 +57,7 @@ export async function resolveSessionItemId(args: {
     }
   }
 
-  return { itemId: nowPlayingItemId, resolvedVia: "unresolved" };
+  return { itemId: null, resolvedVia: "unresolved" };
 }
 
 function uniqueIds(values: Array<string | undefined>): string[] {

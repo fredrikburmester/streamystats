@@ -2,6 +2,8 @@
 
 import type { Server } from "@streamystats/database";
 import { z } from "zod/v4";
+import { getServers } from "@/lib/db/server";
+import { getSession } from "@/lib/session";
 import type { ServerPublic } from "@/lib/types";
 
 const CREATE_SERVER_EMBEDDING_PROVIDERS = [
@@ -53,6 +55,14 @@ interface CreateServerErrorResponse {
 export async function createServer(
   serverData: CreateServerRequest,
 ): Promise<CreateServerSuccessResponse | CreateServerErrorResponse> {
+  const existingServers = await getServers();
+  if (existingServers.length > 0) {
+    const session = await getSession();
+    if (!session?.isAdmin) {
+      return { success: false, details: "Admin privileges required" };
+    }
+  }
+
   const parsed = createServerSchema.safeParse(serverData);
   if (!parsed.success) {
     return { success: false, details: "Invalid input" };

@@ -17,7 +17,7 @@ export async function updateExcludedUsersAction(
   excludedUserIds: string[],
 ) {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, message: "Admin privileges required" };
     }
@@ -56,7 +56,7 @@ export async function updateExcludedLibrariesAction(
   excludedLibraryIds: string[],
 ) {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, message: "Admin privileges required" };
     }

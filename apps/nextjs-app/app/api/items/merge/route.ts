@@ -9,7 +9,7 @@ import { requireAdmin } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
+    const { error, session } = await requireAdmin();
     if (error) return error;
 
     const body = await request.json();
@@ -89,6 +89,21 @@ export async function POST(request: Request) {
     }
 
     const serverId = leftItem[0].serverId;
+
+    if (session.serverId !== serverId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Forbidden: Admin privileges required for this server",
+        }),
+        {
+          status: 403,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
 
     if (serverId !== rightItem[0].serverId) {
       return new Response(

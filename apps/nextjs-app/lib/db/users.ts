@@ -417,9 +417,19 @@ export const getMe = async (): Promise<User | null> => {
  * Checks if the current user is an admin from the signed session.
  * This is a fast check using the cryptographically signed session cookie.
  */
-export const isUserAdmin = async (): Promise<boolean> => {
+export const isUserAdmin = async (
+  serverId?: number | string,
+): Promise<boolean> => {
   const session = await getSession();
-  return session?.isAdmin === true;
+  if (!session?.isAdmin) return false;
+  if (
+    serverId !== undefined &&
+    serverId !== null &&
+    Number(session.serverId) !== Number(serverId)
+  ) {
+    return false;
+  }
+  return true;
 };
 
 /**

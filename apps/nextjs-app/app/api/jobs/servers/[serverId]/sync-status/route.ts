@@ -7,10 +7,11 @@ interface RouteParams {
 }
 
 export async function GET(_request: Request, { params }: RouteParams) {
-  const auth = await requireSession();
-  if (auth.error) return auth.error;
   try {
     const { serverId } = await params;
+
+    const auth = await requireSession(serverId);
+    if (auth.error) return auth.error;
 
     if (!serverId) {
       return new Response(

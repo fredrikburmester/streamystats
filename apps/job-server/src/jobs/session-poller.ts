@@ -677,6 +677,47 @@ class SessionPoller {
           .where(eq(users.id, tracked.userJellyfinId))
           .limit(1);
 
+        const itemExists = async (itemId: string): Promise<boolean> => {
+          const rows = await tx
+            .select({ id: items.id })
+            .from(items)
+            .where(and(eq(items.id, itemId), eq(items.serverId, server.id)))
+            .limit(1);
+          return rows.length > 0;
+        };
+
+        let validItemId =
+          tracked.itemId && (await itemExists(tracked.itemId))
+            ? tracked.itemId
+            : null;
+        const originalItemId = tracked.jellyfinItemId ?? tracked.itemId;
+        if (!validItemId && originalItemId) {
+          // Sync may have added the item or its version mapping during playback.
+          // Use local lookups to avoid Jellyfin I/O inside the transaction.
+          const resolved = await resolveSessionItemId({
+            nowPlayingItemId: originalItemId,
+            mediaSourceId: tracked.mediaSourceId,
+            lookups: {
+              itemExists,
+              itemIdForMediaSource: async (mediaSourceId) => {
+                const rows = await tx
+                  .select({ itemId: mediaSources.itemId })
+                  .from(mediaSources)
+                  .where(
+                    and(
+                      eq(mediaSources.id, mediaSourceId),
+                      eq(mediaSources.serverId, server.id)
+                    )
+                  )
+                  .limit(1);
+                return rows[0]?.itemId ?? null;
+              },
+              fetchMediaSourceIds: async () => [],
+            },
+          });
+          validItemId = resolved.itemId;
+        }
+
         const stableId = tracked.sessionId
           ? `sid:${server.id}:${tracked.sessionId}:${tracked.startTime.toISOString()}`
           : `trk:${server.id}:${tracked.sessionKey}:${tracked.startTime.toISOString()}`;
@@ -685,7 +726,7 @@ class SessionPoller {
           id: stableId,
           serverId: server.id,
           userId: user.length > 0 ? user[0].id : null,
-          itemId: tracked.itemId,
+          itemId: validItemId,
           userName: tracked.userName,
           userServerId: tracked.userJellyfinId,
           deviceId: tracked.deviceId,
@@ -734,7 +775,7 @@ class SessionPoller {
           rawData: {
             sessionKey: tracked.sessionKey,
             transcodeReasons: tracked.transcodeReasons,
-            nowPlayingItemId: tracked.jellyfinItemId ?? tracked.itemId,
+            nowPlayingItemId: tracked.jellyfinItemId ?? tracked.itemId ?? null,
           },
         };
 
@@ -825,6 +866,7 @@ class SessionPoller {
         const map = this.trackedSessions.get(serverKey) ?? new Map<string, TrackedSession>();
         const tracked = this.deserializeTrackedSession(row.payload);
         if (!tracked) continue;
+        tracked.lastUpdateTime = new Date();
         map.set(row.sessionKey, tracked);
         this.trackedSessions.set(serverKey, map);
       }
@@ -971,27 +1013,42 @@ class SessionPoller {
     return { newSessions, updatedSessions, endedSessions };
   }
 
-  private calculateDuration(tracked: TrackedSession, currentPaused: boolean): number {
+  calculateDuration(tracked: TrackedSession, currentPaused: boolean): number {
     const wasPaused = tracked.isPaused;
     const now = Date.now();
     const elapsedSinceLastUpdate = Math.floor(
       (now - tracked.lastUpdateTime.getTime()) / 1000
     );
+    const maxGapSeconds = Math.max(
+      15,
+      Math.ceil((this.currentPollIntervalMs / 1000) * 2)
+    );
+    const clampedElapsed = Math.min(
+      Math.max(0, elapsedSinceLastUpdate),
+      maxGapSeconds
+    );
 
     // Was playing, now paused or still playing - add elapsed time
     if (!wasPaused) {
-      return tracked.playDuration + Math.max(0, elapsedSinceLastUpdate);
+      return tracked.playDuration + clampedElapsed;
     }
 
     // Was paused, now playing or still paused - no change
     return tracked.playDuration;
   }
 
-  private getFinalDuration(tracked: TrackedSession, now: Date): number {
+  getFinalDuration(tracked: TrackedSession, now: Date): number {
     let finalDuration = tracked.playDuration;
     if (!tracked.isPaused) {
-      const timeDiff = Math.floor((now.getTime() - tracked.lastUpdateTime.getTime()) / 1000);
-      finalDuration += timeDiff;
+      const timeDiff = Math.floor(
+        (now.getTime() - tracked.lastUpdateTime.getTime()) / 1000
+      );
+      const maxGapSeconds = Math.max(
+        15,
+        Math.ceil((this.currentPollIntervalMs / 1000) * 2)
+      );
+      const clampedTimeDiff = Math.min(Math.max(0, timeDiff), maxGapSeconds);
+      finalDuration += clampedTimeDiff;
     }
     return finalDuration;
   }

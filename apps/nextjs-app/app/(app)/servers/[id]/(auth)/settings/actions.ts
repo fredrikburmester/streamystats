@@ -19,7 +19,7 @@ const updateTimezoneSchema = z.object({
 
 export async function deleteServerAction(serverId: number) {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, message: "Admin privileges required" };
     }
@@ -72,7 +72,7 @@ export async function updateConnectionSettingsAction({
   apiKey,
 }: UpdateConnectionSettingsParams): Promise<UpdateConnectionSettingsResult> {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, message: "Admin privileges required" };
     }
@@ -228,7 +228,7 @@ export async function updateServerTimezoneAction(
   timezone: string,
 ) {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, message: "Admin privileges required" };
     }

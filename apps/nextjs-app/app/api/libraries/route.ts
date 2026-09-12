@@ -3,9 +3,6 @@ import { getLibraries } from "@/lib/db/libraries";
 
 export async function GET(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const { searchParams } = new URL(request.url);
     const serverId = searchParams.get("serverId");
 
@@ -22,6 +19,9 @@ export async function GET(request: Request) {
         },
       );
     }
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     const libraries = await getLibraries({
       serverId: Number.parseInt(serverId, 10),

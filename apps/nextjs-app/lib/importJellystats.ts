@@ -1,5 +1,3 @@
-"use server";
-
 // DEPRECATED: This server action has been replaced by the streaming API route at /api/import/jellystats
 // This file is kept for backward compatibility but should not be used for new implementations.
 // The new streaming implementation can handle large files (200MB+) efficiently.

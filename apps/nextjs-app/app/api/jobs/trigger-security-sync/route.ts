@@ -2,9 +2,6 @@ import { requireAdmin } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const body = await request.json();
     const { serverId } = body;
 
@@ -14,6 +11,9 @@ export async function POST(request: Request) {
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     const jobServerUrl =
       process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"

@@ -9,6 +9,7 @@ import {
   users,
 } from "@streamystats/database/schema";
 import { eq } from "drizzle-orm";
+import { requireAdmin } from "./api-auth";
 import {
   parseDotNetTimestamp,
   parseEpisodeInfo,
@@ -259,6 +260,14 @@ export async function importFromPlaybackReporting(
       return {
         type: "error",
         message: "Invalid server ID",
+      };
+    }
+
+    const { error: authError } = await requireAdmin(serverIdNum);
+    if (authError) {
+      return {
+        type: "error",
+        message: "Admin privileges required",
       };
     }
 

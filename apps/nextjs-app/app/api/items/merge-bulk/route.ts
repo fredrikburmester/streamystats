@@ -83,7 +83,7 @@ async function mergeSinglePair(
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
+    const { error, session } = await requireAdmin();
     if (error) return error;
 
     const body = await request.json();
@@ -148,6 +148,13 @@ export async function POST(request: Request) {
         }
 
         const serverId = deletedItem[0].serverId;
+        if (session.serverId !== serverId) {
+          errors.push(
+            `Item ${pair.deletedItemId} does not belong to your server`,
+          );
+          continue;
+        }
+
         if (serverId !== activeItem[0].serverId) {
           errors.push(
             `Items ${pair.deletedItemId} and ${pair.activeItemId} are from different servers`,

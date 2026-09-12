@@ -12,10 +12,10 @@ const LIBRARY_TYPES_WITH_PEOPLE = ["movies", "tvshows", "music"] as const;
 
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const { serverId } = await params;
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     if (!serverId) {
       return new Response(

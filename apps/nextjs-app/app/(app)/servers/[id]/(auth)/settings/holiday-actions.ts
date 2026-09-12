@@ -17,7 +17,7 @@ export async function updateDisabledHolidaysAction(
   disabledHolidays: string[],
 ) {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, message: "Admin privileges required" };
     }
