@@ -1,4 +1,6 @@
-const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
+import { STREAMYSTATS_VERSION } from "@/lib/version";
+
+export type JellyfinDevice = { id: string; name: string };
 
 /**
  * Build the standard Jellyfin Authorization header.
@@ -6,15 +8,43 @@ const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
  */
 export function jellyfinHeaders(
   token: string,
-  device?: { id: string; name: string },
+  device?: JellyfinDevice,
 ): Record<string, string> {
+  return {
+    Authorization: `${mediaBrowserIdentity(device)}, Token="${token}"`,
+    "Content-Type": "application/json",
+  };
+}
+
+/**
+ * Authorization header for requests made before a token exists. Jellyfin
+ * rejects /Users/AuthenticateByName with HTTP 400 unless the client identifies
+ * itself with Client, Device, DeviceId and Version.
+ */
+export function jellyfinClientHeaders(
+  device: JellyfinDevice,
+): Record<string, string> {
+  return {
+    Authorization: mediaBrowserIdentity(device),
+    "Content-Type": "application/json",
+  };
+}
+
+function mediaBrowserIdentity(device?: JellyfinDevice): string {
   const devicePart = device
     ? `, Device="${device.name}", DeviceId="${device.id}"`
     : "";
-  return {
-    Authorization: `MediaBrowser Client="Streamystats"${devicePart}, Version="${STREAMYSTATS_VERSION}", Token="${token}"`,
-    "Content-Type": "application/json",
-  };
+  return `MediaBrowser Client="Streamystats"${devicePart}, Version="${STREAMYSTATS_VERSION}"`;
+}
+
+/**
+ * Stable device identity for password logins through the external API, so
+ * repeated calls reuse one Jellyfin device per user instead of creating a new
+ * device entry every time.
+ */
+export function apiLoginDevice(username: string): JellyfinDevice {
+  const slug = encodeURIComponent(username.trim().toLowerCase());
+  return { id: `streamystats-api-${slug}`, name: "Streamystats API" };
 }
 
 type JellyfinUserMeResponse = {
@@ -145,7 +175,7 @@ export async function authenticateByName(args: {
   try {
     const res = await fetch(`${serverUrl}/Users/AuthenticateByName`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jellyfinClientHeaders(apiLoginDevice(username)),
       body: JSON.stringify({ Username: username, Pw: password }),
       signal: AbortSignal.timeout(10_000),
     });

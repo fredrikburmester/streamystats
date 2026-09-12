@@ -34,10 +34,13 @@ Authorization: MediaBrowser Client="MyApp", Device="iPhone", DeviceId="abc123", 
 
 ### Obtaining a Token
 
-Authenticate with Jellyfin's `/Users/AuthenticateByName` endpoint:
+Authenticate with Jellyfin's `/Users/AuthenticateByName` endpoint. Jellyfin
+requires the client to identify itself in the `Authorization` header (no
+token yet) and answers HTTP 400 without it:
 
 ```bash
 curl -X POST "https://your-jellyfin-server/Users/AuthenticateByName" \
+  -H 'Authorization: MediaBrowser Client="MyApp", Device="My Device", DeviceId="my-device-id", Version="1.0.0"' \
   -H "Content-Type: application/json" \
   -d '{"Username": "your-username", "Pw": "your-password"}'
 ```

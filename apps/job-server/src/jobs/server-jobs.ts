@@ -5,11 +5,13 @@ import { logJobResult } from "./job-logger";
 import { structuredLog as log } from "../utils/structured-log";
 import { getInternalUrl } from "../utils/server-url";
 import type { PgBossJob, AddServerJobData } from "../types/job-status";
+import { STREAMYSTATS_VERSION } from "../utils/version";
+
+export { STREAMYSTATS_VERSION };
 
 export const BACKFILL_JOB_NAMES = {
   BACKFILL_JELLYFIN_IDS: "backfill-jellyfin-ids",
 } as const;
-export const STREAMYSTATS_VERSION = "2.16.0"; // x-release-please-version
 
 // Job: Add a new media server
 export async function addServerJob(job: PgBossJob<AddServerJobData>) {

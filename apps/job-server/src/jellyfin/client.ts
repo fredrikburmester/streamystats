@@ -4,7 +4,7 @@ import pRetry from "p-retry";
 import { Server } from "@streamystats/database";
 import { JellyfinSession } from "./types";
 import { getInternalUrl } from "../utils/server-url";
-import { STREAMYSTATS_VERSION } from "../jobs/server-jobs";
+import { STREAMYSTATS_VERSION } from "../utils/version";
 
 export interface JellyfinConfig {
   baseURL: string;
@@ -14,46 +14,51 @@ export interface JellyfinConfig {
   maxRetries?: number;
 }
 
+/** Permission flags live under UserDto.Policy; Jellyfin never returns them at the top level. */
+export interface JellyfinUserPolicy {
+  IsAdministrator?: boolean;
+  IsHidden?: boolean;
+  IsDisabled?: boolean;
+  EnableUserPreferenceAccess?: boolean;
+  EnableRemoteControlOfOtherUsers?: boolean;
+  EnableSharedDeviceControl?: boolean;
+  EnableRemoteAccess?: boolean;
+  EnableLiveTvManagement?: boolean;
+  EnableLiveTvAccess?: boolean;
+  EnableMediaPlayback?: boolean;
+  EnableAudioPlaybackTranscoding?: boolean;
+  EnableVideoPlaybackTranscoding?: boolean;
+  EnablePlaybackRemuxing?: boolean;
+  EnableContentDeletion?: boolean;
+  EnableContentDownloading?: boolean;
+  EnableSyncTranscoding?: boolean;
+  EnableMediaConversion?: boolean;
+  EnableAllDevices?: boolean;
+  EnableAllChannels?: boolean;
+  EnableAllFolders?: boolean;
+  EnabledFolders?: string[];
+  EnablePublicSharing?: boolean;
+  InvalidLoginAttemptCount?: number;
+  LoginAttemptsBeforeLockout?: number;
+  MaxActiveSessions?: number;
+  RemoteClientBitrateLimit?: number;
+  AuthenticationProviderId?: string;
+  PasswordResetProviderId?: string;
+  SyncPlayAccess?: string;
+}
+
 export interface JellyfinUser {
   Id: string;
   Name: string;
   ServerId?: string;
-  LastLoginDate?: string;
-  LastActivityDate?: string;
-  HasPassword: boolean;
-  HasConfiguredPassword: boolean;
-  HasConfiguredEasyPassword: boolean;
-  EnableAutoLogin: boolean;
-  IsAdministrator: boolean;
-  IsHidden: boolean;
-  IsDisabled: boolean;
-  EnableUserPreferenceAccess: boolean;
-  EnableRemoteControlOfOtherUsers: boolean;
-  EnableSharedDeviceControl: boolean;
-  EnableRemoteAccess: boolean;
-  EnableLiveTvManagement: boolean;
-  EnableLiveTvAccess: boolean;
-  EnableMediaPlayback: boolean;
-  EnableAudioPlaybackTranscoding: boolean;
-  EnableVideoPlaybackTranscoding: boolean;
-  EnablePlaybackRemuxing: boolean;
-  EnableContentDeletion: boolean;
-  EnableContentDownloading: boolean;
-  EnableSyncTranscoding: boolean;
-  EnableMediaConversion: boolean;
-  EnableAllDevices: boolean;
-  EnableAllChannels: boolean;
-  EnableAllFolders: boolean;
-  EnabledFolders?: string[];
-  Policy?: { EnabledFolders?: string[] };
-  EnablePublicSharing: boolean;
-  InvalidLoginAttemptCount: number;
-  LoginAttemptsBeforeLockout: number;
-  MaxActiveSessions: number;
-  RemoteClientBitrateLimit: number;
-  AuthenticationProviderId: string;
-  PasswordResetProviderId: string;
-  SyncPlayAccess: string;
+  LastLoginDate?: string | null;
+  LastActivityDate?: string | null;
+  /** Deprecated since Jellyfin 12; HasConfiguredPassword carries the same meaning. */
+  HasPassword?: boolean;
+  HasConfiguredPassword?: boolean;
+  HasConfiguredEasyPassword?: boolean;
+  EnableAutoLogin?: boolean;
+  Policy?: JellyfinUserPolicy;
 }
 
 export interface JellyfinLibrary {
@@ -96,7 +101,6 @@ export interface JellyfinBaseItemDto {
   ParentIndexNumber?: number;
   ProviderIds?: Record<string, string>;
   IsHD?: boolean;
-  IsFolder2?: boolean;
   ParentLogoItemId?: string;
   ParentBackdropItemId?: string;
   ParentBackdropImageTags?: string[];
@@ -189,56 +193,24 @@ export interface JellyfinBaseItemDto {
   Container?: string;
   SortName?: string;
   ForcedSortName?: string;
-  Video3DFormat2?: string;
   DateLastMediaAdded?: string;
   Album?: string;
-  CriticRating2?: number;
-  ProductionYear2?: number;
   AirsBeforeSeasonNumber?: number;
   AirsAfterSeasonNumber?: number;
   AirsBeforeEpisodeNumber?: number;
   CanDelete?: boolean;
   CanDownload?: boolean;
   HasLyrics?: boolean;
-  HasSubtitles2?: boolean;
-  PreferredMetadataLanguage2?: string;
-  PreferredMetadataCountryCode2?: string;
   SupportsSync?: boolean;
-  Container2?: string;
-  SortName2?: string;
-  ForcedSortName2?: string;
   ExternalUrls?: any[];
   MediaSources?: any[];
   People?: any[];
   Studios?: any[];
   GenreItems?: any[];
   TagItems?: any[];
-  ParentId2?: string;
   RemoteTrailers?: any[];
-  ProviderIds2?: Record<string, string>;
-  IsFolder3?: boolean;
-  ParentId3?: string;
-  Type2?: string;
-  People2?: any[];
-  Studios2?: any[];
-  GenreItems2?: any[];
-  ParentLogoItemId2?: string;
-  ParentBackdropItemId2?: string;
-  ParentBackdropImageTags2?: string[];
-  LocalTrailerCount2?: number;
-  UserData2?: any;
   RecursiveItemCount?: number;
   ChildCount?: number;
-  SeriesName2?: string;
-  SeriesId2?: string;
-  SeasonId2?: string;
-  SpecialFeatureCount2?: number;
-  DisplayPreferencesId2?: string;
-  Status2?: string;
-  AirTime2?: string;
-  AirDays2?: string[];
-  Tags2?: string[];
-  PrimaryImageAspectRatio2?: number;
   Artists?: string[];
   ArtistItems?: any[];
   AlbumArtist?: string;
@@ -248,25 +220,10 @@ export interface JellyfinBaseItemDto {
   VideoType?: string;
   PartCount?: number;
   MediaSourceCount?: number;
-  ImageTags2?: Record<string, string>;
-  BackdropImageTags2?: string[];
-  ScreenshotImageTags2?: string[];
-  ParentLogoImageTag2?: string;
-  ParentArtItemId2?: string;
-  ParentArtImageTag2?: string;
-  SeriesPrimaryImageTag2?: string;
   CollectionType?: string;
   DisplayOrder?: string;
   AlbumId?: string;
   AlbumPrimaryImageTag?: string;
-  SeriesThumbImageTag2?: string;
-  AlbumArtist2?: string;
-  AlbumArtists2?: any[];
-  SeasonName2?: string;
-  MediaStreams2?: any[];
-  VideoType2?: string;
-  PartCount2?: number;
-  MediaSourceCount2?: number;
   // Add any other fields as needed
 }
 
@@ -431,10 +388,6 @@ export class JellyfinClient {
     return this.makeRequest<JellyfinUser[]>("get", "/Users");
   }
 
-  async getUser(userId: string): Promise<JellyfinUser> {
-    return this.makeRequest<JellyfinUser>("get", `/Users/${userId}`);
-  }
-
   async getLibraries(): Promise<JellyfinLibrary[]> {
     const response = await this.makeRequest<{ Items: JellyfinLibrary[] }>(
       "get",
@@ -446,72 +399,6 @@ export class JellyfinClient {
       (library) =>
         !["boxsets", "playlists"].includes(library.CollectionType || "")
     );
-  }
-
-  async getItem(itemId: string): Promise<JellyfinBaseItemDto> {
-    return this.makeRequest<JellyfinBaseItemDto>("get", `/Items/${itemId}`, {
-      params: {
-        Fields: DEFAULT_ITEM_FIELDS.join(","),
-        EnableImageTypes: DEFAULT_IMAGE_TYPES,
-      },
-    });
-  }
-
-  async getLibraryId(itemId: string): Promise<string> {
-    // First get all libraries to compare against
-    const libraries = await this.getLibraries();
-    const libraryIds = new Set(libraries.map((lib) => lib.Id));
-
-    return this.findLibraryRecursive(itemId, libraryIds);
-  }
-
-  private async findLibraryRecursive(
-    itemId: string,
-    libraryIds: Set<string>
-  ): Promise<string> {
-    const response = await this.makeRequest<ItemsResponse>("get", "/Items", {
-      params: {
-        Fields: "ParentId",
-        ids: itemId,
-      },
-    });
-
-    if (!response.Items.length) {
-      throw new Error(`Item not found: ${itemId}`);
-    }
-
-    const item = response.Items[0];
-
-    // Check if current item is a library we know about
-    if (libraryIds.has(item.Id)) {
-      return item.Id;
-    }
-
-    // Not a library - check if it has a parent
-    if (!item.ParentId) {
-      throw new Error("Reached root item without finding a library match");
-    }
-
-    // Continue up the hierarchy
-    return this.findLibraryRecursive(item.ParentId, libraryIds);
-  }
-
-  async getRecentlyAddedItems(
-    limit: number = 20
-  ): Promise<JellyfinBaseItemDto[]> {
-    const response = await this.makeRequest<ItemsResponse>("get", "/Items", {
-      params: {
-        SortBy: "DateCreated",
-        SortOrder: "Descending",
-        Recursive: "true",
-        Fields: DEFAULT_ITEM_FIELDS.join(","),
-        ImageTypeLimit: "1",
-        EnableImageTypes: DEFAULT_IMAGE_TYPES,
-        Limit: limit.toString(),
-      },
-    });
-
-    return response.Items;
   }
 
   async getRecentlyAddedItemsByLibrary(
@@ -547,7 +434,6 @@ export class JellyfinClient {
       StartIndex: startIndex,
       Limit: limit,
       EnableImageTypes: DEFAULT_IMAGE_TYPES,
-      IsFolder: false,
       IsPlaceHolder: false,
     };
 
@@ -585,15 +471,6 @@ export class JellyfinClient {
     }));
   }
 
-  async getItemsWithImages(
-    libraryId: string,
-    startIndex: number,
-    limit: number,
-    imageTypes: string[] = ["Primary", "Thumb", "Backdrop"]
-  ): Promise<{ items: JellyfinBaseItemDto[]; totalCount: number }> {
-    return this.getItemsPage(libraryId, startIndex, limit, imageTypes);
-  }
-
   async getActivities(
     startIndex: number,
     limit: number,
@@ -615,10 +492,6 @@ export class JellyfinClient {
     );
 
     return response.Items;
-  }
-
-  async getInstalledPlugins(): Promise<any[]> {
-    return this.makeRequest<any[]>("get", "/Plugins");
   }
 
   /**
@@ -668,6 +541,25 @@ export class JellyfinClient {
   }
 
   /**
+   * Media source ids Jellyfin reports for an item, including alternate
+   * versions. Used to map a hidden version id back to the listed item.
+   */
+  async getItemMediaSourceIds(itemId: string, userId?: string): Promise<string[]> {
+    const params: Record<string, string> = { Fields: "MediaSources" };
+    if (userId) params.userId = userId;
+    const item = await this.request<{ Id?: string; MediaSources?: Array<{ Id?: string }> }>(
+      "get",
+      `/Items/${itemId}`,
+      { params, retries: 0 }
+    );
+    const ids = (item.MediaSources ?? [])
+      .map((source) => source.Id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+    if (item.Id) ids.push(item.Id);
+    return Array.from(new Set(ids));
+  }
+
+  /**
    * Fetch all items from a library with minimal fields for comparison.
    * Used for detecting deleted items without fetching full metadata.
    */
@@ -696,7 +588,6 @@ export class JellyfinClient {
           Fields: minimalFields.join(","),
           StartIndex: startIndex,
           Limit: pageSize,
-          IsFolder: false,
           IsPlaceHolder: false,
         },
       });
@@ -761,7 +652,6 @@ export class JellyfinClient {
           IsPlayed: true,
           StartIndex: startIndex,
           Limit: pageSize,
-          IsFolder: false,
           IsPlaceHolder: false,
         },
       });

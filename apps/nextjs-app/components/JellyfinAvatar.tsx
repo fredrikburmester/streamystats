@@ -29,9 +29,9 @@ export default function JellyfinAvatar({
   const imageUrl = useMemo(() => {
     if (!server || !user?.id) return null;
 
-    return `${getInternalUrl(server)}/Users/${user.id}/Images/Primary?quality=${quality}${
-      imageTag ? `&tag=${imageTag}` : ""
-    }`;
+    return `${getInternalUrl(server)}/UserImage?userId=${encodeURIComponent(
+      String(user.id),
+    )}&quality=${quality}${imageTag ? `&tag=${imageTag}` : ""}`;
   }, [server, user?.id, imageTag, quality]);
 
   const initials = useMemo(() => {
