@@ -9,7 +9,7 @@ services:
     image: tensorchord/vchord-postgres:pg17-v0.4.1
     command: ["postgres", "-c", "log_checkpoints=off"]
     ports:
-      - "5432:5432"
+      - "${DEV_POSTGRES_PORT:-5432}:5432"
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
@@ -30,9 +30,35 @@ services:
       timeout: 5s
       retries: 5
 
+  # Ephemeral Jellyfin for end-to-end testing, opt-in via `--profile jellyfin`.
+  # Config and cache live in named volumes so `down -v` yields a factory-fresh
+  # server. Media comes from docker/dev/jellyfin/generate-media.sh (gitignored),
+  # and docker/dev/jellyfin/bootstrap.sh completes the setup wizard via the API.
+  jellyfin:
+    image: jellyfin/jellyfin:${JELLYFIN_IMAGE_TAG:-12.0}
+    profiles: ["jellyfin"]
+    ports:
+      - "${DEV_JELLYFIN_PORT:-8096}:8096"
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://localhost:${DEV_JELLYFIN_PORT:-8096}
+    volumes:
+      - jellyfin_config:/config
+      - jellyfin_cache:/cache
+      - ./docker/dev/jellyfin/media:/media:ro
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8096/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
 volumes:
   vectorchord_data:
     driver: local
+  jellyfin_config:
+  jellyfin_cache:
 
 networks:
   app-network:
