@@ -129,9 +129,14 @@ export async function updateConnectionSettingsAction({
       };
     }
 
-    // Test connection to new URL with the API key
+    // Server-to-server requests use the internal URL when configured (falling back
+    // to the external URL), so validate connectivity against that effective URL.
+    // The external URL is client-facing and may be unreachable from the server.
+    const effectiveUrl = normalizedInternalUrl ?? normalizedUrl;
+
+    // Test connection with the API key against the effective (internal-preferred) URL
     try {
-      const testResponse = await fetch(`${normalizedUrl}/System/Info`, {
+      const testResponse = await fetch(`${effectiveUrl}/System/Info`, {
         method: "GET",
         headers: jellyfinHeaders(effectiveApiKey),
         signal: AbortSignal.timeout(5000),
@@ -157,34 +162,6 @@ export async function updateConnectionSettingsAction({
         ServerName?: string;
         Version?: string;
       };
-
-      // Validate internal URL connectivity if provided
-      if (normalizedInternalUrl) {
-        try {
-          const internalResponse = await fetch(
-            `${normalizedInternalUrl}/System/Info`,
-            {
-              method: "GET",
-              headers: jellyfinHeaders(effectiveApiKey),
-              signal: AbortSignal.timeout(5000),
-            },
-          );
-
-          if (!internalResponse.ok) {
-            return {
-              success: false,
-              message:
-                "Internal URL is unreachable. Please check the URL and try again.",
-            };
-          }
-        } catch {
-          return {
-            success: false,
-            message:
-              "Failed to connect to internal URL. Please check the URL and try again.",
-          };
-        }
-      }
 
       const updateData: {
         url: string;

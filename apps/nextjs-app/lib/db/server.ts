@@ -669,10 +669,19 @@ export const updateServerConnection = async ({
 
     // Normalize URL by removing trailing slash
     const normalizedUrl = url.endsWith("/") ? url.slice(0, -1) : url;
+    const normalizedInternalUrl = internalUrl
+      ? internalUrl.endsWith("/")
+        ? internalUrl.slice(0, -1)
+        : internalUrl
+      : null;
+    // Server-to-server requests use the internal URL when configured (falling back
+    // to the external URL), so test connectivity against that effective URL — the
+    // external URL is client-facing and may be unreachable from the server.
+    const effectiveUrl = normalizedInternalUrl ?? normalizedUrl;
 
     // Test connection to new Jellyfin server with new API key
     try {
-      const testResponse = await fetch(`${normalizedUrl}/System/Info`, {
+      const testResponse = await fetch(`${effectiveUrl}/System/Info`, {
         method: "GET",
         headers: jellyfinHeaders(apiKey),
         signal: AbortSignal.timeout(5000),
@@ -719,7 +728,7 @@ export const updateServerConnection = async ({
       // Authenticate user credentials against new server.
       // Use a unique DeviceId so this doesn't revoke existing browser sessions.
       const authResponse = await fetch(
-        `${normalizedUrl}/Users/AuthenticateByName`,
+        `${effectiveUrl}/Users/AuthenticateByName`,
         {
           method: "POST",
           headers: jellyfinHeaders(apiKey, {

@@ -273,7 +273,12 @@ async function createClientForServerId(
   serverId: number
 ): Promise<{ client: JellyfinClient; serverName: string }> {
   const serverRows = await db
-    .select({ url: servers.url, apiKey: servers.apiKey, name: servers.name })
+    .select({
+      url: servers.url,
+      internalUrl: servers.internalUrl,
+      apiKey: servers.apiKey,
+      name: servers.name,
+    })
     .from(servers)
     .where(eq(servers.id, serverId))
     .limit(1);
