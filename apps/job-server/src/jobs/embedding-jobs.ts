@@ -225,20 +225,36 @@ async function ensureEmbeddingIndex(dimensions: number): Promise<void> {
     const existingIndex = await db.execute<{
       indexname: string;
       indexdef: string;
+      indisvalid: boolean;
     }>(sql`
-      SELECT indexname, indexdef FROM pg_indexes
-      WHERE tablename = 'items' AND indexname = 'items_embedding_idx'
+      SELECT i.relname AS indexname, pg_get_indexdef(i.oid) AS indexdef, ix.indisvalid
+      FROM pg_class i
+      JOIN pg_index ix ON i.oid = ix.indexrelid
+      JOIN pg_class t ON t.oid = ix.indrelid
+      WHERE t.relname = 'items' AND i.relname = 'items_embedding_idx'
     `);
 
     if (existingIndex.length > 0) {
-      const indexDef = existingIndex[0].indexdef;
+      const { indexdef: indexDef, indisvalid: isValid } = existingIndex[0];
       const dimensionMatch = indexDef.match(/vector\((\d+)\)/);
-      if (dimensionMatch && parseInt(dimensionMatch[1]) === dimensions) {
+      const hasPartialPredicate = indexDef.includes("vector_dims");
+      if (
+        isValid &&
+        dimensionMatch &&
+        parseInt(dimensionMatch[1]) === dimensions &&
+        hasPartialPredicate
+      ) {
         indexEnsuredForDimension.add(dimensions);
         return;
       }
       console.info(
-        `[embeddings-index] dimensions=${dimensions} action=dropExisting reason=dimensionMismatch`
+        `[embeddings-index] dimensions=${dimensions} action=dropExisting reason=${
+          !isValid
+            ? "invalidIndex"
+            : !hasPartialPredicate
+              ? "missingPartialPredicate"
+              : "dimensionMismatch"
+        }`
       );
       await db.execute(sql`DROP INDEX IF EXISTS items_embedding_idx`);
     }
@@ -250,6 +266,7 @@ async function ensureEmbeddingIndex(dimensions: number): Promise<void> {
       CREATE INDEX CONCURRENTLY IF NOT EXISTS items_embedding_idx
       ON items
       USING hnsw ((embedding::vector(${sql.raw(String(dimensions))})) vector_cosine_ops)
+      WHERE embedding IS NOT NULL AND vector_dims(embedding) = ${sql.raw(String(dimensions))}
     `);
     indexEnsuredForDimension.add(dimensions);
   } catch (error) {
@@ -1141,9 +1158,17 @@ export async function generateItemEmbeddingsJob(
     if (!stopped && totalProcessed > 0) {
       try {
         const nextjsUrl = process.env.NEXTJS_URL || "http://localhost:3000";
-        await axios.post(`${nextjsUrl}/api/revalidate-recommendations`, {
-          serverId,
-        });
+        const internalKey =
+          process.env.INTERNAL_API_KEY || process.env.SESSION_SECRET;
+        await axios.post(
+          `${nextjsUrl}/api/revalidate-recommendations`,
+          {
+            serverId,
+          },
+          {
+            headers: internalKey ? { "x-internal-key": internalKey } : {},
+          }
+        );
         console.info(
           `[embeddings] server=${serverName} serverId=${serverId} action=revalidatedCache`
         );

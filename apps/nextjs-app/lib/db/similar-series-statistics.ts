@@ -11,8 +11,7 @@ import {
 } from "@streamystats/database/schema";
 import {
   and,
-  cosineDistance,
-  desc,
+  asc,
   eq,
   inArray,
   isNotNull,
@@ -20,7 +19,7 @@ import {
   notInArray,
   sql,
 } from "drizzle-orm";
-import { revalidateTag } from "next/cache";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
@@ -136,6 +135,13 @@ async function getSeriesRecommendations(
   poolSize: number,
   viewerUserId?: string,
 ): Promise<SeriesRecommendationItem[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    `series-recommendations-${serverIdNum}`,
+    `series-recommendations-${serverIdNum}-${userId}`,
+  );
+
   try {
     debugLog(
       `\n🚀 Starting series recommendation process for server ${serverIdNum}, user ${userId}, pool size ${poolSize}`,
@@ -414,13 +420,12 @@ async function getUserSpecificSeriesRecommendations(
 
     debugLog(`\n🔍 Finding series similar to "${watchedSeries.name}"`);
 
-    // Calculate cosine similarity with other series
-    const similarity = sql<number>`1 - (${cosineDistance(
-      items.embedding,
-      watchedSeries.embedding,
-    )})`;
+    // Calculate cosine similarity with other series using indexed expression
+    const dimensions = watchedSeries.embedding.length;
+    const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${watchedSeries.embedding}::vector(${dimensions}))`;
+    const similarity = sql<number>`1 - (${distance})`;
 
-    // Get a large pool of similar series with low threshold, sorted by similarity
+    // Get a large pool of similar series with low threshold, sorted by distance ascending (nearest first)
     const similarSeries = await db
       .select({
         item: itemCardSelect,
@@ -433,6 +438,7 @@ async function getUserSpecificSeriesRecommendations(
           isNull(items.deletedAt),
           eq(items.type, "Series"),
           isNotNull(items.embedding),
+          sql`vector_dims(${items.embedding}) = ${dimensions}`,
           notInArray(items.id, watchedSeriesIds), // Exclude already watched series
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
@@ -440,7 +446,7 @@ async function getUserSpecificSeriesRecommendations(
           itemLibraryExclusion ?? sql`true`,
         ),
       )
-      .orderBy(desc(similarity))
+      .orderBy(asc(distance))
       .limit(200); // Get a large pool for each base series
 
     debugLog(`  Found ${similarSeries.length} similar series (top 5):`);
@@ -517,6 +523,13 @@ export const getSimilarSeriesForItem = async (
   itemId: string,
   limit = 10,
 ): Promise<SeriesRecommendationItem[]> => {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    `series-recommendations-${serverId}`,
+    `series-recommendations-item-${itemId}`,
+  );
+
   try {
     debugLog(
       `\n🎯 Getting series similar to specific series ${itemId} in server ${serverId}, limit ${limit}`,
@@ -542,11 +555,10 @@ export const getSimilarSeriesForItem = async (
 
     debugLog(`📺 Target series: "${targetSeries.name}"`);
 
-    // Calculate cosine similarity with other series
-    const similarity = sql<number>`1 - (${cosineDistance(
-      items.embedding,
-      targetSeries.embedding,
-    )})`;
+    // Calculate cosine similarity with other series using indexed expression
+    const dimensions = targetSeries.embedding.length;
+    const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${targetSeries.embedding}::vector(${dimensions}))`;
+    const similarity = sql<number>`1 - (${distance})`;
 
     const similarSeries = await db
       .select({
@@ -560,10 +572,11 @@ export const getSimilarSeriesForItem = async (
           isNull(items.deletedAt),
           eq(items.type, "Series"),
           isNotNull(items.embedding),
+          sql`vector_dims(${items.embedding}) = ${dimensions}`,
           sql`${items.id} != ${itemId}`, // Exclude the target series itself
         ),
       )
-      .orderBy(desc(similarity))
+      .orderBy(asc(distance))
       .limit(limit * 2); // Get more to filter for quality
 
     debugLog(`📊 Found ${similarSeries.length} potential similar series`);

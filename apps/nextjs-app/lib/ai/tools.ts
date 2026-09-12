@@ -12,7 +12,7 @@ import type { Item } from "@streamystats/database/schema";
 import { tool } from "ai";
 import {
   and,
-  cosineDistance,
+  asc,
   desc,
   eq,
   ilike,
@@ -1225,14 +1225,14 @@ export function createChatTools(serverId: number, userId: string) {
           };
         }
 
-        const similarity = sql<number>`1 - (${cosineDistance(
-          items.embedding,
-          embed.embedding,
-        )})`;
+        const dimensions = embed.embedding.length;
+        const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${embed.embedding}::vector(${dimensions}))`;
+        const similarity = sql<number>`1 - (${distance})`;
 
         const conditions = [
           eq(items.serverId, serverId),
           isNotNull(items.embedding),
+          sql`vector_dims(${items.embedding}) = ${dimensions}`,
         ];
         if (type !== "all") {
           conditions.push(eq(items.type, type));
@@ -1247,7 +1247,7 @@ export function createChatTools(serverId: number, userId: string) {
           })
           .from(items)
           .where(and(...conditions))
-          .orderBy(desc(similarity), desc(items.communityRating))
+          .orderBy(asc(distance), desc(items.communityRating))
           .limit(Math.max(limit * 12, 50));
 
         const ranked = candidates

@@ -64,7 +64,26 @@ services:
 
   vectorchord:
     image: tensorchord/vchord-postgres:pg17-v1.1.1
-    command: ["postgres", "-c", "log_checkpoints=off"]
+    command:
+      [
+        "postgres",
+        "-c",
+        "log_checkpoints=off",
+        "-c",
+        "shared_buffers=512MB",
+        "-c",
+        "work_mem=16MB",
+        "-c",
+        "maintenance_work_mem=256MB",
+        "-c",
+        "effective_cache_size=1536MB",
+        "-c",
+        "random_page_cost=1.1",
+        "-c",
+        "effective_io_concurrency=200",
+      ]
+    stop_signal: SIGINT
+    shm_size: 1g
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}

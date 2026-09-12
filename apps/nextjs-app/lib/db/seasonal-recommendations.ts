@@ -11,8 +11,7 @@ import {
 } from "@streamystats/database/schema";
 import {
   and,
-  cosineDistance,
-  desc,
+  asc,
   eq,
   ilike,
   inArray,
@@ -290,10 +289,9 @@ async function getSeasonalRecommendationsCached(
       for (const seedItem of matchesWithEmbeddings.slice(0, 3)) {
         if (!seedItem.embedding) continue;
 
-        const similarity = sql<number>`1 - (${cosineDistance(
-          items.embedding,
-          seedItem.embedding,
-        )})`;
+        const dimensions = seedItem.embedding.length;
+        const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${seedItem.embedding}::vector(${dimensions}))`;
+        const similarity = sql<number>`1 - (${distance})`;
 
         const similar = await db
           .select({
@@ -307,13 +305,14 @@ async function getSeasonalRecommendationsCached(
               isNull(items.deletedAt),
               inArray(items.type, ["Movie", "Series"]),
               isNotNull(items.embedding),
+              sql`vector_dims(${items.embedding}) = ${dimensions}`,
               allExcludeIds.length > 0
                 ? notInArray(items.id, allExcludeIds)
                 : sql`true`,
               itemLibraryExclusion ?? sql`true`,
             ),
           )
-          .orderBy(desc(similarity))
+          .orderBy(asc(distance))
           .limit(5);
 
         for (const item of similar) {

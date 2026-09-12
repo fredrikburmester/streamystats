@@ -11,7 +11,7 @@ import {
 } from "@streamystats/database/schema";
 import {
   and,
-  cosineDistance,
+  asc,
   desc,
   eq,
   gte,
@@ -21,7 +21,7 @@ import {
   notInArray,
   sql,
 } from "drizzle-orm";
-import { revalidateTag } from "next/cache";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
@@ -130,6 +130,13 @@ async function getRecommendations(
   timeWindow?: RecommendationTimeWindow,
   viewerUserId?: string,
 ): Promise<RecommendationItem[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(
+    `recommendations-${serverIdNum}`,
+    `recommendations-${serverIdNum}-${userId}`,
+  );
+
   try {
     debugLog(
       `\n🚀 Starting recommendation process for server ${serverIdNum}, user ${userId}, pool size ${poolSize}`,
@@ -381,13 +388,12 @@ async function getUserSpecificRecommendations(
 
     debugLog(`\n🔍 Finding items similar to "${watchedItem.name}"`);
 
-    // Calculate cosine similarity with other items
-    const similarity = sql<number>`1 - (${cosineDistance(
-      items.embedding,
-      watchedItem.embedding,
-    )})`;
+    // Calculate cosine similarity with other items using indexed expression
+    const dimensions = watchedItem.embedding.length;
+    const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${watchedItem.embedding}::vector(${dimensions}))`;
+    const similarity = sql<number>`1 - (${distance})`;
 
-    // Get a large pool of similar items with low threshold, sorted by similarity
+    // Get a large pool of similar items with low threshold, sorted by distance ascending (nearest first)
     const allSimilarItems = await db
       .select({
         item: itemCardSelect,
@@ -400,6 +406,7 @@ async function getUserSpecificRecommendations(
           isNull(items.deletedAt),
           eq(items.type, "Movie"),
           isNotNull(items.embedding),
+          sql`vector_dims(${items.embedding}) = ${dimensions}`,
           notInArray(items.id, watchedItemIds), // Exclude already watched items
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
@@ -407,7 +414,7 @@ async function getUserSpecificRecommendations(
           itemLibraryExclusion ?? sql`true`,
         ),
       )
-      .orderBy(desc(similarity))
+      .orderBy(asc(distance))
       .limit(200); // Get a large pool for each base movie
 
     debugLog("  📊 Similarity score distribution (top 10):");
@@ -572,6 +579,10 @@ export const getSimilarItemsForItem = async (
   itemId: string,
   limit = 10,
 ): Promise<RecommendationItem[]> => {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(`recommendations-${serverId}`, `recommendations-item-${itemId}`);
+
   try {
     debugLog(
       `\n🎯 Getting items similar to specific item ${itemId} in server ${serverId}, limit ${limit}`,
@@ -596,11 +607,10 @@ export const getSimilarItemsForItem = async (
 
     debugLog(`🎬 Target item: "${targetItem.name}" (${targetItem.type})`);
 
-    // Calculate cosine similarity with other items of the same type
-    const similarity = sql<number>`1 - (${cosineDistance(
-      items.embedding,
-      targetItem.embedding,
-    )})`;
+    // Calculate cosine similarity with other items of the same type using indexed expression
+    const dimensions = targetItem.embedding.length;
+    const distance = sql<number>`(${items.embedding}::vector(${dimensions})) <=> (${targetItem.embedding}::vector(${dimensions}))`;
+    const similarity = sql<number>`1 - (${distance})`;
 
     const similarItems = await db
       .select({
@@ -614,10 +624,11 @@ export const getSimilarItemsForItem = async (
           isNull(items.deletedAt),
           eq(items.type, targetItem.type), // Same type (Movie, Series, etc.)
           isNotNull(items.embedding),
+          sql`vector_dims(${items.embedding}) = ${dimensions}`,
           sql`${items.id} != ${itemId}`, // Exclude the target item itself
         ),
       )
-      .orderBy(desc(similarity))
+      .orderBy(asc(distance))
       .limit(limit * 2); // Get more to filter for quality
 
     debugLog(`📊 Found ${similarItems.length} potential similar items`);

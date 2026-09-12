@@ -4,8 +4,18 @@ import { revalidateSeriesRecommendations } from "@/lib/db/similar-series-statist
 import { revalidateRecommendations } from "@/lib/db/similar-statistics";
 
 export async function POST(req: NextRequest) {
-  const auth = await requireSession();
-  if (auth.error) return auth.error;
+  const internalKey = req.headers.get("x-internal-key");
+  const expectedSecret =
+    process.env.INTERNAL_API_KEY || process.env.SESSION_SECRET;
+
+  const isInternalAuth = Boolean(
+    expectedSecret && internalKey && internalKey === expectedSecret,
+  );
+
+  if (!isInternalAuth) {
+    const auth = await requireSession();
+    if (auth.error) return auth.error;
+  }
 
   try {
     const { serverId, userId } = await req.json();
