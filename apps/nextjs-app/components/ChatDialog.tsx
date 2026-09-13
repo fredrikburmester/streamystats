@@ -50,6 +50,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { chatRehypePlugins } from "@/lib/ai/chat-markdown";
 import type { User } from "@/lib/types";
 import JellyfinAvatar from "./JellyfinAvatar";
 
@@ -326,6 +327,7 @@ export function ChatDialog({
     (text: string): React.ReactNode => (
       <Streamdown
         components={markdownComponents}
+        rehypePlugins={chatRehypePlugins}
         className="size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
       >
         {text}
