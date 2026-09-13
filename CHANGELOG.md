@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.21.0](https://github.com/fredrikburmester/streamystats/compare/v2.20.0...v2.21.0) (2026-09-13)
+
+
+### Features
+
+* add Google Gemini chat provider ([#578](https://github.com/fredrikburmester/streamystats/issues/578)) ([31c40d6](https://github.com/fredrikburmester/streamystats/commit/31c40d6dda4a906a8b314e2af375fc0d80f7ceae))
+
+
+### Bug Fixes
+
+* render AI chat item links without blocked labels ([#580](https://github.com/fredrikburmester/streamystats/issues/580)) ([1a154af](https://github.com/fredrikburmester/streamystats/commit/1a154af6e59b5f6a5407f1e18704cc6bd5ac15bf))
+
 ## [2.20.0](https://github.com/fredrikburmester/streamystats/compare/v2.19.2...v2.20.0) (2026-09-12)
 
 
