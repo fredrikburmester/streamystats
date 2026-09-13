@@ -6,6 +6,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   XAxis,
   YAxis,
@@ -19,25 +20,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { ChartConfig } from "@/components/ui/chart";
 import {
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { NumericStat } from "@/lib/db/transcoding-statistics";
+import { CHART_COLORS } from "./chart-utils";
 
 interface BitrateDistributionCardProps {
   data: NumericStat;
-}
-
-interface BitrateRange {
-  range: string;
-  count: number;
-}
-
-interface BitrateRangeWithPercent extends BitrateRange {
-  labelWithPercent: string;
 }
 
 export const BitrateDistributionCard = ({
@@ -50,24 +43,23 @@ export const BitrateDistributionCard = ({
     return `${(value / 1000000).toFixed(1)} Mbps`;
   };
 
-  // Create bitrate ranges from the raw distribution data
-  const createBitrateRanges = (values: number[]): BitrateRange[] => {
-    if (!values || values.length === 0) return [];
+  const bitrateData = React.useMemo(() => {
+    if (!data.distribution || data.distribution.length === 0) return [];
 
-    // Define bitrate ranges (inclusive, non-overlapping)
+    const distribution = data.distribution;
+
     const ranges = [
-      { label: "0-0.5 Mbps", min: 0, max: 500000 },
-      { label: "0.5-1 Mbps", min: 500001, max: 1000000 },
-      { label: "1-2 Mbps", min: 1000001, max: 2000000 },
-      { label: "2-4 Mbps", min: 2000001, max: 4000000 },
-      { label: "4-6 Mbps", min: 4000001, max: 6000000 },
-      { label: "6-8 Mbps", min: 6000001, max: 8000000 },
-      { label: "8+ Mbps", min: 8000001, max: Number.POSITIVE_INFINITY },
+      { label: "0-2", min: 0, max: 2000000 },
+      { label: "2-4", min: 2000001, max: 4000000 },
+      { label: "4-8", min: 4000001, max: 8000000 },
+      { label: "8-12", min: 8000001, max: 12000000 },
+      { label: "12-24", min: 12000001, max: 24000000 },
+      { label: "24+", min: 24000001, max: Number.POSITIVE_INFINITY },
     ];
 
-    return ranges
+    const processed = ranges
       .map((range) => {
-        const valuesInRange = values.filter(
+        const valuesInRange = distribution.filter(
           (b) => b >= range.min && b <= range.max,
         );
         return {
@@ -76,76 +68,48 @@ export const BitrateDistributionCard = ({
         };
       })
       .filter((item) => item.count > 0);
-  };
 
-  // Use the distribution array from the NumericStat to create ranges
-  const bitrateData = createBitrateRanges(data.distribution || []);
+    const total = processed.reduce((sum, item) => sum + item.count, 0);
+    return processed.map((item) => ({
+      ...item,
+      labelWithPercent: `${item.range} Mbps - ${total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"}%`,
+    }));
+  }, [data.distribution]);
 
   const bitrateConfig = {
     count: {
       label: "Count",
-      color: "hsl(var(--chart-3))",
-    },
-    label: {
-      color: "hsl(var(--background))",
     },
   } satisfies ChartConfig;
 
-  const getBarHeight = (dataLength: number) => {
-    // Adjust for a fixed number of categories, to keep bar sizes consistent
-    const fixedLength = Math.max(dataLength, 3); // Use at least 3 as divisor
-    const minHeightPerBar = 25;
-    const maxHeightPerBar = 35;
-    return Math.min(
-      Math.max(minHeightPerBar, 200 / fixedLength),
-      maxHeightPerBar,
-    );
-  };
-
-  // Find categories with data for the footer
-  const categoriesWithData = [...bitrateData].sort((a, b) => b.count - a.count);
-
   const mostCommonCategory =
-    categoriesWithData.length > 0 ? categoriesWithData[0].range : "N/A";
-
-  const total = bitrateData.reduce((sum, item) => sum + item.count, 0);
-  const bitrateDataWithPercent: BitrateRangeWithPercent[] = bitrateData.map(
-    (item) => ({
-      ...item,
-      labelWithPercent: `${item.range} - ${
-        total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0"
-      }%`,
-    }),
-  );
+    bitrateData.length > 0
+      ? [...bitrateData].sort((a, b) => b.count - a.count)[0].range
+      : "N/A";
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Bitrate Distribution</CardTitle>
         <CardDescription>
-          Avg: {formatBitrate(data.avg ?? 0)} | Min:{" "}
-          {formatBitrate(data.min ?? 0)} | Max: {formatBitrate(data.max ?? 0)}
+          Avg: {formatBitrate(data.avg ?? 0)} | Max:{" "}
+          {formatBitrate(data.max ?? 0)}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {bitrateData.length > 0 ? (
           <ChartContainer
-            id="bitrate-distribution"
             config={bitrateConfig}
-            className="h-[200px]"
+            className="h-[250px] w-full"
             onWidthChange={setContainerWidth}
           >
             <BarChart
               accessibilityLayer
-              data={bitrateDataWithPercent}
+              data={bitrateData}
               layout="vertical"
               margin={{
-                right: 16,
                 left: 0,
-                top: 5,
-                bottom: 5,
               }}
-              barSize={getBarHeight(bitrateData.length)}
             >
               <CartesianGrid horizontal={false} />
               <YAxis
@@ -159,20 +123,27 @@ export const BitrateDistributionCard = ({
               <XAxis dataKey="count" type="number" hide />
               <ChartTooltip
                 cursor={false}
-                content={<ChartTooltipContent indicator="line" />}
+                content={<ChartTooltipContent hideLabel />}
               />
-              <Bar dataKey="count" radius={4} className="fill-blue-600">
+              <Bar dataKey="count" radius={4} barSize={24}>
+                {bitrateData.map((_entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={CHART_COLORS[index % CHART_COLORS.length]}
+                  />
+                ))}
                 <LabelList
                   dataKey="labelWithPercent"
-                  content={({ x, y, width: barWidth, height, value }) => (
+                  content={(props) => (
                     <CustomBarLabel
-                      x={Number(x)}
-                      y={Number(y)}
-                      width={Number(barWidth)}
-                      height={Number(height)}
-                      value={value}
-                      fill="#d6e3ff"
-                      fontSize={12}
+                      {...props}
+                      x={Number(props.x)}
+                      y={Number(props.y)}
+                      width={Number(props.width)}
+                      height={Number(props.height)}
+                      value={props.value}
+                      fill="hsl(var(--foreground))"
+                      fontSize={11}
                       containerWidth={containerWidth}
                       alwaysOutside
                     />
@@ -182,10 +153,8 @@ export const BitrateDistributionCard = ({
             </BarChart>
           </ChartContainer>
         ) : (
-          <div className="flex items-center justify-center h-[200px]">
-            <div className="text-center text-muted-foreground">
-              No bitrate data available
-            </div>
+          <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+            No bitrate data available
           </div>
         )}
       </CardContent>
@@ -193,7 +162,7 @@ export const BitrateDistributionCard = ({
         <div className="flex items-center gap-2">
           <ZapIcon className="h-4 w-4" />
           {bitrateData.length > 0 ? (
-            <>Most common: {mostCommonCategory}</>
+            <>Peak range: {mostCommonCategory} Mbps</>
           ) : (
             <>Data from {data.count} sessions</>
           )}
