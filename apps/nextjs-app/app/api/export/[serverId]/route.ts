@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
 import { getServerWithSecrets } from "@/lib/db/server";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 type JellyfinSystemInfo = {
   Id?: string;
@@ -59,7 +60,7 @@ export async function GET(
     }
 
     const jellyfinInfo = await tryFetchJellyfinSystemInfo({
-      url: server.url,
+      url: getInternalUrl(server),
       apiKey: server.apiKey,
     });
 
@@ -68,6 +69,16 @@ export async function GET(
       hiddenRecommendations: exportedHiddenRecommendations,
       userMerges,
     } = await exportMergedUserData({ serverId: serverIdNum });
+
+    if (userMerges.retiredUsers.length && !jellyfinInfo?.Id) {
+      return Response.json(
+        {
+          error:
+            "Cannot create a restorable backup of merged accounts without verifying Jellyfin's identity. Reconnect Jellyfin and retry the backup.",
+        },
+        { status: 503 },
+      );
+    }
 
     const exportData = {
       exportInfo: {

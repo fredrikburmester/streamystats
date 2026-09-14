@@ -86,39 +86,25 @@ async function restoreUserMerges({ serverId, backup, actor, database = connectio
             for (const row of backup.retiredUsers) {
                 if (aliases.some((a) => a.sourceUserId === row.sourceUserId))
                     continue;
-                if (existing.some((a) => a.id === row.sourceUserId)) {
-                    const preview = await (0, user_merge_1.previewUserMerge)({
-                        serverId,
-                        input: row,
-                        database: tx,
-                    });
-                    await (0, user_merge_1.mergeUsersPermanently)({
-                        serverId,
-                        input: row,
-                        previewToken: preview.token,
-                        operationId: (0, node_crypto_1.randomUUID)(),
-                        actor,
-                        database: tx,
-                    });
-                }
-                else {
-                    const target = backup.accounts.find((a) => a.id === row.targetUserId);
-                    if (!target)
-                        throw new user_merge_1.UserMergeError("Missing destination account metadata.");
-                    await tx.insert(schema_1.userMerges).values({ ...row, serverId });
-                    await tx.insert(schema_1.userMergeAudit).values({
-                        serverId,
-                        ...row,
-                        targetName: target.name,
-                        actorId: actor.id,
-                        actorName: actor.name,
-                        operationId: (0, node_crypto_1.randomUUID)(),
-                        requestHash: (0, node_crypto_1.createHash)("sha256")
-                            .update(JSON.stringify(row))
-                            .digest("hex"),
-                        transferred: {},
-                    });
-                }
+                const input = {
+                    sourceUserId: row.sourceUserId,
+                    targetUserId: row.targetUserId,
+                };
+                const preview = await (0, user_merge_1.previewUserMerge)({
+                    serverId,
+                    input,
+                    database: tx,
+                    sourceNameIfMissing: row.sourceName,
+                });
+                await (0, user_merge_1.mergeUsersPermanently)({
+                    serverId,
+                    input,
+                    previewToken: preview.token,
+                    operationId: (0, node_crypto_1.randomUUID)(),
+                    actor,
+                    database: tx,
+                    sourceNameIfMissing: row.sourceName,
+                });
             }
         },
     });

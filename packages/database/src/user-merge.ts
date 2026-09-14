@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "./connection";
+import { combineUserFingerprints } from "./user-merge-fingerprint";
 import {
   activities,
   anomalyEvents,
@@ -117,10 +118,13 @@ export async function previewUserMerge({
   serverId,
   input,
   database = db,
+  sourceNameIfMissing,
 }: {
   serverId: number;
   input: UserMergeInput;
   database?: Reader;
+  // Backup restoration can find historical records without a user row.
+  sourceNameIfMissing?: string;
 }) {
   if (
     !input.sourceUserId ||
@@ -137,7 +141,15 @@ export async function previewUserMerge({
         inArray(users.id, [input.sourceUserId, input.targetUserId]),
       ),
     );
-  const source = accounts.find((a) => a.id === input.sourceUserId);
+  const source =
+    accounts.find((a) => a.id === input.sourceUserId) ??
+    (sourceNameIfMissing
+      ? {
+          id: input.sourceUserId,
+          name: sourceNameIfMissing,
+          inferWatchtimeOnMarkWatched: null,
+        }
+      : undefined);
   const target = accounts.find((a) => a.id === input.targetUserId);
   if (!source || !target)
     throw new UserMergeError(
@@ -196,6 +208,7 @@ export async function mergeUsersPermanently({
   operationId,
   actor,
   database = db,
+  sourceNameIfMissing,
 }: {
   serverId: number;
   input: UserMergeInput;
@@ -203,6 +216,7 @@ export async function mergeUsersPermanently({
   operationId: string;
   actor: { id: string; name: string };
   database?: Reader;
+  sourceNameIfMissing?: string;
 }) {
   if (actor.id === input.sourceUserId)
     throw new UserMergeError(
@@ -283,7 +297,12 @@ export async function mergeUsersPermanently({
           )
           .for("update", { noWait: true });
       }
-      const preview = await previewUserMerge({ serverId, input, database: tx });
+      const preview = await previewUserMerge({
+        serverId,
+        input,
+        database: tx,
+        sourceNameIfMissing,
+      });
       if (preview.token !== previewToken)
         throw new UserMergeError(
           "Accounts changed. Review the merge again.",
@@ -341,13 +360,45 @@ export async function mergeUsersPermanently({
       AND keeper.item_id = duplicate.item_id AND keeper.id < duplicate.id`);
       await tx.execute(sql`UPDATE users destination SET infer_watchtime_on_mark_watched = COALESCE(destination.infer_watchtime_on_mark_watched, source.infer_watchtime_on_mark_watched)
       FROM users source WHERE destination.server_id = ${serverId} AND destination.id = ${target.id} AND source.id = ${source.id} AND source.server_id = ${serverId}`);
-      // Derived security profiles are rebuilt from the transferred activity.
+      const fingerprints = await tx
+        .select()
+        .from(userFingerprints)
+        .where(
+          and(
+            eq(userFingerprints.serverId, serverId),
+            inArray(userFingerprints.userId, [source.id, target.id]),
+          ),
+        );
+      if (fingerprints.length) {
+        const [activityStats] = await tx
+          .select({
+            average: sql<number>`coalesce(count(*)::float8 / nullif(count(distinct (${activities.date} at time zone 'UTC')::date), 0), 0)`,
+          })
+          .from(activities)
+          .where(
+            and(
+              eq(activities.serverId, serverId),
+              eq(activities.userId, target.id),
+            ),
+          );
+        const combined = {
+          ...combineUserFingerprints(fingerprints),
+          avgSessionsPerDay: activityStats.average,
+        };
+        await tx
+          .insert(userFingerprints)
+          .values({ ...combined, serverId, userId: target.id })
+          .onConflictDoUpdate({
+            target: [userFingerprints.userId, userFingerprints.serverId],
+            set: combined,
+          });
+      }
       await tx
         .delete(userFingerprints)
         .where(
           and(
             eq(userFingerprints.serverId, serverId),
-            inArray(userFingerprints.userId, [source.id, target.id]),
+            eq(userFingerprints.userId, source.id),
           ),
         );
       await tx.execute(

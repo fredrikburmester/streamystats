@@ -32,10 +32,11 @@ export declare function getRetiredUserIds({ serverId, database, }: {
     serverId: number;
     database?: Reader;
 }): Promise<string[]>;
-export declare function previewUserMerge({ serverId, input, database, }: {
+export declare function previewUserMerge({ serverId, input, database, sourceNameIfMissing, }: {
     serverId: number;
     input: UserMergeInput;
     database?: Reader;
+    sourceNameIfMissing?: string;
 }): Promise<{
     source: {
         id: string;
@@ -49,7 +50,7 @@ export declare function previewUserMerge({ serverId, input, database, }: {
     watchTime: number;
     token: string;
 }>;
-export declare function mergeUsersPermanently({ serverId, input, previewToken, operationId, actor, database, }: {
+export declare function mergeUsersPermanently({ serverId, input, previewToken, operationId, actor, database, sourceNameIfMissing, }: {
     serverId: number;
     input: UserMergeInput;
     previewToken: string;
@@ -59,6 +60,7 @@ export declare function mergeUsersPermanently({ serverId, input, previewToken, o
         name: string;
     };
     database?: Reader;
+    sourceNameIfMissing?: string;
 }): Promise<{
     targetUserId: string;
     transferred: Record<string, number>;

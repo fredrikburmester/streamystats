@@ -10,6 +10,7 @@ exports.mergeUsersPermanently = mergeUsersPermanently;
 const node_crypto_1 = require("node:crypto");
 const drizzle_orm_1 = require("drizzle-orm");
 const connection_1 = require("./connection");
+const user_merge_fingerprint_1 = require("./user-merge-fingerprint");
 const schema_1 = require("./schema");
 class UserMergeError extends Error {
     status;
@@ -66,7 +67,7 @@ async function getRetiredUserIds({ serverId, database = connection_1.db, }) {
         .where((0, drizzle_orm_1.eq)(schema_1.userMerges.serverId, serverId));
     return records.map((record) => record.id);
 }
-async function previewUserMerge({ serverId, input, database = connection_1.db, }) {
+async function previewUserMerge({ serverId, input, database = connection_1.db, sourceNameIfMissing, }) {
     if (!input.sourceUserId ||
         !input.targetUserId ||
         input.sourceUserId === input.targetUserId)
@@ -75,7 +76,14 @@ async function previewUserMerge({ serverId, input, database = connection_1.db, }
         .select()
         .from(schema_1.users)
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.users.serverId, serverId), (0, drizzle_orm_1.inArray)(schema_1.users.id, [input.sourceUserId, input.targetUserId])));
-    const source = accounts.find((a) => a.id === input.sourceUserId);
+    const source = accounts.find((a) => a.id === input.sourceUserId) ??
+        (sourceNameIfMissing
+            ? {
+                id: input.sourceUserId,
+                name: sourceNameIfMissing,
+                inferWatchtimeOnMarkWatched: null,
+            }
+            : undefined);
     const target = accounts.find((a) => a.id === input.targetUserId);
     if (!source || !target)
         throw new UserMergeError("Both accounts must still exist in Streamystats on this server. Refresh and try again.", 409);
@@ -117,7 +125,7 @@ async function previewUserMerge({ serverId, input, database = connection_1.db, }
         }),
     };
 }
-async function mergeUsersPermanently({ serverId, input, previewToken, operationId, actor, database = connection_1.db, }) {
+async function mergeUsersPermanently({ serverId, input, previewToken, operationId, actor, database = connection_1.db, sourceNameIfMissing, }) {
     if (actor.id === input.sourceUserId)
         throw new UserMergeError("Sign in with a different administrator before retiring this account.");
     const requestHash = hash({ input, previewToken });
@@ -169,7 +177,12 @@ async function mergeUsersPermanently({ serverId, input, previewToken, operationI
                     .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(table.serverId, serverId), (0, drizzle_orm_1.inArray)(table.userId, [input.sourceUserId, input.targetUserId])))
                     .for("update", { noWait: true });
             }
-            const preview = await previewUserMerge({ serverId, input, database: tx });
+            const preview = await previewUserMerge({
+                serverId,
+                input,
+                database: tx,
+                sourceNameIfMissing,
+            });
             if (preview.token !== previewToken)
                 throw new UserMergeError("Accounts changed. Review the merge again.", 409);
             const { source, target } = preview;
@@ -206,10 +219,32 @@ async function mergeUsersPermanently({ serverId, input, previewToken, operationI
       AND keeper.item_id = duplicate.item_id AND keeper.id < duplicate.id`);
             await tx.execute((0, drizzle_orm_1.sql) `UPDATE users destination SET infer_watchtime_on_mark_watched = COALESCE(destination.infer_watchtime_on_mark_watched, source.infer_watchtime_on_mark_watched)
       FROM users source WHERE destination.server_id = ${serverId} AND destination.id = ${target.id} AND source.id = ${source.id} AND source.server_id = ${serverId}`);
-            // Derived security profiles are rebuilt from the transferred activity.
+            const fingerprints = await tx
+                .select()
+                .from(schema_1.userFingerprints)
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.userFingerprints.serverId, serverId), (0, drizzle_orm_1.inArray)(schema_1.userFingerprints.userId, [source.id, target.id])));
+            if (fingerprints.length) {
+                const [activityStats] = await tx
+                    .select({
+                    average: (0, drizzle_orm_1.sql) `coalesce(count(*)::float8 / nullif(count(distinct (${schema_1.activities.date} at time zone 'UTC')::date), 0), 0)`,
+                })
+                    .from(schema_1.activities)
+                    .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.activities.serverId, serverId), (0, drizzle_orm_1.eq)(schema_1.activities.userId, target.id)));
+                const combined = {
+                    ...(0, user_merge_fingerprint_1.combineUserFingerprints)(fingerprints),
+                    avgSessionsPerDay: activityStats.average,
+                };
+                await tx
+                    .insert(schema_1.userFingerprints)
+                    .values({ ...combined, serverId, userId: target.id })
+                    .onConflictDoUpdate({
+                    target: [schema_1.userFingerprints.userId, schema_1.userFingerprints.serverId],
+                    set: combined,
+                });
+            }
             await tx
                 .delete(schema_1.userFingerprints)
-                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.userFingerprints.serverId, serverId), (0, drizzle_orm_1.inArray)(schema_1.userFingerprints.userId, [source.id, target.id])));
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.userFingerprints.serverId, serverId), (0, drizzle_orm_1.eq)(schema_1.userFingerprints.userId, source.id)));
             await tx.execute((0, drizzle_orm_1.sql) `UPDATE servers SET excluded_user_ids = array_remove(excluded_user_ids, ${source.id}) WHERE id = ${serverId}`);
             await tx
                 .delete(schema_1.users)

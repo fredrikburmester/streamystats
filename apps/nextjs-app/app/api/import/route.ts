@@ -19,6 +19,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/api-auth";
 import { getServerWithSecrets } from "@/lib/db/server";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 type JellyfinSystemInfo = { Id?: string };
 
@@ -250,7 +251,7 @@ export async function POST(req: NextRequest) {
     const forceDifferentServer = formData.get("force") === "true";
     const sourceJellyfinSystemId = importData.server?.jellyfinSystemId ?? null;
     const targetJellyfinSystemId = await tryFetchJellyfinSystemId({
-      url: targetServer.url,
+      url: getInternalUrl(targetServer),
       apiKey: targetServer.apiKey,
     });
 

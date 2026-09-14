@@ -141,6 +141,35 @@ describe.skipIf(!url)("permanent user merge (PostgreSQL)", () => {
         serverId,
         userId,
         knownDeviceIds: ["device"],
+        knownCountries: [userId === sourceId ? "SE" : "US"],
+        knownClients: [userId === sourceId ? "Web" : "TV"],
+        hourHistogram: { 12: userId === sourceId ? 2 : 3 },
+        totalSessions: userId === sourceId ? 2 : 3,
+        locationPatterns: [
+          {
+            country: "SE",
+            city: "Stockholm",
+            latitude: 59,
+            longitude: 18,
+            sessionCount: userId === sourceId ? 2 : 3,
+            lastSeenAt:
+              userId === sourceId
+                ? "2026-01-01T00:00:00Z"
+                : "2026-01-02T00:00:00Z",
+          },
+        ],
+        devicePatterns: [
+          {
+            deviceId: "device",
+            deviceName: userId === sourceId ? "Old TV" : "New TV",
+            clientName: "TV",
+            sessionCount: userId === sourceId ? 2 : 3,
+            lastSeenAt:
+              userId === sourceId
+                ? "2026-01-01T00:00:00Z"
+                : "2026-01-02T00:00:00Z",
+          },
+        ],
       })),
     );
   });
@@ -244,12 +273,25 @@ describe.skipIf(!url)("permanent user merge (PostgreSQL)", () => {
         .from(hiddenRecommendations)
         .where(eq(hiddenRecommendations.serverId, serverId)),
     ).toHaveLength(1);
-    expect(
-      await database
-        .select()
-        .from(userFingerprints)
-        .where(eq(userFingerprints.serverId, serverId)),
-    ).toHaveLength(0);
+    const fingerprints = await database
+      .select()
+      .from(userFingerprints)
+      .where(eq(userFingerprints.serverId, serverId));
+    expect(fingerprints).toHaveLength(1);
+    expect(fingerprints[0].userId).toBe(targetId);
+    expect(fingerprints[0].knownCountries?.sort()).toEqual(["SE", "US"]);
+    expect(fingerprints[0].knownClients?.sort()).toEqual(["TV", "Web"]);
+    expect(fingerprints[0].knownDeviceIds).toEqual(["device"]);
+    expect(fingerprints[0].hourHistogram).toEqual({ 12: 5 });
+    expect(fingerprints[0].totalSessions).toBe(5);
+    expect(fingerprints[0].locationPatterns).toHaveLength(1);
+    expect(fingerprints[0].locationPatterns?.[0].sessionCount).toBe(5);
+    expect(fingerprints[0].devicePatterns).toHaveLength(1);
+    expect(fingerprints[0].devicePatterns?.[0]).toMatchObject({
+      sessionCount: 5,
+      deviceName: "New TV",
+      lastSeenAt: "2026-01-02T00:00:00Z",
+    });
     expect(
       (await database.select().from(servers).where(eq(servers.id, serverId)))[0]
         .excludedUserIds,
@@ -537,6 +579,61 @@ describe.skipIf(!url)("permanent user merge (PostgreSQL)", () => {
       actor,
       database,
     });
+    expect(
+      await database
+        .select()
+        .from(userMergeAudit)
+        .where(eq(userMergeAudit.serverId, serverId)),
+    ).toHaveLength(1);
+  });
+  test("restores ownership of existing orphaned records without recreating a missing source", async () => {
+    await database.delete(users).where(eq(users.id, sourceId));
+    const backup = {
+      retiredUsers: [
+        {
+          sourceUserId: sourceId,
+          sourceName: "Deleted old",
+          targetUserId: targetId,
+        },
+      ],
+      accounts: [{ id: targetId, name: "New" }],
+    };
+    await restoreUserMerges({ serverId, backup, actor, database });
+    const history = await database
+      .select()
+      .from(sessions)
+      .where(eq(sessions.serverId, serverId));
+    expect(history).toHaveLength(3);
+    expect(
+      history.every((row) => row.userId === targetId && row.userName === "New"),
+    ).toBe(true);
+    expect(history.reduce((sum, row) => sum + (row.playDuration ?? 0), 0)).toBe(
+      55 * 3600,
+    );
+    expect(
+      (
+        await database
+          .select()
+          .from(watchlists)
+          .where(eq(watchlists.id, sourceListId))
+      )[0].userId,
+    ).toBe(targetId);
+    expect(
+      await database
+        .select()
+        .from(hiddenRecommendations)
+        .where(eq(hiddenRecommendations.serverId, serverId)),
+    ).toHaveLength(1);
+    expect(
+      await database.select().from(users).where(eq(users.id, sourceId)),
+    ).toHaveLength(0);
+    const [audit] = await database
+      .select()
+      .from(userMergeAudit)
+      .where(eq(userMergeAudit.serverId, serverId));
+    expect(audit.transferred.sessions).toBe(2);
+    expect(audit.transferred.watchlists).toBe(1);
+    await restoreUserMerges({ serverId, backup, actor, database });
     expect(
       await database
         .select()

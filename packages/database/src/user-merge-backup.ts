@@ -1,13 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "./connection";
-import {
-  hiddenRecommendations,
-  sessions,
-  userMergeAudit,
-  userMerges,
-  users,
-} from "./schema";
+import { hiddenRecommendations, sessions, userMerges, users } from "./schema";
 import {
   mergeUsersPermanently,
   previewUserMerge,
@@ -137,38 +131,25 @@ export async function restoreUserMerges({
       }
       for (const row of backup.retiredUsers) {
         if (aliases.some((a) => a.sourceUserId === row.sourceUserId)) continue;
-        if (existing.some((a) => a.id === row.sourceUserId)) {
-          const preview = await previewUserMerge({
-            serverId,
-            input: row,
-            database: tx,
-          });
-          await mergeUsersPermanently({
-            serverId,
-            input: row,
-            previewToken: preview.token,
-            operationId: randomUUID(),
-            actor,
-            database: tx,
-          });
-        } else {
-          const target = backup.accounts.find((a) => a.id === row.targetUserId);
-          if (!target)
-            throw new UserMergeError("Missing destination account metadata.");
-          await tx.insert(userMerges).values({ ...row, serverId });
-          await tx.insert(userMergeAudit).values({
-            serverId,
-            ...row,
-            targetName: target.name,
-            actorId: actor.id,
-            actorName: actor.name,
-            operationId: randomUUID(),
-            requestHash: createHash("sha256")
-              .update(JSON.stringify(row))
-              .digest("hex"),
-            transferred: {},
-          });
-        }
+        const input = {
+          sourceUserId: row.sourceUserId,
+          targetUserId: row.targetUserId,
+        };
+        const preview = await previewUserMerge({
+          serverId,
+          input,
+          database: tx,
+          sourceNameIfMissing: row.sourceName,
+        });
+        await mergeUsersPermanently({
+          serverId,
+          input,
+          previewToken: preview.token,
+          operationId: randomUUID(),
+          actor,
+          database: tx,
+          sourceNameIfMissing: row.sourceName,
+        });
       }
     },
   });
