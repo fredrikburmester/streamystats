@@ -92,7 +92,10 @@ export async function getMostWatchedItems({
   // Batch fetch all items in a single query instead of N+1 queries
   // Also filter out items from excluded libraries
   const itemIds = sessionStats.map((stat) => stat.itemId);
-  const itemConditions: SQL[] = [inArray(items.id, itemIds)];
+  const itemConditions: SQL[] = [
+    eq(items.serverId, Number(serverId)),
+    inArray(items.id, itemIds),
+  ];
 
   if (itemLibraryExclusion) {
     itemConditions.push(itemLibraryExclusion);
@@ -175,6 +178,7 @@ export async function getMostWatchedItems({
       .from(items)
       .where(
         and(
+          eq(items.serverId, Number(serverId)),
           inArray(items.id, seriesIds),
           eq(items.type, "Series"),
           eq(items.serverId, Number(serverId)),
@@ -275,7 +279,10 @@ export async function getWatchTimePerType({
   const itemIds = [
     ...new Set(results.map((r) => r.itemId).filter((id) => id)),
   ] as string[];
-  const itemTypeConditions: SQL[] = [inArray(items.id, itemIds)];
+  const itemTypeConditions: SQL[] = [
+    eq(items.serverId, Number(serverId)),
+    inArray(items.id, itemIds),
+  ];
   if (itemLibraryExclusion) {
     itemTypeConditions.push(itemLibraryExclusion);
   }
@@ -396,11 +403,21 @@ export async function getWatchTimeByLibrary({
       totalWatchTime: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
-    .innerJoin(libraries, eq(items.libraryId, libraries.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
+    .innerJoin(
+      libraries,
+      and(
+        eq(items.libraryId, libraries.id),
+        eq(items.serverId, libraries.serverId),
+      ),
+    )
     .where(and(...whereConditions))
     .groupBy(
       sql`DATE(${sessions.startTime})`,
+      libraries.serverId,
       libraries.id,
       libraries.name,
       libraries.type,
@@ -476,7 +493,10 @@ export async function getMostWatchedDay({
       totalWatchTime: sum(sessions.playDuration).as("totalWatchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`DATE(${sessions.startTime})`)
     .orderBy(desc(sum(sessions.playDuration)))

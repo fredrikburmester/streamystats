@@ -143,7 +143,10 @@ export const getWatchTimePerWeekDay = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`TRIM(TO_CHAR(${sessions.startTime}, 'Day'))`);
 
@@ -226,7 +229,10 @@ export const getWatchTimePerHour = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`)
     .orderBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`);
@@ -284,7 +290,10 @@ export const getTotalWatchTime = async ({
       playDuration: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions));
 
   return Number(result[0]?.playDuration || 0);
@@ -555,7 +564,10 @@ export const getUserStatsSummaryForServer = async ({
     .leftJoin(users, eq(sessions.userId, users.id));
 
   if (needsItemJoin) {
-    query = query.innerJoin(items, eq(sessions.itemId, items.id));
+    query = query.innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    );
 
     if (needsItemTypeFilter) {
       if (itemType === "Series") {
@@ -743,7 +755,10 @@ export const getUserGenreStats = async ({
       genres: items.genres,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.userId, userId),

@@ -422,13 +422,13 @@ export async function cleanupDeletedItems(
         await db
           .update(items)
           .set({ deletedAt: new Date() })
-          .where(inArray(items.id, batch));
+          .where(and(inArray(items.id, batch), eq(items.serverId, server.id)));
 
         // Delete hidden recommendations for these items
         metrics.databaseOperations++;
         const deletedRecs = await db
           .delete(hiddenRecommendations)
-          .where(inArray(hiddenRecommendations.itemId, batch))
+          .where(and(inArray(hiddenRecommendations.itemId, batch), eq(hiddenRecommendations.serverId, server.id)))
           .returning({ id: hiddenRecommendations.id });
 
         metrics.itemsSoftDeleted += batch.length;
@@ -439,7 +439,7 @@ export async function cleanupDeletedItems(
     // Phase 4: Process migrations
     for (const migration of allItemsToMigrate) {
       try {
-        await migrateItem(migration.oldId, migration.newId, metrics);
+        await migrateItem({ oldItemId: migration.oldId, newItemId: migration.newId, serverId: server.id, metrics });
         metrics.itemsMigrated++;
       } catch (error) {
         metrics.errors++;
@@ -727,17 +727,23 @@ function matchItem(
 /**
  * Migrate sessions and hidden recommendations from old item ID to new item ID
  */
-async function migrateItem(
-  oldItemId: string,
-  newItemId: string,
-  metrics: CleanupMetrics
-): Promise<void> {
+async function migrateItem({
+  oldItemId,
+  newItemId,
+  serverId,
+  metrics,
+}: {
+  oldItemId: string;
+  newItemId: string;
+  serverId: number;
+  metrics: CleanupMetrics;
+}): Promise<void> {
   // Migrate sessions
   metrics.databaseOperations++;
   const migratedSessions = await db
     .update(sessions)
     .set({ itemId: newItemId })
-    .where(eq(sessions.itemId, oldItemId))
+    .where(and(eq(sessions.itemId, oldItemId), eq(sessions.serverId, serverId)))
     .returning({ id: sessions.id });
 
   metrics.sessionsMigrated += migratedSessions.length;
@@ -747,7 +753,7 @@ async function migrateItem(
   const migratedRecs = await db
     .update(hiddenRecommendations)
     .set({ itemId: newItemId })
-    .where(eq(hiddenRecommendations.itemId, oldItemId))
+    .where(and(eq(hiddenRecommendations.itemId, oldItemId), eq(hiddenRecommendations.serverId, serverId)))
     .returning({ id: hiddenRecommendations.id });
 
   metrics.hiddenRecommendationsMigrated += migratedRecs.length;
@@ -757,7 +763,7 @@ async function migrateItem(
   await db
     .update(items)
     .set({ deletedAt: new Date() })
-    .where(eq(items.id, oldItemId));
+    .where(and(eq(items.id, oldItemId), eq(items.serverId, serverId)));
 }
 
 export { CleanupMetrics as DeletedItemsCleanupMetrics };

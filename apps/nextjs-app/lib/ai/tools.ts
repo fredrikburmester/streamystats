@@ -896,7 +896,12 @@ export function createChatTools(
             const sharedGenres = await db
               .select({ genres: items.genres })
               .from(items)
-              .where(inArray(items.id, bothWatched.slice(0, 20)));
+              .where(
+                and(
+                  inArray(items.id, bothWatched.slice(0, 20)),
+                  eq(items.serverId, serverId),
+                ),
+              );
 
             const genreCounts = new Map<string, number>();
             for (const item of sharedGenres) {

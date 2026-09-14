@@ -50,7 +50,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const totalResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(items)
-      .innerJoin(libraries, eq(items.libraryId, libraries.id))
+      .innerJoin(
+        libraries,
+        and(
+          eq(items.libraryId, libraries.id),
+          eq(items.serverId, libraries.serverId),
+        ),
+      )
       .where(
         and(
           eq(items.serverId, serverIdNum),
@@ -64,7 +70,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const remainingResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(items)
-      .innerJoin(libraries, eq(items.libraryId, libraries.id))
+      .innerJoin(
+        libraries,
+        and(
+          eq(items.libraryId, libraries.id),
+          eq(items.serverId, libraries.serverId),
+        ),
+      )
       .where(
         and(
           eq(items.serverId, serverIdNum),

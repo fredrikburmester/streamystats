@@ -69,6 +69,7 @@ export default async function ItemDetailsPage({
     redirect("/login");
   }
   const itemDetails = await getItemDetails({
+    serverId: server.id,
     itemId,
     userId: isAdmin ? undefined : me.id,
     viewerUserId,
@@ -95,7 +96,7 @@ export default async function ItemDetailsPage({
   // Get seasons and episodes for series
   const seasons =
     itemDetails.item.type === "Series"
-      ? await getSeasonsAndEpisodes({ seriesId: itemId })
+      ? await getSeasonsAndEpisodes({ serverId: server.id, seriesId: itemId })
       : [];
 
   // Get cast and crew for movies and series

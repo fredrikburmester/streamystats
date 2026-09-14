@@ -316,6 +316,13 @@
       "when": 1773333333333,
       "tag": "0044_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1789394571846,
+      "tag": "0045_server_scoped_media_ids",
+      "breakpoints": true
     }
   ]
 }

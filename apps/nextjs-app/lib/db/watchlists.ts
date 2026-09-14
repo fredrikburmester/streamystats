@@ -178,7 +178,13 @@ export const getPublicWatchlistWithItems = async ({
       },
     })
     .from(watchlistItems)
-    .innerJoin(items, eq(watchlistItems.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(watchlistItems.itemId, items.id),
+        eq(watchlistItems.serverId, items.serverId),
+      ),
+    )
     .where(eq(watchlistItems.watchlistId, watchlistId))
     .orderBy(asc(watchlistItems.position));
 
@@ -270,7 +276,13 @@ export const getWatchlistWithItems = async ({
       item: items,
     })
     .from(watchlistItems)
-    .innerJoin(items, eq(watchlistItems.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(watchlistItems.itemId, items.id),
+        eq(watchlistItems.serverId, items.serverId),
+      ),
+    )
     .where(and(...whereConditions))
     .orderBy(orderByClause);
 
@@ -329,7 +341,13 @@ export const getWatchlistWithItemsLite = async ({
       },
     })
     .from(watchlistItems)
-    .innerJoin(items, eq(watchlistItems.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(watchlistItems.itemId, items.id),
+        eq(watchlistItems.serverId, items.serverId),
+      ),
+    )
     .where(eq(watchlistItems.watchlistId, watchlistId))
     .orderBy(asc(watchlistItems.position));
 
@@ -353,7 +371,13 @@ export const getWatchlistPreviewItems = async ({
   const result = await db
     .select({ item: items })
     .from(watchlistItems)
-    .innerJoin(items, eq(watchlistItems.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(watchlistItems.itemId, items.id),
+        eq(watchlistItems.serverId, items.serverId),
+      ),
+    )
     .where(eq(watchlistItems.watchlistId, watchlistId))
     .orderBy(asc(watchlistItems.position))
     .limit(4);
@@ -502,7 +526,7 @@ export const addItemToWatchlist = async ({
   // Check if item type is allowed (if type lock is set)
   if (watchlist.allowedItemType) {
     const item = await db.query.items.findFirst({
-      where: eq(items.id, itemId),
+      where: and(eq(items.id, itemId), eq(items.serverId, watchlist.serverId)),
     });
 
     if (!item || item.type !== watchlist.allowedItemType) {
@@ -526,6 +550,7 @@ export const addItemToWatchlist = async ({
       .values({
         watchlistId,
         itemId,
+        serverId: watchlist.serverId,
         position: nextPosition,
       })
       .returning();
