@@ -1,8 +1,7 @@
 "use server";
 
 import "server-only";
-
-import { db } from "@streamystats/database";
+import { analyticsUserScope, db } from "@streamystats/database";
 import {
   hiddenRecommendations,
   items,
@@ -21,7 +20,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getActiveHolidays, type Holiday } from "../holidays";
 import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
@@ -87,6 +86,7 @@ async function getSeasonalRecommendationsCached(
   viewerUserId?: string,
 ): Promise<SeasonalRecommendationResult | null> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   // Get server's disabled holidays and exclusion settings
@@ -127,7 +127,7 @@ async function getSeasonalRecommendationsCached(
           .where(
             and(
               eq(sessions.serverId, serverIdNum),
-              eq(sessions.userId, userId),
+              analyticsUserScope(userId, { viewerUserId }),
               isNotNull(sessions.itemId),
             ),
           )

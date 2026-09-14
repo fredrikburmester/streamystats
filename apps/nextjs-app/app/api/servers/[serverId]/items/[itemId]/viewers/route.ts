@@ -1,4 +1,10 @@
-import { db, items, sessions, users } from "@streamystats/database";
+import {
+  analyticsUserId,
+  db,
+  items,
+  sessions,
+  users,
+} from "@streamystats/database";
 import {
   and,
   asc,
@@ -12,9 +18,10 @@ import {
   sum,
 } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
+import { getStatisticsExclusions } from "@/lib/db/exclusions";
 import type { ItemUserStats } from "@/lib/db/items";
 import { getServer } from "@/lib/db/server";
-import { isUserAdmin } from "@/lib/db/users";
 
 export async function GET(
   request: NextRequest,
@@ -26,20 +33,8 @@ export async function GET(
 ) {
   const { serverId, itemId } = await params;
 
-  const isAdmin = await isUserAdmin();
-  if (!isAdmin) {
-    return new Response(
-      JSON.stringify({
-        error: "Unauthorized - admin access required",
-      }),
-      {
-        status: 403,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
-  }
+  const { error } = await requireAdmin(serverId);
+  if (error) return error;
 
   const server = await getServer({ serverId });
   if (!server) {
@@ -123,7 +118,7 @@ export async function GET(
           status: 200,
           headers: {
             "Content-Type": "application/json",
-            "Cache-Control": "private, max-age=60",
+            "Cache-Control": "private, no-store",
           },
         },
       );
@@ -131,7 +126,15 @@ export async function GET(
   }
 
   // Build WHERE conditions
-  const whereConditions = [inArray(sessions.itemId, itemIdsToQuery)];
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    server.id,
+  );
+  const whereConditions = [
+    eq(sessions.serverId, server.id),
+    inArray(sessions.itemId, itemIdsToQuery),
+  ];
+  if (userExclusion) whereConditions.push(userExclusion);
+  if (itemLibraryExclusion) whereConditions.push(itemLibraryExclusion);
 
   if (search) {
     whereConditions.push(like(users.name, `%${search.trim()}%`));
@@ -173,13 +176,14 @@ export async function GET(
   const countQueryBase = db
     .select({ count: count() })
     .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
+    .innerJoin(items, eq(items.id, sessions.itemId))
+    .innerJoin(users, eq(analyticsUserId(), users.id))
     .where(and(...whereConditions))
-    .groupBy(sessions.userId);
+    .groupBy(analyticsUserId());
 
   const dataQueryBase = db
     .select({
-      userId: sessions.userId,
+      userId: analyticsUserId(),
       userName: users.name,
       watchCount: count(sessions.id),
       totalWatchTime: sum(sessions.playDuration),
@@ -188,9 +192,10 @@ export async function GET(
       lastWatched: sql<Date>`MAX(${sessions.startTime})`,
     })
     .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
+    .innerJoin(items, eq(items.id, sessions.itemId))
+    .innerJoin(users, eq(analyticsUserId(), users.id))
     .where(and(...whereConditions))
-    .groupBy(sessions.userId, users.name);
+    .groupBy(analyticsUserId(), users.name);
 
   const countQuery = havingCondition
     ? countQueryBase.having(havingCondition)
@@ -246,7 +251,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": "private, no-store",
       },
     },
   );

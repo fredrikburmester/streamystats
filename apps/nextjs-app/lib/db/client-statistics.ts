@@ -1,6 +1,12 @@
 import "server-only";
-
-import { db, items, sessions, users } from "@streamystats/database";
+import {
+  analyticsUserId,
+  analyticsUserScope,
+  db,
+  items,
+  sessions,
+  users,
+} from "@streamystats/database";
 import {
   and,
   count,
@@ -76,6 +82,7 @@ export async function getClientStatistics({
   viewerUserId?: string;
 }): Promise<ClientStatisticsResponse> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
   cacheTag(`client-statistics-${serverId}`);
 
@@ -95,7 +102,7 @@ export async function getClientStatistics({
     whereConditions.push(lte(sessions.startTime, new Date(endDate)));
   }
   if (userId) {
-    whereConditions.push(eq(sessions.userId, userId));
+    whereConditions.push(analyticsUserScope(userId, { serverId }));
   }
 
   // Add exclusion filters
@@ -114,7 +121,7 @@ export async function getClientStatistics({
       clientName: sessions.clientName,
       sessionCount: count(sessions.id),
       totalWatchTime: sum(sessions.playDuration),
-      uniqueUsers: sql<number>`COUNT(DISTINCT ${sessions.userId})`,
+      uniqueUsers: sql<number>`COUNT(DISTINCT ${analyticsUserId()})`,
       uniqueDevices: sql<number>`COUNT(DISTINCT ${sessions.deviceId})`,
       transcodedSessions: sql<number>`COUNT(CASE WHEN ${sessions.isTranscoded} IS TRUE THEN 1 END)`,
       directPlaySessions: sql<number>`COUNT(CASE WHEN ${sessions.isTranscoded} IS FALSE OR ${sessions.playMethod} = 'DirectPlay' THEN 1 END)`,
@@ -130,20 +137,20 @@ export async function getClientStatistics({
   // Get clients per user
   const clientsPerUserQuery = db
     .select({
-      userId: sessions.userId,
+      userId: analyticsUserId(),
       userName: users.name,
       clientName: sessions.clientName,
       sessionCount: count(sessions.id),
       totalWatchTime: sum(sessions.playDuration),
     })
     .from(sessions)
-    .leftJoin(users, eq(sessions.userId, users.id))
+    .leftJoin(users, eq(analyticsUserId(), users.id))
     .$dynamic();
   if (requiresItemsJoin)
     clientsPerUserQuery.innerJoin(items, itemsJoinCondition);
   const clientsPerUser = await clientsPerUserQuery
     .where(and(...whereConditions))
-    .groupBy(sessions.userId, users.name, sessions.clientName)
+    .groupBy(analyticsUserId(), users.name, sessions.clientName)
     .orderBy(sql`COUNT(${sessions.id}) DESC`);
 
   // Get clients per device
@@ -169,7 +176,7 @@ export async function getClientStatistics({
     .select({
       total: count(sessions.id),
       uniqueClients: sql<number>`COUNT(DISTINCT ${sessions.clientName})`,
-      uniqueUsers: sql<number>`COUNT(DISTINCT ${sessions.userId})`,
+      uniqueUsers: sql<number>`COUNT(DISTINCT ${analyticsUserId()})`,
       uniqueDevices: sql<number>`COUNT(DISTINCT ${sessions.deviceId})`,
     })
     .from(sessions)

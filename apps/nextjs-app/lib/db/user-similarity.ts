@@ -1,12 +1,17 @@
 "use cache";
 
 import "server-only";
-
-import { db, items, sessions, type User } from "@streamystats/database";
+import {
+  analyticsUserScope,
+  db,
+  items,
+  resolveAnalyticsUser,
+  sessions,
+  type User,
+} from "@streamystats/database";
 import { and, desc, eq, gte, inArray, isNotNull, lte, sum } from "drizzle-orm";
-import { cacheLife } from "next/cache";
-import { getExclusionSettings } from "./exclusions";
-import { getUsers } from "./users";
+import { cacheLife, cacheTag } from "next/cache";
+import { getAnalyticsUsers } from "./users";
 
 // Helper for cosine similarity in memory
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -59,13 +64,15 @@ async function getUserTopItemsWithEmbeddings(
   userId: string,
   startDate?: Date,
   endDate?: Date,
+  viewerUserId?: string,
 ): Promise<UserTopItemsResult> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   const whereConditions = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId }),
     isNotNull(sessions.playDuration),
   ];
 
@@ -234,21 +241,22 @@ const findSimilarItemPairs = (
 export async function getSimilarUsers(
   serverId: string | number,
   targetUserId: string,
+  viewerUserId?: string,
 ): Promise<UserSimilarityResult> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   const serverIdNum = Number(serverId);
 
-  // Get exclusion settings
-  const { excludedUserIds } = await getExclusionSettings(serverIdNum);
+  const allUsers = await getAnalyticsUsers({ serverId: serverIdNum });
+  const target = await resolveAnalyticsUser({
+    serverId: serverIdNum,
+    userId: targetUserId,
+  });
 
-  const allUsers = await getUsers({ serverId: serverIdNum });
-
-  // Filter out the target user and excluded users from the list of candidates
-  const otherUsers = allUsers.filter(
-    (u) => u.id !== targetUserId && !excludedUserIds.includes(u.id),
-  );
+  // Analytics candidates already honor source-account exclusions.
+  const otherUsers = allUsers.filter((u) => u.id !== target.primaryUserId);
   if (otherUsers.length === 0) {
     return { overall: [], thisMonth: [] };
   }
@@ -266,12 +274,19 @@ export async function getSimilarUsers(
 
   // 1. Calculate target user embeddings
   const [targetOverall, targetMonth] = await Promise.all([
-    getUserTopItemsWithEmbeddings(serverIdNum, targetUserId),
+    getUserTopItemsWithEmbeddings(
+      serverIdNum,
+      targetUserId,
+      undefined,
+      undefined,
+      viewerUserId,
+    ),
     getUserTopItemsWithEmbeddings(
       serverIdNum,
       targetUserId,
       startOfMonth,
       endOfMonth,
+      viewerUserId,
     ),
   ]);
 
@@ -279,12 +294,19 @@ export async function getSimilarUsers(
   const userEmbeddings = await Promise.all(
     otherUsers.map(async (user) => {
       const [overall, month] = await Promise.all([
-        getUserTopItemsWithEmbeddings(serverIdNum, user.id),
+        getUserTopItemsWithEmbeddings(
+          serverIdNum,
+          user.id,
+          undefined,
+          undefined,
+          viewerUserId,
+        ),
         getUserTopItemsWithEmbeddings(
           serverIdNum,
           user.id,
           startOfMonth,
           endOfMonth,
+          viewerUserId,
         ),
       ]);
       return {

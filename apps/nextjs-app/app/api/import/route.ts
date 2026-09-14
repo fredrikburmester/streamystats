@@ -1,4 +1,4 @@
-import { db } from "@streamystats/database";
+import { db, restoreUserGroups, UserGroupError } from "@streamystats/database";
 import {
   hiddenRecommendations,
   items,
@@ -8,7 +8,9 @@ import {
   users,
 } from "@streamystats/database/schema";
 import { eq } from "drizzle-orm";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { requireAdmin } from "@/lib/api-auth";
 import { getServerWithSecrets } from "@/lib/db/server";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
@@ -120,6 +122,7 @@ interface ImportHiddenRecommendation {
 }
 
 interface ImportData {
+  userGroups?: unknown;
   exportInfo: ExportInfo;
   sessions: ImportSession[];
   hiddenRecommendations?: ImportHiddenRecommendation[];
@@ -169,7 +172,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Require admin for data import on this server
-    const { error } = await requireAdmin(serverIdNum);
+    const { error, session } = await requireAdmin(serverIdNum);
     if (error) return error;
 
     // Verify the target server exists
@@ -265,6 +268,55 @@ export async function POST(req: NextRequest) {
       warnings.push(
         "Could not verify Jellyfin server identity (missing System/Info Id). Import proceeded without identity validation.",
       );
+    }
+
+    if (importData.userGroups !== undefined) {
+      const identity = z.object({
+        id: z.string().min(1).max(256),
+        name: z.string().min(1).max(256),
+      });
+      const parsed = z
+        .object({
+          accounts: z.array(identity).max(10000),
+          groups: z
+            .array(
+              z.object({
+                primaryUserId: z.string().min(1).max(256),
+                memberUserIds: z
+                  .array(z.string().min(1).max(256))
+                  .min(2)
+                  .max(100),
+              }),
+            )
+            .max(5000),
+        })
+        .safeParse(importData.userGroups);
+      if (!parsed.success)
+        return NextResponse.json(
+          { error: "Invalid user groups in backup." },
+          { status: 400 },
+        );
+      if (
+        parsed.data.groups.length &&
+        (!sourceJellyfinSystemId ||
+          !targetJellyfinSystemId ||
+          sourceJellyfinSystemId !== targetJellyfinSystemId)
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Restoring merged accounts requires a verified matching Jellyfin server. Import with an explicit account mapping instead.",
+          },
+          { status: 409 },
+        );
+      }
+      await restoreUserGroups({
+        serverId: serverIdNum,
+        backup: parsed.data,
+        actor: session,
+      });
+      revalidateTag("user-analytics", { expire: 0 });
+      revalidatePath(`/servers/${serverIdNum}`, "layout");
     }
 
     // Restore server settings from the backup (never overwrite connection secrets)
@@ -537,6 +589,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Also expire results populated while session batches were being restored.
+    revalidateTag("user-analytics", { expire: 0 });
+    revalidatePath(`/servers/${serverIdNum}`, "layout");
     return NextResponse.json({
       success: true,
       message,
@@ -561,6 +616,11 @@ export async function POST(req: NextRequest) {
       export_timestamp: importData.exportInfo.timestamp,
     });
   } catch (error) {
+    if (error instanceof UserGroupError)
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     console.error("Import error:", error);
     return NextResponse.json(
       {

@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getServer } from "@/lib/db/server";
-import { getMe } from "@/lib/db/users";
+import { getMe, getViewerUserId } from "@/lib/db/users";
 import { getAvailableWrappedYears } from "@/lib/db/wrapped";
 
 export default async function WrappedPage({
@@ -31,7 +31,11 @@ export default async function WrappedPage({
     redirect(`/servers/${id}/login`);
   }
 
-  const availableYears = await getAvailableWrappedYears(server.id, me.id);
+  const availableYears = await getAvailableWrappedYears(
+    server.id,
+    me.id,
+    await getViewerUserId(),
+  );
   const currentYear = new Date().getFullYear();
 
   // If there's data for the current year, redirect to it

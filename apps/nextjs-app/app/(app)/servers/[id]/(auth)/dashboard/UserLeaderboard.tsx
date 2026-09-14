@@ -1,5 +1,9 @@
 import type { User } from "@streamystats/database/schema";
-import { getTotalWatchTimeForUsers, getUsers } from "@/lib/db/users";
+import {
+  getAnalyticsUsers,
+  getTotalWatchTimeForUsers,
+  getViewerUserId,
+} from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { UserLeaderboardTable } from "./UserLeaderBoardTable";
 
@@ -8,8 +12,10 @@ interface Props {
 }
 
 export const UserLeaderboard = async ({ server }: Props) => {
-  const users = await getUsers({ serverId: server.id });
+  const users = await getAnalyticsUsers({ serverId: server.id });
   const totalWatchTime = await getTotalWatchTimeForUsers({
+    serverId: server.id,
+    viewerUserId: await getViewerUserId(),
     userIds: users.map((user: User) => user.id),
   });
 

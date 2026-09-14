@@ -1,13 +1,15 @@
 "use cache";
 
 import "server-only";
-
 import {
+  analyticsUserId,
+  analyticsUserScope,
   db,
   type Item,
   itemPeople,
   items,
   people,
+  resolveAnalyticsUser,
   sessions,
   users,
 } from "@streamystats/database";
@@ -37,6 +39,7 @@ export interface WrappedParams {
   serverId: number;
   userId: string;
   year: number;
+  viewerUserId?: string;
 }
 
 export interface WrappedOverview {
@@ -258,6 +261,7 @@ export async function getWrappedOverview(
   params: WrappedParams,
 ): Promise<WrappedOverview> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-overview-${params.serverId}-${params.userId}-${params.year}`,
@@ -266,12 +270,14 @@ export async function getWrappedOverview(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    params.viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -401,6 +407,7 @@ export async function getWrappedTopItems(
   limit = 10,
 ): Promise<WrappedTopItems> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-top-items-${params.serverId}-${params.userId}-${params.year}`,
@@ -409,12 +416,14 @@ export async function getWrappedTopItems(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    params.viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -548,18 +557,21 @@ export async function getWrappedGenreStats(
   params: WrappedParams,
 ): Promise<WrappedGenres> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(`wrapped-genres-${params.serverId}-${params.userId}-${params.year}`);
 
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    params.viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -613,14 +625,17 @@ export async function getWrappedPeopleStats(
   limit = 10,
 ): Promise<WrappedPeopleStats> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(`wrapped-people-${params.serverId}-${params.userId}-${params.year}`);
 
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    params.viewerUserId,
+  );
 
   async function getTopPeopleByType(
     personType: "Actor" | "Director",
@@ -630,7 +645,10 @@ export async function getWrappedPeopleStats(
     // Movie stats
     const movieConditions: SQL[] = [
       eq(sessions.serverId, serverId),
-      eq(sessions.userId, userId),
+      analyticsUserScope(userId, {
+        serverId,
+        viewerUserId: params.viewerUserId,
+      }),
       gte(sessions.startTime, start),
       lte(sessions.startTime, end),
       isNotNull(sessions.itemId),
@@ -680,7 +698,10 @@ export async function getWrappedPeopleStats(
     // Series stats (join on seriesId for cast)
     const seriesConditions: SQL[] = [
       eq(sessions.serverId, serverId),
-      eq(sessions.userId, userId),
+      analyticsUserScope(userId, {
+        serverId,
+        viewerUserId: params.viewerUserId,
+      }),
       gte(sessions.startTime, start),
       lte(sessions.startTime, end),
       isNotNull(sessions.itemId),
@@ -753,6 +774,7 @@ export async function getWrappedActivityPatterns(
   params: WrappedParams,
 ): Promise<WrappedActivityPatterns> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-activity-${params.serverId}-${params.userId}-${params.year}`,
@@ -761,12 +783,14 @@ export async function getWrappedActivityPatterns(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    params.viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -924,6 +948,7 @@ export async function getWrappedTypeBreakdown(
   params: WrappedParams,
 ): Promise<TypeBreakdown> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-type-breakdown-${params.serverId}-${params.userId}-${params.year}`,
@@ -932,12 +957,14 @@ export async function getWrappedTypeBreakdown(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    params.viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -987,6 +1014,7 @@ export async function getWrappedRewatchStats(
   params: WrappedParams,
 ): Promise<RewatchStats> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-rewatch-${params.serverId}-${params.userId}-${params.year}`,
@@ -995,12 +1023,14 @@ export async function getWrappedRewatchStats(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    params.viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -1087,6 +1117,7 @@ export async function getWrappedGenrePercentiles(
   params: WrappedParams,
 ): Promise<GenrePercentile[]> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-percentiles-${params.serverId}-${params.userId}-${params.year}`,
@@ -1095,13 +1126,15 @@ export async function getWrappedGenrePercentiles(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    params.viewerUserId,
+  );
 
   // Get user's genre stats
   const userWhereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -1141,14 +1174,14 @@ export async function getWrappedGenrePercentiles(
   // Get per-user genre totals for percentile calculation
   const allUsersGenreStats = await db
     .select({
-      odUserId: sessions.userId,
+      odUserId: analyticsUserId(),
       genre: sql<string>`unnest(${items.genres})`.as("genre"),
       watchTimeSeconds: sum(sessions.playDuration),
     })
     .from(sessions)
     .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...serverWhereConditions))
-    .groupBy(sessions.userId, sql`unnest(${items.genres})`);
+    .groupBy(analyticsUserId(), sql`unnest(${items.genres})`);
 
   // Calculate percentiles
   const userTopGenre = userGenreStats[0]?.genre;
@@ -1192,16 +1225,21 @@ export async function getWrappedGenrePercentiles(
 export async function getAvailableWrappedYears(
   serverId: number,
   userId: string,
+  viewerUserId?: string,
 ): Promise<number[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
   cacheTag(`wrapped-years-${serverId}-${userId}`);
 
-  const { userExclusion } = await getStatisticsExclusions(serverId);
+  const { userExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    eq(sessions.userId, userId),
+    analyticsUserScope(userId, { serverId, viewerUserId: viewerUserId }),
     isNotNull(sessions.startTime),
   ];
 
@@ -1222,13 +1260,18 @@ export async function getWrappedData(
   params: WrappedParams,
 ): Promise<WrappedData> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(`wrapped-data-${params.serverId}-${params.userId}-${params.year}`);
 
-  // Get user name
+  // Display the chosen primary without changing the caller's access identity.
+  const { primaryUserId } = await resolveAnalyticsUser({
+    serverId: params.serverId,
+    userId: params.userId,
+  });
   const user = await db.query.users.findFirst({
     where: and(
-      eq(users.id, params.userId),
+      eq(users.id, primaryUserId),
       eq(users.serverId, params.serverId),
     ),
     columns: { name: true },

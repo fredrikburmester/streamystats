@@ -1,8 +1,7 @@
 "use server";
 
 import "server-only";
-
-import { db } from "@streamystats/database";
+import { analyticsUserScope, db } from "@streamystats/database";
 import {
   hiddenRecommendations,
   type Item,
@@ -132,6 +131,7 @@ async function getRecommendations(
   viewerUserId?: string,
 ): Promise<RecommendationItem[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
   cacheTag(
     `recommendations-${serverIdNum}`,
@@ -253,7 +253,7 @@ async function getUserSpecificRecommendations(
     .where(
       and(
         eq(sessions.serverId, serverId),
-        eq(sessions.userId, userId),
+        analyticsUserScope(userId, { serverId, viewerUserId }),
         eq(items.type, "Movie"),
         isNotNull(items.embedding),
         isNotNull(sessions.playDuration),
@@ -329,7 +329,7 @@ async function getUserSpecificRecommendations(
     .where(
       and(
         eq(sessions.serverId, serverId),
-        eq(sessions.userId, userId),
+        analyticsUserScope(userId, { serverId, viewerUserId }),
         eq(items.type, "Movie"),
         isNotNull(items.embedding),
         isNotNull(sessions.playDuration),
@@ -582,6 +582,7 @@ export const getSimilarItemsForItem = async (
   limit = 10,
 ): Promise<RecommendationItem[]> => {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
   cacheTag(`recommendations-${serverId}`, `recommendations-item-${itemId}`);
 

@@ -1,3 +1,4 @@
+import { getViewerUserId } from "@/lib/db/users";
 import { getWrappedData } from "@/lib/db/wrapped";
 import type { ServerPublic } from "@/lib/types";
 import {
@@ -25,13 +26,17 @@ interface WrappedContentProps {
 export async function WrappedContent({
   serverId,
   userId,
-  userName,
   year,
   availableYears,
   server,
   isAdminView = false,
 }: WrappedContentProps) {
-  const data = await getWrappedData({ serverId, userId, year });
+  const data = await getWrappedData({
+    serverId,
+    userId,
+    year,
+    viewerUserId: await getViewerUserId(),
+  });
 
   const firstGenre = data.overview.firstWatch?.genres?.[0];
   const lastGenre = data.overview.lastWatch?.genres?.[0];
@@ -40,7 +45,7 @@ export async function WrappedContent({
     <div className="min-h-screen bg-background overflow-x-hidden">
       <HeroSection
         year={year}
-        userName={isAdminView ? userName : "your"}
+        userName={isAdminView ? data.userName : "your"}
         availableYears={availableYears}
         serverId={serverId}
         userId={isAdminView ? userId : undefined}

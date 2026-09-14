@@ -1,8 +1,9 @@
 "use cache";
 
 import "server-only";
-
 import {
+  analyticsUserId,
+  analyticsUserScope,
   db,
   type Item,
   items,
@@ -22,7 +23,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getStatisticsExclusions } from "./exclusions";
 
 interface ItemWithStats extends Item {
@@ -46,6 +47,7 @@ export async function getMostWatchedItems({
   viewerUserId?: string;
 }): Promise<MostWatchedItems> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   // Get exclusion settings
@@ -62,7 +64,7 @@ export async function getMostWatchedItems({
 
   // Add userId filter if provided
   if (userId !== undefined) {
-    whereConditions.push(eq(sessions.userId, String(userId)));
+    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
   }
 
   // Add exclusion filters
@@ -228,6 +230,7 @@ export async function getWatchTimePerType({
   userId?: string | number;
   viewerUserId?: string;
 }): Promise<WatchTimePerType> {
+  cacheTag("user-analytics");
   // Get exclusion settings
   const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     serverId,
@@ -243,7 +246,7 @@ export async function getWatchTimePerType({
 
   // Add userId condition if provided
   if (userId) {
-    whereConditions.push(eq(sessions.userId, String(userId)));
+    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
   }
 
   // Add exclusion filters
@@ -368,6 +371,7 @@ export async function getWatchTimeByLibrary({
   endDate: string;
   viewerUserId?: string;
 }): Promise<LibraryWatchTime> {
+  cacheTag("user-analytics");
   // Get exclusion settings
   const { userExclusion, librariesTableExclusion } =
     await getStatisticsExclusions(serverId, viewerUserId);
@@ -444,6 +448,7 @@ export async function getMostWatchedDay({
   userId?: string | number;
   viewerUserId?: string;
 }): Promise<MostWatchedDay | null> {
+  cacheTag("user-analytics");
   // Get exclusion settings
   const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     serverId,
@@ -458,7 +463,7 @@ export async function getMostWatchedDay({
   ];
 
   if (userId !== undefined) {
-    whereConditions.push(eq(sessions.userId, String(userId)));
+    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
   }
 
   // Add exclusion filters
@@ -507,8 +512,9 @@ export async function getMostActiveUsersDay({
   endDate: string;
   viewerUserId?: string;
 }): Promise<MostActiveUsersDay | null> {
+  cacheTag("user-analytics");
   // Get exclusion settings
-  const { userExclusion } = await getStatisticsExclusions(
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     serverId,
     viewerUserId,
   );
@@ -529,14 +535,15 @@ export async function getMostActiveUsersDay({
   const rows = await db
     .select({
       date: sql<string>`DATE(${sessions.startTime})`.as("date"),
-      activeUsers: sql<number>`COUNT(DISTINCT ${sessions.userId})`.as(
+      activeUsers: sql<number>`COUNT(DISTINCT ${analyticsUserId()})`.as(
         "activeUsers",
       ),
     })
     .from(sessions)
-    .where(and(...whereConditions))
+    .innerJoin(items, eq(items.id, sessions.itemId))
+    .where(and(...whereConditions, itemLibraryExclusion))
     .groupBy(sql`DATE(${sessions.startTime})`)
-    .orderBy(desc(sql<number>`COUNT(DISTINCT ${sessions.userId})`))
+    .orderBy(desc(sql<number>`COUNT(DISTINCT ${analyticsUserId()})`))
     .limit(1);
 
   const row = rows[0];

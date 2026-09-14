@@ -1,8 +1,16 @@
 "use server";
 
 import "server-only";
-
-import { db, items, sessions, type User, users } from "@streamystats/database";
+import {
+  analyticsUserId,
+  analyticsUserScope,
+  db,
+  getUserGroups,
+  items,
+  sessions,
+  type User,
+  users,
+} from "@streamystats/database";
 import {
   and,
   eq,
@@ -69,6 +77,30 @@ export const getUsers = async ({
   });
 };
 
+// Keep account lists used by authentication/settings separate from people shown
+// in analytics. Excluding one member must not hide its non-excluded peers.
+export const getAnalyticsUsers = async ({
+  serverId,
+}: {
+  serverId: string | number;
+}): Promise<User[]> => {
+  const [accounts, groups, exclusions] = await Promise.all([
+    getUsers({ serverId }),
+    getUserGroups({ serverId: Number(serverId) }),
+    getStatisticsExclusions(serverId),
+  ]);
+  const primaryIds = new Set(
+    accounts
+      .filter((a) => !exclusions.excludedUserIds.includes(a.id))
+      .map(
+        (a) =>
+          groups.find((g) => g.memberUserIds.includes(a.id))?.primaryUserId ??
+          a.id,
+      ),
+  );
+  return accounts.filter((a) => primaryIds.has(a.id));
+};
+
 export interface WatchTimePerWeekDay {
   day: string;
   watchTime: number;
@@ -117,7 +149,7 @@ export const getWatchTimePerWeekDay = async ({
   // Build the where condition based on whether userId is provided
   const whereConditions: SQL[] = [eq(sessions.serverId, Number(serverId))];
   if (userId !== undefined) {
-    whereConditions.push(eq(sessions.userId, String(userId)));
+    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
   }
   if (start) {
     whereConditions.push(gte(sessions.startTime, start));
@@ -202,7 +234,7 @@ export const getWatchTimePerHour = async ({
   // Build the where condition based on whether userId is provided
   const whereConditions: SQL[] = [eq(sessions.serverId, Number(serverId))];
   if (userId !== undefined) {
-    whereConditions.push(eq(sessions.userId, String(userId)));
+    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
   }
   if (start) {
     whereConditions.push(gte(sessions.startTime, start));
@@ -262,7 +294,7 @@ export const getTotalWatchTime = async ({
   // Build the where condition based on whether userId is provided
   const whereConditions: SQL[] = [eq(sessions.serverId, Number(serverId))];
   if (userId !== undefined) {
-    whereConditions.push(eq(sessions.userId, String(userId)));
+    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
   }
   if (start) {
     whereConditions.push(gte(sessions.startTime, start));
@@ -296,23 +328,39 @@ interface UserWithWatchTime {
 
 export const getTotalWatchTimeForUsers = async ({
   userIds,
+  serverId,
+  viewerUserId,
 }: {
   userIds: string[] | number[];
+  serverId: number;
+  viewerUserId?: string;
 }): Promise<UserWithWatchTime> => {
   if (userIds.length === 0) {
     return {};
   }
 
   const stringUserIds = userIds.map((id) => String(id));
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const results = await db
     .select({
-      userId: sessions.userId,
+      userId: analyticsUserId(),
       totalWatchTime: sum(sessions.playDuration),
     })
     .from(sessions)
-    .where(inArray(sessions.userId, stringUserIds))
-    .groupBy(sessions.userId);
+    .innerJoin(items, eq(sessions.itemId, items.id))
+    .where(
+      and(
+        eq(sessions.serverId, serverId),
+        inArray(analyticsUserId(), stringUserIds),
+        userExclusion,
+        itemLibraryExclusion,
+      ),
+    )
+    .groupBy(analyticsUserId());
 
   const watchTimeMap: UserWithWatchTime = {};
 
@@ -346,7 +394,7 @@ export const getUserActivityPerDay = async ({
   viewerUserId?: string;
 }): Promise<UserActivityPerDay> => {
   // Get exclusion settings
-  const { userExclusion } = await getStatisticsExclusions(
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     Number(serverId),
     viewerUserId,
   );
@@ -366,10 +414,11 @@ export const getUserActivityPerDay = async ({
   const sessionData = await db
     .select({
       date: sql<string>`DATE(${sessions.startTime})`.as("date"),
-      userId: sessions.userId,
+      userId: analyticsUserId(),
     })
     .from(sessions)
-    .where(and(...whereConditions));
+    .innerJoin(items, eq(sessions.itemId, items.id))
+    .where(and(...whereConditions, itemLibraryExclusion));
 
   // Group by date and count distinct users manually
   const activityMap: UserActivityPerDay = {};
@@ -530,7 +579,7 @@ export const getUserStatsSummaryForServer = async ({
   }
 
   if (userId) {
-    whereConditions.push(eq(sessions.userId, userId));
+    whereConditions.push(analyticsUserScope(userId, { serverId }));
   }
 
   // Add exclusion filters
@@ -546,13 +595,13 @@ export const getUserStatsSummaryForServer = async ({
 
   let query = db
     .select({
-      userId: sessions.userId,
+      userId: analyticsUserId(),
       userName: users.name,
       totalWatchTime: sum(sessions.playDuration),
       sessionCount: sql<number>`COUNT(${sessions.id})`.as("sessionCount"),
     })
     .from(sessions)
-    .leftJoin(users, eq(sessions.userId, users.id));
+    .leftJoin(users, eq(analyticsUserId(), users.id));
 
   if (needsItemJoin) {
     query = query.innerJoin(items, eq(sessions.itemId, items.id));
@@ -575,7 +624,7 @@ export const getUserStatsSummaryForServer = async ({
 
   const results = await query
     .where(and(...whereConditions))
-    .groupBy(sessions.userId, users.name)
+    .groupBy(analyticsUserId(), users.name)
     .orderBy(sql`SUM(${sessions.playDuration}) DESC`);
 
   return results.map(
@@ -637,26 +686,35 @@ export interface UserWithStats extends User {
 export const getUserWatchStats = async ({
   serverId,
   userId,
+  viewerUserId,
 }: {
   serverId: string | number;
   userId: string;
+  viewerUserId?: string;
 }): Promise<UserWatchStats> => {
   if (!userId) {
     throw new Error("userId is required for getUserWatchStats");
   }
 
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
   const [totalWatchTime, userSessions] = await Promise.all([
-    getTotalWatchTime({ serverId, userId }),
+    getTotalWatchTime({ serverId, userId, viewerUserId }),
     db
       .select({
         playDuration: sessions.playDuration,
         startTime: sessions.startTime,
       })
       .from(sessions)
+      .innerJoin(items, eq(sessions.itemId, items.id))
       .where(
         and(
-          eq(sessions.userId, userId),
+          analyticsUserScope(userId, { serverId }),
           eq(sessions.serverId, Number(serverId)),
+          userExclusion,
+          itemLibraryExclusion,
         ),
       )
       .orderBy(sessions.startTime),
@@ -706,14 +764,20 @@ export const getUserWatchStats = async ({
 
 export const getUsersWithStats = async ({
   serverId,
+  viewerUserId,
 }: {
   serverId: string | number;
+  viewerUserId?: string;
 }): Promise<UserWithStats[]> => {
-  const users = await getUsers({ serverId });
+  const users = await getAnalyticsUsers({ serverId });
 
   // Get watch stats for all users in parallel
   const userStatsPromises = users.map(async (user) => {
-    const watchStats = await getUserWatchStats({ serverId, userId: user.id });
+    const watchStats = await getUserWatchStats({
+      serverId,
+      userId: user.id,
+      viewerUserId,
+    });
     return {
       ...user,
       watch_stats: watchStats,
@@ -733,8 +797,10 @@ export interface GenreStat {
 export const getUserGenreStats = async ({
   userId,
   serverId,
+  viewerUserId,
 }: {
   userId: string;
+  viewerUserId?: string;
   serverId: string | number;
 }): Promise<GenreStat[]> => {
   const sessionItems = await db
@@ -746,7 +812,7 @@ export const getUserGenreStats = async ({
     .innerJoin(items, eq(sessions.itemId, items.id))
     .where(
       and(
-        eq(sessions.userId, userId),
+        analyticsUserScope(userId, { serverId, viewerUserId }),
         eq(sessions.serverId, Number(serverId)),
         inArray(items.type, ["Movie", "Episode", "Series"]),
       ),

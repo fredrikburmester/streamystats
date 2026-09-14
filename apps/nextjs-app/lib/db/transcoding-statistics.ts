@@ -3,7 +3,7 @@
 import "server-only";
 
 import type { Session } from "@streamystats/database";
-import { db, sessions } from "@streamystats/database";
+import { analyticsUserScope, db, sessions } from "@streamystats/database";
 import {
   and,
   eq,
@@ -111,7 +111,7 @@ export async function getTranscodingStatistics(
     whereConditions.push(lte(sessions.startTime, new Date(endDate)));
   }
   if (userId) {
-    whereConditions.push(eq(sessions.userId, userId));
+    whereConditions.push(analyticsUserScope(userId, { serverId }));
   }
 
   // Add exclusion filters

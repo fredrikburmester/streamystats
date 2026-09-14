@@ -1,0 +1,168 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+import {
+  changeUserGroup,
+  getUserGroupAccounts,
+  getUserGroups,
+  previewUserGroup,
+  UserGroupError,
+} from "@streamystats/database";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { z } from "zod";
+import { requireAdmin } from "./api-auth";
+
+const changeSchema = z
+  .object({
+    groupId: z.string().uuid().nullable(),
+    primaryUserId: z.string().min(1).max(256),
+    memberUserIds: z.array(z.string().min(1).max(256)).min(1).max(100),
+    expectedRevision: z.number().int().positive().nullable(),
+  })
+  .strict();
+
+const commitSchema = z
+  .object({
+    change: changeSchema,
+    previewToken: z.string().regex(/^[a-f0-9]{64}$/),
+    operationId: z.string().uuid(),
+  })
+  .strict();
+
+// A token bound to the admin and server lets the browser submit through a proxy
+// whose public origin differs from Next's internal URL. Forwarded headers do
+// not grant an origin exemption. Only an authenticated GET can obtain a token.
+function csrfToken({
+  serverId,
+  actorId,
+  hour = Math.floor(Date.now() / 3_600_000),
+}: {
+  serverId: number;
+  actorId: string;
+  hour?: number;
+}): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret && process.env.NODE_ENV === "production")
+    throw new Error("SESSION_SECRET is required");
+  const signature = createHmac(
+    "sha256",
+    secret ?? "user-groups-local-development",
+  )
+    .update(JSON.stringify(["user-groups-csrf", serverId, actorId, hour]))
+    .digest("hex");
+  return `${hour}.${signature}`;
+}
+
+function hasCsrfToken({
+  request,
+  serverId,
+  actorId,
+}: {
+  request: Request;
+  serverId: number;
+  actorId: string;
+}): boolean {
+  const token = request.headers.get("x-user-groups-csrf");
+  if (!token || !/^\d+\.[a-f0-9]{64}$/.test(token)) return false;
+  if (
+    ["cross-site", "same-site"].includes(
+      request.headers.get("sec-fetch-site") ?? "",
+    )
+  )
+    return false;
+  const hour = Number(token.split(".")[0]);
+  const age = Math.floor(Date.now() / 3_600_000) - hour;
+  if (!Number.isSafeInteger(hour) || age < 0 || age > 1) return false;
+  const expected = Buffer.from(csrfToken({ serverId, actorId, hour }));
+  const supplied = Buffer.from(token);
+  return (
+    expected.length === supplied.length && timingSafeEqual(expected, supplied)
+  );
+}
+
+export function hasSameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    const source = new URL(origin);
+    const target = new URL(request.url);
+    return (
+      source.origin === target.origin &&
+      ["same-origin", "none", null].includes(
+        request.headers.get("sec-fetch-site"),
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function handleUserGroups({
+  request,
+  serverId: rawServerId,
+  preview = false,
+}: {
+  request: Request;
+  serverId: string;
+  preview?: boolean;
+}) {
+  if (
+    !/^\d+$/.test(rawServerId) ||
+    !Number.isSafeInteger(Number(rawServerId)) ||
+    Number(rawServerId) < 1
+  ) {
+    return Response.json({ error: "Invalid server ID." }, { status: 400 });
+  }
+  const serverId = Number(rawServerId);
+  const auth = await requireAdmin(serverId);
+  if (auth.error) return auth.error;
+  if (
+    request.method !== "GET" &&
+    !hasSameOrigin(request) &&
+    !hasCsrfToken({ request, serverId, actorId: auth.session.id })
+  )
+    return Response.json(
+      { error: "Same-origin request required." },
+      { status: 403 },
+    );
+  try {
+    if (request.method === "GET") {
+      const [accounts, groups] = await Promise.all([
+        getUserGroupAccounts({ serverId }),
+        getUserGroups({ serverId }),
+      ]);
+      return Response.json(
+        {
+          accounts,
+          groups,
+          csrfToken: csrfToken({ serverId, actorId: auth.session.id }),
+        },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
+    if (preview) {
+      const change = changeSchema.parse(await request.json());
+      return Response.json(await previewUserGroup({ serverId, change }));
+    }
+    const input = commitSchema.parse(await request.json());
+    const group = await changeUserGroup({
+      serverId,
+      ...input,
+      actor: auth.session,
+    });
+    // Covers nested recommendation/taste caches and previous Wrapped years too.
+    revalidateTag("user-analytics", { expire: 0 });
+    revalidatePath(`/servers/${serverId}`, "layout");
+    return Response.json({ group });
+  } catch (error) {
+    if (error instanceof UserGroupError)
+      return Response.json({ error: error.message }, { status: error.status });
+    if (error instanceof z.ZodError || error instanceof SyntaxError)
+      return Response.json(
+        { error: "Invalid user group request." },
+        { status: 400 },
+      );
+    return Response.json(
+      { error: "Could not save user group. Retry the request." },
+      { status: 500 },
+    );
+  }
+}

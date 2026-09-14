@@ -6,7 +6,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { setEndDateToEndOfDay } from "@/dates";
 import { getClientStatistics } from "@/lib/db/client-statistics";
 import { getServer } from "@/lib/db/server";
-import { getMe, getUsers, getViewerUserId, isUserAdmin } from "@/lib/db/users";
+import {
+  getAnalyticsUsers,
+  getMe,
+  getViewerUserId,
+  isUserAdmin,
+} from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { ClientStatistics } from "../ClientStatistics";
 import { ClientFilters } from "./ClientFilters";
@@ -34,7 +39,7 @@ export default async function ClientsPage({
   const effectiveEndDate = endDate ? setEndDateToEndOfDay(endDate) : undefined;
 
   const isAdmin = await isUserAdmin();
-  const users = await getUsers({ serverId: server.id });
+  const users = await getAnalyticsUsers({ serverId: server.id });
 
   return (
     <Container className="flex flex-col">

@@ -9,7 +9,7 @@ import {
   type HistoryResponse,
 } from "@/lib/db/history";
 import { getServer } from "@/lib/db/server";
-import { getUsers, getViewerUserId } from "@/lib/db/users";
+import { getAnalyticsUsers, getViewerUserId } from "@/lib/db/users";
 import { HistoryTable } from "./HistoryTable";
 
 export default async function HistoryPage({
@@ -73,7 +73,7 @@ export default async function HistoryPage({
         },
         viewerUserId,
       ),
-      getUsers({ serverId: server.id }),
+      getAnalyticsUsers({ serverId: server.id }),
       getUniqueDeviceNames(server.id),
       getUniqueClientNames(server.id),
       getUniquePlayMethods(server.id),

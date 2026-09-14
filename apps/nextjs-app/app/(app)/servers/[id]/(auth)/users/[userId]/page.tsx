@@ -1,8 +1,10 @@
+import { resolveAnalyticsUser } from "@streamystats/database";
 import { Shield } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/Container";
 import { AnomalyBadge } from "@/components/locations";
+import { MergeUsersManager } from "@/components/MergeUsersManager";
 import { PageTitle } from "@/components/PageTitle";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,9 +19,9 @@ import { getUserAnomalies } from "@/lib/db/locations";
 import { getServer } from "@/lib/db/server";
 import { getMostWatchedItems } from "@/lib/db/statistics";
 import {
+  getAnalyticsUsers,
   getUserById,
   getUserGenreStats,
-  getUsers,
   getUserWatchStats,
   getViewerUserId,
   getWatchTimePerWeekDay,
@@ -73,6 +75,15 @@ export default async function User({
     redirect("/");
   }
 
+  const identity = await resolveAnalyticsUser({ serverId: server.id, userId });
+  if (identity.primaryUserId !== userId) {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(await searchParams))
+      if (value) query.set(key, value);
+    redirect(
+      `/servers/${server.id}/users/${encodeURIComponent(identity.primaryUserId)}${query.size ? `?${query}` : ""}`,
+    );
+  }
   const user = await getUserById({ userId: userId, serverId: server.id });
   if (!user) {
     redirect("/");
@@ -85,7 +96,14 @@ export default async function User({
   ]);
 
   // Check if current user is viewing their own page
-  const isCurrentUser = currentSession?.id === user.id;
+  const actionUser =
+    currentSession && identity.memberUserIds.includes(currentSession.id)
+      ? ((await getUserById({
+          serverId: server.id,
+          userId: currentSession.id,
+        })) ?? user)
+      : user;
+  const isCurrentUser = currentSession?.id === actionUser.id;
 
   // Get additional user statistics and history
   const currentPage = Number.parseInt(page, 10);
@@ -103,13 +121,14 @@ export default async function User({
     playMethods,
     inferredSessionCount,
   ] = await Promise.all([
-    getUserWatchStats({ serverId: server.id, userId: user.id }),
+    getUserWatchStats({ serverId: server.id, userId: user.id, viewerUserId }),
     getWatchTimePerWeekDay({
       serverId: server.id,
       userId: user.id,
       viewerUserId,
     }),
     getUserHistory(server.id, user.id, {
+      viewerUserId,
       page: currentPage,
       perPage: 50,
       search: search || undefined,
@@ -122,21 +141,29 @@ export default async function User({
       clientName: clientName || undefined,
       playMethod: playMethod || undefined,
     }),
-    getUserGenreStats({ userId: user.id, serverId: server.id }),
+    getUserGenreStats({ userId: user.id, serverId: server.id, viewerUserId }),
     getMostWatchedItems({ serverId: server.id, userId: user.id, viewerUserId }),
     getAlmostDoneSeries({ serverId: server.id, userId: user.id, viewerUserId }),
     getUserAnomalies(server.id, user.id, { resolved: false, limit: 1 }),
-    getUsers({ serverId: server.id }),
+    getAnalyticsUsers({ serverId: server.id }),
     getUniqueDeviceNames(server.id),
     getUniqueClientNames(server.id),
     getUniquePlayMethods(server.id),
-    getInferredSessionCount(server.id, user.id),
+    getInferredSessionCount(server.id, actionUser.id),
   ]);
 
   return (
     <Container className="flex flex-col">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <PageTitle title={user.name || "N/A"} />
+        {identity.group &&
+          (isAdmin ? (
+            <MergeUsersManager serverId={server.id} group={identity.group} />
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {identity.memberUserIds.length} merged accounts
+            </span>
+          ))}
         {isAdmin && (
           <Link href={`/servers/${server.id}/users/${user.id}/security`}>
             <Button variant="outline" size="sm" className="gap-2">
@@ -197,14 +224,18 @@ export default async function User({
         </div>
       )}
       <div className="mt-6 mb-4">
-        <UserSimilarity serverId={server.id} userId={user.id} />
+        <UserSimilarity
+          serverId={server.id}
+          userId={user.id}
+          viewerUserId={viewerUserId}
+        />
       </div>
       {(isCurrentUser || isAdmin) && (
         <div className="mb-4">
           <InferWatchtimeManager
             serverId={server.id}
-            userId={user.id}
-            userName={user.name}
+            userId={actionUser.id}
+            userName={actionUser.name}
             isCurrentUser={isCurrentUser}
             inferredSessionCount={inferredSessionCount}
           />
@@ -213,7 +244,7 @@ export default async function User({
       <HistoryTable
         server={server}
         data={userHistory}
-        hideUserColumn={true}
+        hideUserColumn={!identity.group}
         users={users.map((u) => ({ id: u.id, name: u.name }))}
         deviceNames={deviceNames}
         clientNames={clientNames}

@@ -13,6 +13,7 @@ import {
   unique,
   customType,
   primaryKey,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 
 // Custom vector type that supports variable dimensions
@@ -289,9 +290,55 @@ export const users = pgTable(
   },
   (table) => [
     index("users_server_id_idx").on(table.serverId),
+    unique("users_server_id_id_unique").on(table.serverId, table.id),
     index("users_search_vector_idx").using("gin", table.searchVector),
   ]
 );
+
+// Analytics identity is separate from the Jellyfin accounts used for access.
+export const userGroups = pgTable("user_groups", {
+  id: text("id").primaryKey(),
+  serverId: integer("server_id").notNull().references(() => servers.id, { onDelete: "cascade" }),
+  primaryUserId: text("primary_user_id").notNull(),
+  revision: integer("revision").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  unique("user_groups_server_id_id_unique").on(table.serverId, table.id),
+  foreignKey({ columns: [table.serverId, table.primaryUserId], foreignColumns: [users.serverId, users.id], name: "user_groups_primary_account_fk" }),
+]);
+
+export const userGroupMembers = pgTable("user_group_members", {
+  serverId: integer("server_id").notNull(),
+  groupId: text("group_id").notNull(),
+  userId: text("user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.serverId, table.userId] }),
+  unique("user_group_members_group_user_unique").on(table.serverId, table.groupId, table.userId),
+  foreignKey({ columns: [table.serverId, table.groupId], foreignColumns: [userGroups.serverId, userGroups.id], name: "user_group_members_group_fk" }).onDelete("cascade"),
+  foreignKey({ columns: [table.serverId, table.userId], foreignColumns: [users.serverId, users.id], name: "user_group_members_account_fk" }),
+]);
+
+export type UserGroupSnapshot = {
+  id: string;
+  serverId: number;
+  primaryUserId: string;
+  memberUserIds: string[];
+  revision: number;
+};
+
+export const userGroupAudit = pgTable("user_group_audit", {
+  id: serial("id").primaryKey(),
+  serverId: integer("server_id").notNull().references(() => servers.id, { onDelete: "cascade" }),
+  operationId: text("operation_id").notNull(),
+  actorId: text("actor_id").notNull(),
+  actorName: text("actor_name").notNull(),
+  requestHash: text("request_hash").notNull(),
+  before: jsonb("before").$type<UserGroupSnapshot | null>(),
+  after: jsonb("after").$type<UserGroupSnapshot | null>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [unique("user_group_audit_operation_unique").on(table.serverId, table.operationId)]);
 
 // Activities table - user activities and server events
 export const activities = pgTable(
