@@ -249,7 +249,10 @@ async function getUserSpecificRecommendations(
       ),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.serverId, serverId),
@@ -260,7 +263,7 @@ async function getUserSpecificRecommendations(
         ...sessionTimeConditions,
       ),
     )
-    .groupBy(sessions.itemId, items.id)
+    .groupBy(sessions.itemId, items.serverId, items.id)
     .having(sql`MAX(${sessions.percentComplete}) > 50`)
     .orderBy(sql`MAX(${sessions.endTime}) DESC`);
 
@@ -325,7 +328,10 @@ async function getUserSpecificRecommendations(
       ),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.serverId, serverId),
@@ -336,7 +342,7 @@ async function getUserSpecificRecommendations(
         ...sessionTimeConditions,
       ),
     )
-    .groupBy(sessions.itemId, items.id)
+    .groupBy(sessions.itemId, items.serverId, items.id)
     .having(sql`MAX(${sessions.percentComplete}) > 50`)
     .orderBy(desc(sql<number>`SUM(${sessions.playDuration})`))
     .limit(10);

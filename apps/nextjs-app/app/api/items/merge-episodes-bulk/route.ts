@@ -75,7 +75,11 @@ async function mergeSingleEpisode(
       .returning({ id: hiddenRecommendations.id });
 
     // Delete the old episode
-    await tx.delete(items).where(eq(items.id, pair.deletedEpisodeId));
+    await tx
+      .delete(items)
+      .where(
+        and(eq(items.id, pair.deletedEpisodeId), eq(items.serverId, serverId)),
+      );
 
     return {
       sessionsMigrated: migratedSessions.length,
@@ -125,7 +129,12 @@ export async function POST(request: Request) {
         const deletedEpisode = await db
           .select()
           .from(items)
-          .where(eq(items.id, pair.deletedEpisodeId))
+          .where(
+            and(
+              eq(items.id, pair.deletedEpisodeId),
+              eq(items.serverId, session.serverId),
+            ),
+          )
           .limit(1);
 
         if (deletedEpisode.length === 0) {
@@ -147,7 +156,12 @@ export async function POST(request: Request) {
         const activeEpisode = await db
           .select()
           .from(items)
-          .where(eq(items.id, pair.activeEpisodeId))
+          .where(
+            and(
+              eq(items.id, pair.activeEpisodeId),
+              eq(items.serverId, session.serverId),
+            ),
+          )
           .limit(1);
 
         if (activeEpisode.length === 0) {

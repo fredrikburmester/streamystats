@@ -67,7 +67,9 @@ async function mergeSinglePair(
       )
       .returning({ id: hiddenRecommendations.id });
 
-    await tx.delete(items).where(eq(items.id, deletedItemId));
+    await tx
+      .delete(items)
+      .where(and(eq(items.id, deletedItemId), eq(items.serverId, serverId)));
 
     return {
       sessionsMigrated: migratedSessions.length,

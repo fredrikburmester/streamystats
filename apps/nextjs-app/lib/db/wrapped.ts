@@ -293,7 +293,10 @@ export async function getWrappedOverview(
       daysWithActivity: sql<number>`COUNT(DISTINCT DATE(${sessions.startTime}))`,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions));
 
   // Get first watch
@@ -310,7 +313,10 @@ export async function getWrappedOverview(
       genres: items.genres,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .orderBy(asc(sessions.startTime))
     .limit(1);
@@ -329,7 +335,10 @@ export async function getWrappedOverview(
       genres: items.genres,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .orderBy(desc(sessions.startTime))
     .limit(1);
@@ -344,7 +353,12 @@ export async function getWrappedOverview(
     const [seriesResult] = await db
       .select({ genres: items.genres })
       .from(items)
-      .where(eq(items.id, firstWatchResult.seriesId))
+      .where(
+        and(
+          eq(items.id, firstWatchResult.seriesId),
+          eq(items.serverId, Number(serverId)),
+        ),
+      )
       .limit(1);
     firstWatchGenres = seriesResult?.genres ?? null;
   }
@@ -356,7 +370,12 @@ export async function getWrappedOverview(
     const [seriesResult] = await db
       .select({ genres: items.genres })
       .from(items)
-      .where(eq(items.id, lastWatchResult.seriesId))
+      .where(
+        and(
+          eq(items.id, lastWatchResult.seriesId),
+          eq(items.serverId, Number(serverId)),
+        ),
+      )
       .limit(1);
     lastWatchGenres = seriesResult?.genres ?? null;
   }
@@ -446,7 +465,10 @@ export async function getWrappedTopItems(
 
   // Fetch all items
   const itemIds = sessionStats.map((stat) => stat.itemId);
-  const itemConditions: SQL[] = [inArray(items.id, itemIds)];
+  const itemConditions: SQL[] = [
+    eq(items.serverId, Number(serverId)),
+    inArray(items.id, itemIds),
+  ];
   if (itemLibraryExclusion) {
     itemConditions.push(itemLibraryExclusion);
   }
@@ -516,6 +538,7 @@ export async function getWrappedTopItems(
       .from(items)
       .where(
         and(
+          eq(items.serverId, Number(serverId)),
           inArray(items.id, seriesIds),
           eq(items.type, "Series"),
           eq(items.serverId, serverId),
@@ -581,7 +604,10 @@ export async function getWrappedGenreStats(
       playCount: count(sessions.id),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`unnest(${items.genres})`)
     .orderBy(desc(sum(sessions.playDuration)));
@@ -651,8 +677,20 @@ export async function getWrappedPeopleStats(
         itemCount: countDistinct(items.id),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -702,8 +740,20 @@ export async function getWrappedPeopleStats(
         itemCount: countDistinct(items.seriesId),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.seriesId, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.seriesId, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -783,7 +833,10 @@ export async function getWrappedActivityPatterns(
       playCount: count(sessions.id),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`DATE(${sessions.startTime})`)
     .orderBy(sql`DATE(${sessions.startTime})`);
@@ -802,7 +855,10 @@ export async function getWrappedActivityPatterns(
       playCount: count(sessions.id),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`)
     .orderBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`);
@@ -827,7 +883,10 @@ export async function getWrappedActivityPatterns(
       playCount: count(sessions.id),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`EXTRACT(DOW FROM ${sessions.startTime})`)
     .orderBy(sql`EXTRACT(DOW FROM ${sessions.startTime})`);
@@ -852,7 +911,10 @@ export async function getWrappedActivityPatterns(
       playCount: count(sessions.id),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`EXTRACT(MONTH FROM ${sessions.startTime})`)
     .orderBy(sql`EXTRACT(MONTH FROM ${sessions.startTime})`);
@@ -953,7 +1015,10 @@ export async function getWrappedTypeBreakdown(
       playCount: count(sessions.id),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(items.type);
 
@@ -1022,7 +1087,10 @@ export async function getWrappedRewatchStats(
       totalWatchTimeSeconds: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(
       sessions.itemId,
@@ -1056,7 +1124,10 @@ export async function getWrappedRewatchStats(
   const [totalPlaysResult] = await db
     .select({ total: count(sessions.id) })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions));
 
   const totalPlays = totalPlaysResult?.total ?? 0;
@@ -1116,7 +1187,10 @@ export async function getWrappedGenrePercentiles(
       watchTimeSeconds: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...userWhereConditions))
     .groupBy(sql`unnest(${items.genres})`)
     .orderBy(desc(sum(sessions.playDuration)));
@@ -1146,7 +1220,10 @@ export async function getWrappedGenrePercentiles(
       watchTimeSeconds: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...serverWhereConditions))
     .groupBy(sessions.userId, sql`unnest(${items.genres})`);
 

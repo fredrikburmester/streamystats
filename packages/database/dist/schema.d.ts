@@ -726,7 +726,7 @@ export declare const libraries: import("drizzle-orm/pg-core").PgTableWithColumns
             driverParam: string;
             notNull: true;
             hasDefault: false;
-            isPrimaryKey: true;
+            isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
             enumValues: [string, ...string[]];
@@ -2072,7 +2072,7 @@ export declare const items: import("drizzle-orm/pg-core").PgTableWithColumns<{
             driverParam: string;
             notNull: true;
             hasDefault: false;
-            isPrimaryKey: true;
+            isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
             enumValues: [string, ...string[]];
@@ -3262,7 +3262,7 @@ export declare const mediaSources: import("drizzle-orm/pg-core").PgTableWithColu
             driverParam: string;
             notNull: true;
             hasDefault: false;
-            isPrimaryKey: true;
+            isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
             enumValues: [string, ...string[]];
@@ -6063,6 +6063,23 @@ export declare const watchlistItems: import("drizzle-orm/pg-core").PgTableWithCo
             notNull: true;
             hasDefault: true;
             isPrimaryKey: true;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        serverId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "server_id";
+            tableName: "watchlist_items";
+            dataType: "number";
+            columnType: "PgInteger";
+            data: number;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
             enumValues: undefined;

@@ -86,17 +86,19 @@ export interface ItemDetailsResponse {
  * Get comprehensive item details with statistics
  */
 export const getItemDetails = async ({
+  serverId,
   itemId,
   userId,
   viewerUserId,
 }: {
+  serverId: number;
   itemId: string;
   userId?: string;
   viewerUserId?: string;
 }): Promise<ItemDetailsResponse | null> => {
   // Get the item first
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.serverId, serverId), eq(items.id, itemId)),
   });
 
   if (!item) {
@@ -118,21 +120,17 @@ export const getItemDetails = async ({
   }
 
   // Get basic stats
-  const totalStats = await getItemTotalStats({ itemId, userId });
-  const watchDates = await getItemWatchDates({ itemId, userId });
+  const totalStats = await getItemTotalStats({ serverId, itemId, userId });
+  const watchDates = await getItemWatchDates({ serverId, itemId, userId });
   const completionRate = await getItemCompletionRate({
+    serverId,
     itemId,
     userId,
   });
-  const usersWatched = await getItemUserStats({
-    itemId,
-    userId,
-  });
-  const watchHistory = await getItemWatchHistory({
-    itemId,
-    userId,
-  });
+  const usersWatched = await getItemUserStats({ serverId, itemId, userId });
+  const watchHistory = await getItemWatchHistory({ serverId, itemId, userId });
   const watchCountByMonth = await getItemWatchCountByMonth({
+    serverId,
     itemId,
     userId,
   });
@@ -140,7 +138,7 @@ export const getItemDetails = async ({
   // Get episode stats if this is a series
   let episodeStats: SeriesEpisodeStats | undefined;
   if (item.type === "Series") {
-    episodeStats = await getSeriesEpisodeStats({ itemId, userId });
+    episodeStats = await getSeriesEpisodeStats({ serverId, itemId, userId });
   }
 
   return {
@@ -161,8 +159,10 @@ export const getItemDetails = async ({
  * Get all episode IDs for a TV show
  */
 export const getEpisodeIdsForSeries = async ({
+  serverId,
   seriesId,
 }: {
+  serverId: number;
   seriesId: string;
 }): Promise<string[]> => {
   const episodes = await db
@@ -170,7 +170,13 @@ export const getEpisodeIdsForSeries = async ({
       id: items.id,
     })
     .from(items)
-    .where(and(eq(items.type, "Episode"), eq(items.seriesId, seriesId)));
+    .where(
+      and(
+        eq(items.serverId, serverId),
+        eq(items.type, "Episode"),
+        eq(items.seriesId, seriesId),
+      ),
+    );
 
   return episodes.map((episode) => episode.id);
 };
@@ -181,15 +187,17 @@ export const getEpisodeIdsForSeries = async ({
  * If userId is not provided, shows global data (for all users)
  */
 export const getItemTotalStats = async ({
+  serverId,
   itemId,
   userId,
 }: {
+  serverId: number;
   itemId: string;
   userId?: string;
 }): Promise<{ total_views: number; total_watch_time: number }> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.serverId, serverId), eq(items.id, itemId)),
   });
 
   if (!item) {
@@ -201,6 +209,7 @@ export const getItemTotalStats = async ({
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
     itemIdsToQuery = await getEpisodeIdsForSeries({
+      serverId,
       seriesId: itemId,
     });
     if (itemIdsToQuery.length === 0) {
@@ -211,11 +220,13 @@ export const getItemTotalStats = async ({
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.playDuration),
       )
     : and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.playDuration),
       );
@@ -240,15 +251,17 @@ export const getItemTotalStats = async ({
  * If userId is not provided, shows global data (for all users)
  */
 export const getItemWatchDates = async ({
+  serverId,
   itemId,
   userId,
 }: {
+  serverId: number;
   itemId: string;
   userId?: string;
 }): Promise<{ first_watched: string | null; last_watched: string | null }> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.serverId, serverId), eq(items.id, itemId)),
   });
 
   if (!item) {
@@ -260,6 +273,7 @@ export const getItemWatchDates = async ({
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
     itemIdsToQuery = await getEpisodeIdsForSeries({
+      serverId,
       seriesId: itemId,
     });
     if (itemIdsToQuery.length === 0) {
@@ -270,11 +284,13 @@ export const getItemWatchDates = async ({
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.startTime),
       )
     : and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.startTime),
       );
@@ -299,15 +315,17 @@ export const getItemWatchDates = async ({
  * If userId is not provided, shows global data (for all users)
  */
 export const getItemCompletionRate = async ({
+  serverId,
   itemId,
   userId,
 }: {
+  serverId: number;
   itemId: string;
   userId?: string;
 }): Promise<number> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.serverId, serverId), eq(items.id, itemId)),
   });
 
   if (!item) {
@@ -319,6 +337,7 @@ export const getItemCompletionRate = async ({
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
     itemIdsToQuery = await getEpisodeIdsForSeries({
+      serverId,
       seriesId: itemId,
     });
     if (itemIdsToQuery.length === 0) {
@@ -329,11 +348,13 @@ export const getItemCompletionRate = async ({
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.percentComplete),
       )
     : and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.percentComplete),
       );
@@ -360,11 +381,11 @@ export const getItemUserStats = async ({
 }: {
   itemId: string;
   userId?: string;
-  serverId?: number;
+  serverId: number;
 }): Promise<ItemUserStats[]> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.serverId, serverId), eq(items.id, itemId)),
   });
 
   if (!item) {
@@ -381,6 +402,7 @@ export const getItemUserStats = async ({
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
     itemIdsToQuery = await getEpisodeIdsForSeries({
+      serverId,
       seriesId: itemId,
     });
     if (itemIdsToQuery.length === 0) {
@@ -390,6 +412,7 @@ export const getItemUserStats = async ({
 
   // Build where conditions
   const whereConditions: SQL[] = [
+    eq(sessions.serverId, serverId),
     inArray(sessions.itemId, itemIdsToQuery),
     isNotNull(sessions.userId),
   ];
@@ -544,17 +567,19 @@ export const getItemUserStats = async ({
  * If userId is not provided, shows all users' history
  */
 export const getItemWatchHistory = async ({
+  serverId,
   itemId,
   userId,
   limit = 50,
 }: {
+  serverId: number;
   itemId: string;
   userId?: string;
   limit?: number;
 }): Promise<ItemWatchHistory[]> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.serverId, serverId), eq(items.id, itemId)),
   });
 
   if (!item) {
@@ -566,6 +591,7 @@ export const getItemWatchHistory = async ({
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
     itemIdsToQuery = await getEpisodeIdsForSeries({
+      serverId,
       seriesId: itemId,
     });
     if (itemIdsToQuery.length === 0) {
@@ -576,11 +602,13 @@ export const getItemWatchHistory = async ({
   // Build where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.startTime),
       )
     : and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.startTime),
       );
@@ -613,15 +641,17 @@ export const getItemWatchHistory = async ({
  * If userId is not provided, fetch all data (global)
  */
 export const getItemWatchCountByMonth = async ({
+  serverId,
   itemId,
   userId,
 }: {
+  serverId: number;
   itemId: string;
   userId?: string;
 }): Promise<ItemWatchCountByMonth[]> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.serverId, serverId), eq(items.id, itemId)),
   });
 
   if (!item) {
@@ -633,6 +663,7 @@ export const getItemWatchCountByMonth = async ({
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
     itemIdsToQuery = await getEpisodeIdsForSeries({
+      serverId,
       seriesId: itemId,
     });
     if (itemIdsToQuery.length === 0) {
@@ -643,11 +674,13 @@ export const getItemWatchCountByMonth = async ({
   // Build the where condition: if userId is provided, filter by user; otherwise, return all users' data
   const whereCondition = userId
     ? and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.startTime),
       )
     : and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.startTime),
       );
@@ -686,9 +719,11 @@ export const getItemWatchCountByMonth = async ({
  * If userId is not provided, shows global data (for all users)
  */
 export const getSeriesEpisodeStats = async ({
+  serverId,
   itemId,
   userId,
 }: {
+  serverId: number;
   itemId: string;
   userId?: string;
 }): Promise<SeriesEpisodeStats> => {
@@ -702,6 +737,7 @@ export const getSeriesEpisodeStats = async ({
     .from(items)
     .where(
       and(
+        eq(items.serverId, serverId),
         eq(items.type, "Episode"),
         eq(items.seriesId, itemId),
         isNotNull(items.parentIndexNumber),
@@ -729,11 +765,13 @@ export const getSeriesEpisodeStats = async ({
 
   const whereCondition = userId
     ? and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, episodeIds),
         eq(sessions.userId, userId),
         isNotNull(sessions.playDuration),
       )
     : and(
+        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, episodeIds),
         isNotNull(sessions.playDuration),
       );
@@ -776,8 +814,10 @@ export interface SeasonEpisode {
  * Get all seasons and episodes for a series, grouped by season
  */
 export const getSeasonsAndEpisodes = async ({
+  serverId,
   seriesId,
 }: {
+  serverId: number;
   seriesId: string;
 }): Promise<SeasonEpisode[]> => {
   const allEpisodes = await db
@@ -785,6 +825,7 @@ export const getSeasonsAndEpisodes = async ({
     .from(items)
     .where(
       and(
+        eq(items.serverId, serverId),
         eq(items.type, "Episode"),
         eq(items.seriesId, seriesId),
         isNotNull(items.parentIndexNumber),
@@ -865,11 +906,15 @@ export const getAlmostDoneSeries = async ({
       seriesId: items.seriesId,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.serverId, serverIdNum),
         eq(sessions.userId, userId),
+        eq(items.serverId, serverIdNum),
         eq(items.type, "Episode"),
         isNotNull(items.seriesId),
         isNull(items.deletedAt),
@@ -1018,7 +1063,13 @@ export const getAlmostDoneSeries = async ({
   const seriesItems = await db
     .select()
     .from(items)
-    .where(and(eq(items.type, "Series"), inArray(items.id, seriesIdsToFetch)));
+    .where(
+      and(
+        eq(items.serverId, serverIdNum),
+        eq(items.type, "Series"),
+        inArray(items.id, seriesIdsToFetch),
+      ),
+    );
 
   const seriesMap = new Map<string, Item>();
   for (const series of seriesItems) {

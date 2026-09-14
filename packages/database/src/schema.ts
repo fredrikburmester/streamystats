@@ -13,6 +13,7 @@ import {
   unique,
   customType,
   primaryKey,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 
 // Custom vector type that supports variable dimensions
@@ -172,7 +173,7 @@ export const servers = pgTable(
 export const libraries = pgTable(
   "libraries",
   {
-    id: text("id").primaryKey(), // External library ID from server
+    id: text("id").notNull(), // External library ID from server
     name: text("name").notNull(),
     type: text("type").notNull(), // Movie, TV, Music, etc.
     serverId: integer("server_id")
@@ -182,6 +183,7 @@ export const libraries = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    primaryKey({ columns: [table.serverId, table.id] }),
     index("libraries_server_id_idx").on(table.serverId),
   ]
 );
@@ -366,13 +368,11 @@ export const items = pgTable(
   "items",
   {
     // Primary key and relationships
-    id: text("id").primaryKey(),
+    id: text("id").notNull(),
     serverId: integer("server_id")
       .notNull()
       .references(() => servers.id, { onDelete: "cascade" }),
-    libraryId: text("library_id")
-      .notNull()
-      .references(() => libraries.id, { onDelete: "cascade" }),
+    libraryId: text("library_id").notNull(),
 
     // Core metadata fields
     name: text("name").notNull(),
@@ -469,6 +469,12 @@ export const items = pgTable(
   // CREATE INDEX items_embedding_idx ON items USING hnsw ((embedding::vector(N)) vector_cosine_ops)
   // WHERE vector_dims(embedding) = N;
   (table) => [
+    foreignKey({
+      name: "items_libraries_server_fk",
+      columns: [table.serverId, table.libraryId],
+      foreignColumns: [libraries.serverId, libraries.id],
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.serverId, table.id] }),
     index("items_server_type_idx").on(table.serverId, table.type),
     index("items_series_id_idx").on(table.seriesId),
     index("items_library_id_idx").on(table.libraryId),
@@ -480,10 +486,8 @@ export const items = pgTable(
 export const mediaSources = pgTable(
   "media_sources",
   {
-    id: text("id").primaryKey(), // MediaSource ID from Jellyfin
-    itemId: text("item_id")
-      .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+    id: text("id").notNull(), // MediaSource ID from Jellyfin
+    itemId: text("item_id").notNull(),
     serverId: integer("server_id")
       .notNull()
       .references(() => servers.id, { onDelete: "cascade" }),
@@ -504,6 +508,12 @@ export const mediaSources = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "media_sources_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.serverId, table.id] }),
     index("media_sources_item_id_idx").on(table.itemId),
     index("media_sources_server_id_idx").on(table.serverId),
   ]
@@ -521,9 +531,7 @@ export const sessions = pgTable(
     userId: text("user_id").references(() => users.id, {
       onDelete: "set null",
     }),
-    itemId: text("item_id").references(() => items.id, {
-      onDelete: "set null",
-    }),
+    itemId: text("item_id"),
 
     // User information
     userName: text("user_name").notNull(),
@@ -612,6 +620,12 @@ export const sessions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    // Migration limits SET NULL to item_id, preserving the session server.
+    foreignKey({
+      name: "sessions_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("set null"),
     // Performance indexes for common query patterns
     index("sessions_server_user_idx").on(table.serverId, table.userId),
     index("sessions_server_item_idx").on(table.serverId, table.itemId),
@@ -660,12 +674,15 @@ export const hiddenRecommendations = pgTable(
       .references(() => servers.id, { onDelete: "cascade" })
       .notNull(),
     userId: text("user_id").notNull(), // Jellyfin user ID
-    itemId: text("item_id")
-      .references(() => items.id, { onDelete: "cascade" })
-      .notNull(),
+    itemId: text("item_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "hidden_recommendations_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
     index("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
   ]
 );
@@ -863,9 +880,7 @@ export const itemPeople = pgTable(
   "item_people",
   {
     id: serial("id").primaryKey(),
-    itemId: text("item_id")
-      .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+    itemId: text("item_id").notNull(),
     personId: text("person_id").notNull(),
     serverId: integer("server_id")
       .notNull()
@@ -876,8 +891,13 @@ export const itemPeople = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "item_people_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
     // Unique per item+person+type (same person can be Actor AND Director in same item)
-    unique("item_people_unique").on(table.itemId, table.personId, table.type),
+    unique("item_people_unique").on(table.serverId, table.itemId, table.personId, table.type),
     index("item_people_person_idx").on(table.personId, table.serverId),
     index("item_people_item_idx").on(table.itemId),
     index("item_people_type_idx").on(table.serverId, table.type),
@@ -906,6 +926,7 @@ export const watchlists = pgTable(
     searchVector: tsvector("search_vector"),
   },
   (table) => [
+    unique("watchlists_server_id_id_unique").on(table.serverId, table.id),
     index("watchlists_server_user_idx").on(table.serverId, table.userId),
     index("watchlists_server_public_idx").on(table.serverId, table.isPublic),
     index("watchlists_server_promoted_idx").on(table.serverId, table.isPromoted),
@@ -918,16 +939,23 @@ export const watchlistItems = pgTable(
   "watchlist_items",
   {
     id: serial("id").primaryKey(),
-    watchlistId: integer("watchlist_id")
-      .notNull()
-      .references(() => watchlists.id, { onDelete: "cascade" }),
-    itemId: text("item_id")
-      .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+    serverId: integer("server_id").notNull(),
+    watchlistId: integer("watchlist_id").notNull(),
+    itemId: text("item_id").notNull(),
     position: integer("position").notNull().default(0), // For custom ordering
     addedAt: timestamp("added_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "watchlist_items_watchlist_server_fk",
+      columns: [table.serverId, table.watchlistId],
+      foreignColumns: [watchlists.serverId, watchlists.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "watchlist_items_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
     index("watchlist_items_watchlist_idx").on(table.watchlistId),
     index("watchlist_items_item_idx").on(table.itemId),
     unique("watchlist_items_unique").on(table.watchlistId, table.itemId),
@@ -998,12 +1026,12 @@ export const itemsRelations = relations(items, ({ one, many }) => ({
     references: [servers.id],
   }),
   library: one(libraries, {
-    fields: [items.libraryId],
-    references: [libraries.id],
+    fields: [items.serverId, items.libraryId],
+    references: [libraries.serverId, libraries.id],
   }),
   parent: one(items, {
-    fields: [items.parentId],
-    references: [items.id],
+    fields: [items.serverId, items.parentId],
+    references: [items.serverId, items.id],
   }),
   sessions: many(sessions),
   hiddenRecommendations: many(hiddenRecommendations),
@@ -1021,8 +1049,8 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     references: [users.id],
   }),
   item: one(items, {
-    fields: [sessions.itemId],
-    references: [items.id],
+    fields: [sessions.serverId, sessions.itemId],
+    references: [items.serverId, items.id],
   }),
 }));
 
@@ -1073,8 +1101,8 @@ export const hiddenRecommendationsRelations = relations(
       references: [servers.id],
     }),
     item: one(items, {
-      fields: [hiddenRecommendations.itemId],
-      references: [items.id],
+      fields: [hiddenRecommendations.serverId, hiddenRecommendations.itemId],
+      references: [items.serverId, items.id],
     }),
   })
 );
@@ -1089,12 +1117,12 @@ export const watchlistsRelations = relations(watchlists, ({ one, many }) => ({
 
 export const watchlistItemsRelations = relations(watchlistItems, ({ one }) => ({
   watchlist: one(watchlists, {
-    fields: [watchlistItems.watchlistId],
-    references: [watchlists.id],
+    fields: [watchlistItems.serverId, watchlistItems.watchlistId],
+    references: [watchlists.serverId, watchlists.id],
   }),
   item: one(items, {
-    fields: [watchlistItems.itemId],
-    references: [items.id],
+    fields: [watchlistItems.serverId, watchlistItems.itemId],
+    references: [items.serverId, items.id],
   }),
 }));
 
@@ -1108,8 +1136,8 @@ export const peopleRelations = relations(people, ({ one, many }) => ({
 
 export const itemPeopleRelations = relations(itemPeople, ({ one }) => ({
   item: one(items, {
-    fields: [itemPeople.itemId],
-    references: [items.id],
+    fields: [itemPeople.serverId, itemPeople.itemId],
+    references: [items.serverId, items.id],
   }),
   person: one(people, {
     fields: [itemPeople.personId, itemPeople.serverId],

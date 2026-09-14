@@ -241,9 +241,12 @@ export const getLibraryItemsWithStats = async ({
       lastWatched: sql<string>`MAX(${sessions.startTime})`.as("last_watched"),
     })
     .from(items)
-    .leftJoin(sessions, eq(items.id, sessions.itemId))
+    .leftJoin(
+      sessions,
+      and(eq(items.id, sessions.itemId), eq(items.serverId, sessions.serverId)),
+    )
     .where(and(...conditions))
-    .groupBy(items.id);
+    .groupBy(items.serverId, items.id);
 
   // Apply sorting
   let orderClause: SQL | undefined;
@@ -285,7 +288,10 @@ export const getLibraryItemsWithStats = async ({
   const totalCountQuery = db
     .select({ count: sql<number>`COUNT(DISTINCT ${items.id})` })
     .from(items)
-    .leftJoin(sessions, eq(items.id, sessions.itemId))
+    .leftJoin(
+      sessions,
+      and(eq(items.id, sessions.itemId), eq(items.serverId, sessions.serverId)),
+    )
     .where(and(...conditions));
 
   const totalCount = await totalCountQuery.then(
@@ -418,7 +424,13 @@ export const getPerLibraryStatistics = async ({
       totalSize: sum(mediaSources.size),
     })
     .from(mediaSources)
-    .innerJoin(items, eq(mediaSources.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(mediaSources.itemId, items.id),
+        eq(mediaSources.serverId, items.serverId),
+      ),
+    )
     .where(and(...itemConditions))
     .groupBy(items.libraryId);
 
@@ -443,7 +455,10 @@ export const getPerLibraryStatistics = async ({
       lastActivity: max(sessions.startTime),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...sessionConditions, isNull(items.deletedAt)))
     .groupBy(items.libraryId);
 
@@ -458,7 +473,10 @@ export const getPerLibraryStatistics = async ({
       startTime: sessions.startTime,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...sessionConditions, isNull(items.deletedAt)))
     .orderBy(items.libraryId, desc(sessions.startTime));
 
