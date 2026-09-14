@@ -5,7 +5,7 @@ import { Container } from "@/components/Container";
 import { WrappedContent } from "@/components/wrapped/WrappedContent";
 import { WrappedLoading } from "@/components/wrapped/WrappedLoading";
 import { getServer } from "@/lib/db/server";
-import { getMe, getViewerUserId } from "@/lib/db/users";
+import { getMe } from "@/lib/db/users";
 import { getAvailableWrappedYears, getWrappedOverview } from "@/lib/db/wrapped";
 import { formatDuration } from "@/lib/utils";
 
@@ -27,7 +27,6 @@ export async function generateMetadata({
     serverId: server.id,
     userId: me.id,
     year: yearNum,
-    viewerUserId: await getViewerUserId(),
   });
 
   const watchTime = formatDuration(overview.totalWatchTimeSeconds);
@@ -65,11 +64,7 @@ export default async function WrappedYearPage({
     redirect(`/servers/${id}/wrapped`);
   }
 
-  const availableYears = await getAvailableWrappedYears(
-    server.id,
-    me.id,
-    await getViewerUserId(),
-  );
+  const availableYears = await getAvailableWrappedYears(server.id, me.id);
   if (!availableYears.includes(yearNum)) {
     redirect(`/servers/${id}/wrapped`);
   }

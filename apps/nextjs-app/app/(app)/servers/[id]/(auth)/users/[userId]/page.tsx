@@ -1,10 +1,8 @@
-import { resolveAnalyticsUser } from "@streamystats/database";
 import { Shield } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/Container";
 import { AnomalyBadge } from "@/components/locations";
-import { MergeUsersManager } from "@/components/MergeUsersManager";
 import { PageTitle } from "@/components/PageTitle";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,9 +17,9 @@ import { getUserAnomalies } from "@/lib/db/locations";
 import { getServer } from "@/lib/db/server";
 import { getMostWatchedItems } from "@/lib/db/statistics";
 import {
-  getAnalyticsUsers,
   getUserById,
   getUserGenreStats,
+  getUsers,
   getUserWatchStats,
   getViewerUserId,
   getWatchTimePerWeekDay,
@@ -75,35 +73,19 @@ export default async function User({
     redirect("/");
   }
 
-  const [isAdmin, currentSession, viewerUserId] = await Promise.all([
-    isUserAdmin(server.id),
-    getSession(),
-    getViewerUserId(),
-  ]);
-  const identity = await resolveAnalyticsUser({ serverId: server.id, userId });
-  // Regular members must keep their own URL: route access uses their signed ID.
-  if (isAdmin && identity.primaryUserId !== userId) {
-    const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(await searchParams))
-      if (value) query.set(key, value);
-    redirect(
-      `/servers/${server.id}/users/${encodeURIComponent(identity.primaryUserId)}${query.size ? `?${query}` : ""}`,
-    );
-  }
   const user = await getUserById({ userId: userId, serverId: server.id });
   if (!user) {
     redirect("/");
   }
 
+  const [isAdmin, currentSession, viewerUserId] = await Promise.all([
+    isUserAdmin(),
+    getSession(),
+    getViewerUserId(),
+  ]);
+
   // Check if current user is viewing their own page
-  const actionUser =
-    currentSession && identity.memberUserIds.includes(currentSession.id)
-      ? ((await getUserById({
-          serverId: server.id,
-          userId: currentSession.id,
-        })) ?? user)
-      : user;
-  const isCurrentUser = currentSession?.id === actionUser.id;
+  const isCurrentUser = currentSession?.id === user.id;
 
   // Get additional user statistics and history
   const currentPage = Number.parseInt(page, 10);
@@ -121,14 +103,13 @@ export default async function User({
     playMethods,
     inferredSessionCount,
   ] = await Promise.all([
-    getUserWatchStats({ serverId: server.id, userId: user.id, viewerUserId }),
+    getUserWatchStats({ serverId: server.id, userId: user.id }),
     getWatchTimePerWeekDay({
       serverId: server.id,
       userId: user.id,
       viewerUserId,
     }),
     getUserHistory(server.id, user.id, {
-      viewerUserId,
       page: currentPage,
       perPage: 50,
       search: search || undefined,
@@ -141,29 +122,21 @@ export default async function User({
       clientName: clientName || undefined,
       playMethod: playMethod || undefined,
     }),
-    getUserGenreStats({ userId: user.id, serverId: server.id, viewerUserId }),
+    getUserGenreStats({ userId: user.id, serverId: server.id }),
     getMostWatchedItems({ serverId: server.id, userId: user.id, viewerUserId }),
     getAlmostDoneSeries({ serverId: server.id, userId: user.id, viewerUserId }),
     getUserAnomalies(server.id, user.id, { resolved: false, limit: 1 }),
-    getAnalyticsUsers({ serverId: server.id }),
+    getUsers({ serverId: server.id }),
     getUniqueDeviceNames(server.id),
     getUniqueClientNames(server.id),
     getUniquePlayMethods(server.id),
-    getInferredSessionCount(server.id, actionUser.id),
+    getInferredSessionCount(server.id, user.id),
   ]);
 
   return (
     <Container className="flex flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center justify-between">
         <PageTitle title={user.name || "N/A"} />
-        {identity.group &&
-          (isAdmin ? (
-            <MergeUsersManager serverId={server.id} group={identity.group} />
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {identity.memberUserIds.length} merged accounts
-            </span>
-          ))}
         {isAdmin && (
           <Link href={`/servers/${server.id}/users/${user.id}/security`}>
             <Button variant="outline" size="sm" className="gap-2">
@@ -224,18 +197,14 @@ export default async function User({
         </div>
       )}
       <div className="mt-6 mb-4">
-        <UserSimilarity
-          serverId={server.id}
-          userId={user.id}
-          viewerUserId={viewerUserId}
-        />
+        <UserSimilarity serverId={server.id} userId={user.id} />
       </div>
       {(isCurrentUser || isAdmin) && (
         <div className="mb-4">
           <InferWatchtimeManager
             serverId={server.id}
-            userId={actionUser.id}
-            userName={actionUser.name}
+            userId={user.id}
+            userName={user.name}
             isCurrentUser={isCurrentUser}
             inferredSessionCount={inferredSessionCount}
           />
@@ -244,7 +213,7 @@ export default async function User({
       <HistoryTable
         server={server}
         data={userHistory}
-        hideUserColumn={!identity.group}
+        hideUserColumn={true}
         users={users.map((u) => ({ id: u.id, name: u.name }))}
         deviceNames={deviceNames}
         clientNames={clientNames}

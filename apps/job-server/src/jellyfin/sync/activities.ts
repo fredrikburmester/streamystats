@@ -5,6 +5,7 @@ import {
   Server,
   NewActivity,
   users,
+  userMerges,
 } from "@streamystats/database";
 import { JellyfinClient, JellyfinActivity } from "../client";
 import {
@@ -524,6 +525,8 @@ async function processActivitiesPage(
     ];
 
     const validUserIds = new Set<string>();
+    const mergedUsers = await db.select({ id: userMerges.sourceUserId }).from(userMerges).where(eq(userMerges.serverId, serverId));
+    for (const merged of mergedUsers) validUserIds.add(merged.id);
     if (uniqueUserIds.length > 0) {
       const validRows = await db
         .select({ id: users.id })

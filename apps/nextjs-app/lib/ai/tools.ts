@@ -1,4 +1,3 @@
-import { analyticsUserScope } from "@streamystats/database";
 import "server-only";
 
 import {
@@ -626,11 +625,7 @@ export function createChatTools(
         "Get overall watch statistics for the user including total watch time and streaks",
       inputSchema: z.object({}),
       execute: async () => {
-        const stats = await getUserWatchStats({
-          serverId,
-          userId,
-          viewerUserId: isAdmin ? undefined : userId,
-        });
+        const stats = await getUserWatchStats({ serverId, userId });
         return {
           totalWatchTime: formatDuration(stats.total_watch_time),
           totalWatchTimeSeconds: stats.total_watch_time,
@@ -874,13 +869,7 @@ export function createChatTools(
             .select({ itemId: sessions.itemId })
             .from(sessions)
             .where(
-              and(
-                eq(sessions.serverId, serverId),
-                analyticsUserScope(userId, {
-                  serverId,
-                  viewerUserId: isAdmin ? undefined : userId,
-                }),
-              ),
+              and(eq(sessions.serverId, serverId), eq(sessions.userId, userId)),
             )
             .groupBy(sessions.itemId);
 
@@ -890,10 +879,7 @@ export function createChatTools(
             .where(
               and(
                 eq(sessions.serverId, serverId),
-                analyticsUserScope(otherUser.id, {
-                  serverId,
-                  viewerUserId: isAdmin ? undefined : userId,
-                }),
+                eq(sessions.userId, otherUser.id),
               ),
             )
             .groupBy(sessions.itemId);

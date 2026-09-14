@@ -1,4 +1,3 @@
-import { resolveAnalyticsUser } from "@streamystats/database";
 import {
   Clock,
   Film,
@@ -14,7 +13,7 @@ import { ResponsiveFingerprint } from "@/components/TasteFingerprint";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getServer } from "@/lib/db/server";
 import { getUserTasteProfile } from "@/lib/db/taste-profile";
-import { getUserById, getViewerUserId, isUserAdmin } from "@/lib/db/users";
+import { getUserById } from "@/lib/db/users";
 import { formatDuration } from "@/lib/utils";
 
 export default async function FingerprintPage({
@@ -29,25 +28,12 @@ export default async function FingerprintPage({
     redirect("/");
   }
 
-  const { primaryUserId } = await resolveAnalyticsUser({
-    serverId: server.id,
-    userId,
-  });
-  if (primaryUserId !== userId && (await isUserAdmin(server.id)))
-    redirect(
-      `/servers/${server.id}/users/${encodeURIComponent(primaryUserId)}/fingerprint`,
-    );
   const user = await getUserById({ userId, serverId: server.id });
   if (!user) {
     redirect("/");
   }
 
-  const profile = await getUserTasteProfile(
-    server.id,
-    userId,
-    user.name,
-    await getViewerUserId(),
-  );
+  const profile = await getUserTasteProfile(server.id, userId, user.name);
 
   const topGenres = Object.entries(profile.genreWeights)
     .sort((a, b) => b[1] - a[1])

@@ -1,7 +1,8 @@
 "use server";
 
 import "server-only";
-import { analyticsUserScope, db } from "@streamystats/database";
+
+import { db } from "@streamystats/database";
 import {
   hiddenRecommendations,
   items,
@@ -127,7 +128,7 @@ async function getSeasonalRecommendationsCached(
           .where(
             and(
               eq(sessions.serverId, serverIdNum),
-              analyticsUserScope(userId, { viewerUserId }),
+              eq(sessions.userId, userId),
               isNotNull(sessions.itemId),
             ),
           )

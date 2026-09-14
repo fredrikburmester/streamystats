@@ -1,7 +1,8 @@
 "use server";
 
 import "server-only";
-import { analyticsUserScope, db } from "@streamystats/database";
+
+import { db } from "@streamystats/database";
 import {
   hiddenRecommendations,
   type Item,
@@ -248,7 +249,7 @@ async function getUserSpecificSeriesRecommendations(
     .where(
       and(
         eq(sessions.serverId, serverId),
-        analyticsUserScope(userId, { serverId, viewerUserId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.seriesId),
         isNotNull(sessions.playDuration),
       ),

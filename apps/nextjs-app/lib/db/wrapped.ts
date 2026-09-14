@@ -1,15 +1,13 @@
 "use cache";
 
 import "server-only";
+
 import {
-  analyticsUserId,
-  analyticsUserScope,
   db,
   type Item,
   itemPeople,
   items,
   people,
-  resolveAnalyticsUser,
   sessions,
   users,
 } from "@streamystats/database";
@@ -39,7 +37,6 @@ export interface WrappedParams {
   serverId: number;
   userId: string;
   year: number;
-  viewerUserId?: string;
 }
 
 export interface WrappedOverview {
@@ -270,14 +267,12 @@ export async function getWrappedOverview(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
-    serverId,
-    params.viewerUserId,
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
+    eq(sessions.userId, userId),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -416,14 +411,12 @@ export async function getWrappedTopItems(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
-    serverId,
-    params.viewerUserId,
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
+    eq(sessions.userId, userId),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -564,14 +557,12 @@ export async function getWrappedGenreStats(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
-    serverId,
-    params.viewerUserId,
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
+    eq(sessions.userId, userId),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -632,10 +623,8 @@ export async function getWrappedPeopleStats(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
-    serverId,
-    params.viewerUserId,
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   async function getTopPeopleByType(
     personType: "Actor" | "Director",
@@ -645,10 +634,7 @@ export async function getWrappedPeopleStats(
     // Movie stats
     const movieConditions: SQL[] = [
       eq(sessions.serverId, serverId),
-      analyticsUserScope(userId, {
-        serverId,
-        viewerUserId: params.viewerUserId,
-      }),
+      eq(sessions.userId, userId),
       gte(sessions.startTime, start),
       lte(sessions.startTime, end),
       isNotNull(sessions.itemId),
@@ -698,10 +684,7 @@ export async function getWrappedPeopleStats(
     // Series stats (join on seriesId for cast)
     const seriesConditions: SQL[] = [
       eq(sessions.serverId, serverId),
-      analyticsUserScope(userId, {
-        serverId,
-        viewerUserId: params.viewerUserId,
-      }),
+      eq(sessions.userId, userId),
       gte(sessions.startTime, start),
       lte(sessions.startTime, end),
       isNotNull(sessions.itemId),
@@ -783,14 +766,12 @@ export async function getWrappedActivityPatterns(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
-    serverId,
-    params.viewerUserId,
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
+    eq(sessions.userId, userId),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -957,14 +938,12 @@ export async function getWrappedTypeBreakdown(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
-    serverId,
-    params.viewerUserId,
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
+    eq(sessions.userId, userId),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -1023,14 +1002,12 @@ export async function getWrappedRewatchStats(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
-    serverId,
-    params.viewerUserId,
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
+    eq(sessions.userId, userId),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -1126,15 +1103,13 @@ export async function getWrappedGenrePercentiles(
   const { serverId, userId, year } = params;
   const { start, end } = getYearDateRange(year);
 
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
-    serverId,
-    params.viewerUserId,
-  );
+  const { userExclusion, itemLibraryExclusion } =
+    await getStatisticsExclusions(serverId);
 
   // Get user's genre stats
   const userWhereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId: params.viewerUserId }),
+    eq(sessions.userId, userId),
     gte(sessions.startTime, start),
     lte(sessions.startTime, end),
     isNotNull(sessions.itemId),
@@ -1174,14 +1149,14 @@ export async function getWrappedGenrePercentiles(
   // Get per-user genre totals for percentile calculation
   const allUsersGenreStats = await db
     .select({
-      odUserId: analyticsUserId(),
+      odUserId: sessions.userId,
       genre: sql<string>`unnest(${items.genres})`.as("genre"),
       watchTimeSeconds: sum(sessions.playDuration),
     })
     .from(sessions)
     .innerJoin(items, eq(sessions.itemId, items.id))
     .where(and(...serverWhereConditions))
-    .groupBy(analyticsUserId(), sql`unnest(${items.genres})`);
+    .groupBy(sessions.userId, sql`unnest(${items.genres})`);
 
   // Calculate percentiles
   const userTopGenre = userGenreStats[0]?.genre;
@@ -1225,21 +1200,17 @@ export async function getWrappedGenrePercentiles(
 export async function getAvailableWrappedYears(
   serverId: number,
   userId: string,
-  viewerUserId?: string,
 ): Promise<number[]> {
   "use cache";
   cacheTag("user-analytics");
   cacheLife("hours");
   cacheTag(`wrapped-years-${serverId}-${userId}`);
 
-  const { userExclusion } = await getStatisticsExclusions(
-    serverId,
-    viewerUserId,
-  );
+  const { userExclusion } = await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId: viewerUserId }),
+    eq(sessions.userId, userId),
     isNotNull(sessions.startTime),
   ];
 
@@ -1264,14 +1235,10 @@ export async function getWrappedData(
   getCacheLifeForYear(params.year);
   cacheTag(`wrapped-data-${params.serverId}-${params.userId}-${params.year}`);
 
-  // Display the chosen primary without changing the caller's access identity.
-  const { primaryUserId } = await resolveAnalyticsUser({
-    serverId: params.serverId,
-    userId: params.userId,
-  });
+  // Get user name
   const user = await db.query.users.findFirst({
     where: and(
-      eq(users.id, primaryUserId),
+      eq(users.id, params.userId),
       eq(users.serverId, params.serverId),
     ),
     columns: { name: true },

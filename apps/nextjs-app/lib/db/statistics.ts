@@ -1,9 +1,8 @@
 "use cache";
 
 import "server-only";
+
 import {
-  analyticsUserId,
-  analyticsUserScope,
   db,
   type Item,
   items,
@@ -64,7 +63,7 @@ export async function getMostWatchedItems({
 
   // Add userId filter if provided
   if (userId !== undefined) {
-    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
+    whereConditions.push(eq(sessions.userId, String(userId)));
   }
 
   // Add exclusion filters
@@ -246,7 +245,7 @@ export async function getWatchTimePerType({
 
   // Add userId condition if provided
   if (userId) {
-    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
+    whereConditions.push(eq(sessions.userId, String(userId)));
   }
 
   // Add exclusion filters
@@ -463,7 +462,7 @@ export async function getMostWatchedDay({
   ];
 
   if (userId !== undefined) {
-    whereConditions.push(analyticsUserScope(String(userId), { serverId }));
+    whereConditions.push(eq(sessions.userId, String(userId)));
   }
 
   // Add exclusion filters
@@ -514,7 +513,7 @@ export async function getMostActiveUsersDay({
 }): Promise<MostActiveUsersDay | null> {
   cacheTag("user-analytics");
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+  const { userExclusion } = await getStatisticsExclusions(
     serverId,
     viewerUserId,
   );
@@ -535,15 +534,14 @@ export async function getMostActiveUsersDay({
   const rows = await db
     .select({
       date: sql<string>`DATE(${sessions.startTime})`.as("date"),
-      activeUsers: sql<number>`COUNT(DISTINCT ${analyticsUserId()})`.as(
+      activeUsers: sql<number>`COUNT(DISTINCT ${sessions.userId})`.as(
         "activeUsers",
       ),
     })
     .from(sessions)
-    .leftJoin(items, eq(items.id, sessions.itemId))
-    .where(and(...whereConditions, itemLibraryExclusion))
+    .where(and(...whereConditions))
     .groupBy(sql`DATE(${sessions.startTime})`)
-    .orderBy(desc(sql<number>`COUNT(DISTINCT ${analyticsUserId()})`))
+    .orderBy(desc(sql<number>`COUNT(DISTINCT ${sessions.userId})`))
     .limit(1);
 
   const row = rows[0];

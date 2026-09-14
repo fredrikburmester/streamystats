@@ -1,6 +1,6 @@
 import "server-only";
+
 import {
-  analyticsUserScope,
   db,
   type Item,
   items,
@@ -40,7 +40,6 @@ export interface HistoryResponse {
 }
 
 interface UserHistoryOptions {
-  viewerUserId?: string;
   page?: number;
   perPage?: number;
   search?: string;
@@ -113,7 +112,7 @@ export const getHistory = async (
 
   // Add user filter
   if (filters?.userId) {
-    conditions.push(analyticsUserScope(filters.userId, { serverId }));
+    conditions.push(eq(sessions.userId, filters.userId));
   }
 
   // Add device name filter
@@ -253,10 +252,7 @@ export const getUserHistory = async (
   // Build query conditions for specific user
   const conditions: SQL[] = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, {
-      serverId,
-      viewerUserId: options.viewerUserId,
-    }),
+    eq(sessions.userId, userId),
     isNotNull(sessions.itemId),
   ];
 
@@ -474,7 +470,7 @@ export const getHistoryByFilters = async ({
   }
 
   if (userId) {
-    conditions.push(analyticsUserScope(userId, { serverId }));
+    conditions.push(eq(sessions.userId, userId));
   }
 
   if (startDate) {

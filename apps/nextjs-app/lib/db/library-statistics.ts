@@ -1,7 +1,6 @@
 import "server-only";
+
 import {
-  analyticsSessionVisibility,
-  analyticsUserId,
   db,
   type Item,
   items,
@@ -115,9 +114,7 @@ export const getAggregatedLibraryStatistics = async ({
 
   // Get user count (excluding excluded users)
   const userCount = await db
-    .select({
-      count: sql<number>`COUNT(DISTINCT ${analyticsUserId({ userId: users.id, serverId: users.serverId })})`,
-    })
+    .select({ count: count(users.id) })
     .from(users)
     .where(and(...userConditions))
     .then((result: { count: number }[]) => result[0]?.count || 0);
@@ -237,20 +234,14 @@ export const getLibraryItemsWithStats = async ({
           "total_watch_time",
         ),
       watchCount: sql<number>`COUNT(${sessions.id})`.as("watch_count"),
-      uniqueViewers: sql<number>`COUNT(DISTINCT ${analyticsUserId()})`.as(
+      uniqueViewers: sql<number>`COUNT(DISTINCT ${sessions.userId})`.as(
         "unique_viewers",
       ),
       firstWatched: sql<string>`MIN(${sessions.startTime})`.as("first_watched"),
       lastWatched: sql<string>`MAX(${sessions.startTime})`.as("last_watched"),
     })
     .from(items)
-    .leftJoin(
-      sessions,
-      and(
-        eq(items.id, sessions.itemId),
-        analyticsSessionVisibility({ viewerUserId: userId }),
-      ),
-    )
+    .leftJoin(sessions, eq(items.id, sessions.itemId))
     .where(and(...conditions))
     .groupBy(items.id);
 
@@ -294,13 +285,7 @@ export const getLibraryItemsWithStats = async ({
   const totalCountQuery = db
     .select({ count: sql<number>`COUNT(DISTINCT ${items.id})` })
     .from(items)
-    .leftJoin(
-      sessions,
-      and(
-        eq(items.id, sessions.itemId),
-        analyticsSessionVisibility({ viewerUserId: userId }),
-      ),
-    )
+    .leftJoin(sessions, eq(items.id, sessions.itemId))
     .where(and(...conditions));
 
   const totalCount = await totalCountQuery.then(

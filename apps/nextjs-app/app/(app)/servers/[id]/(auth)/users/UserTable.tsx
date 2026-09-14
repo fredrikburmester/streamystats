@@ -39,14 +39,12 @@ import { formatDuration } from "@/lib/utils";
 
 export interface UserTableProps {
   data: UserWithStats[];
-  mergedCounts?: Record<string, number>;
   server: ServerPublic;
 }
 
 export const UserTable: React.FC<UserTableProps> = ({
   data,
   server,
-  mergedCounts = {},
 }: UserTableProps) => {
   const router = useRouter();
   const columns: ColumnDef<UserWithStats>[] = [
@@ -89,11 +87,6 @@ export const UserTable: React.FC<UserTableProps> = ({
           }}
         >
           <p className="font-medium">{row.getValue("name")}</p>
-          {mergedCounts[row.original.id] && (
-            <span className="text-xs text-muted-foreground">
-              {mergedCounts[row.original.id]} merged accounts
-            </span>
-          )}
         </button>
       ),
     },

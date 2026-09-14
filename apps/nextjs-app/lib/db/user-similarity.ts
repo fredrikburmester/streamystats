@@ -1,17 +1,12 @@
 "use cache";
 
 import "server-only";
-import {
-  analyticsUserScope,
-  db,
-  items,
-  resolveAnalyticsUser,
-  sessions,
-  type User,
-} from "@streamystats/database";
+
+import { db, items, sessions, type User } from "@streamystats/database";
 import { and, desc, eq, gte, inArray, isNotNull, lte, sum } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
-import { getAnalyticsUsers } from "./users";
+import { getExclusionSettings } from "./exclusions";
+import { getUsers } from "./users";
 
 // Helper for cosine similarity in memory
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
@@ -64,7 +59,6 @@ async function getUserTopItemsWithEmbeddings(
   userId: string,
   startDate?: Date,
   endDate?: Date,
-  viewerUserId?: string,
 ): Promise<UserTopItemsResult> {
   "use cache";
   cacheTag("user-analytics");
@@ -72,7 +66,7 @@ async function getUserTopItemsWithEmbeddings(
 
   const whereConditions = [
     eq(sessions.serverId, serverId),
-    analyticsUserScope(userId, { serverId, viewerUserId }),
+    eq(sessions.userId, userId),
     isNotNull(sessions.playDuration),
   ];
 
@@ -241,7 +235,6 @@ const findSimilarItemPairs = (
 export async function getSimilarUsers(
   serverId: string | number,
   targetUserId: string,
-  viewerUserId?: string,
 ): Promise<UserSimilarityResult> {
   "use cache";
   cacheTag("user-analytics");
@@ -249,14 +242,15 @@ export async function getSimilarUsers(
 
   const serverIdNum = Number(serverId);
 
-  const allUsers = await getAnalyticsUsers({ serverId: serverIdNum });
-  const target = await resolveAnalyticsUser({
-    serverId: serverIdNum,
-    userId: targetUserId,
-  });
+  // Get exclusion settings
+  const { excludedUserIds } = await getExclusionSettings(serverIdNum);
 
-  // Analytics candidates already honor source-account exclusions.
-  const otherUsers = allUsers.filter((u) => u.id !== target.primaryUserId);
+  const allUsers = await getUsers({ serverId: serverIdNum });
+
+  // Filter out the target user and excluded users from the list of candidates
+  const otherUsers = allUsers.filter(
+    (u) => u.id !== targetUserId && !excludedUserIds.includes(u.id),
+  );
   if (otherUsers.length === 0) {
     return { overall: [], thisMonth: [] };
   }
@@ -274,19 +268,12 @@ export async function getSimilarUsers(
 
   // 1. Calculate target user embeddings
   const [targetOverall, targetMonth] = await Promise.all([
-    getUserTopItemsWithEmbeddings(
-      serverIdNum,
-      targetUserId,
-      undefined,
-      undefined,
-      viewerUserId,
-    ),
+    getUserTopItemsWithEmbeddings(serverIdNum, targetUserId),
     getUserTopItemsWithEmbeddings(
       serverIdNum,
       targetUserId,
       startOfMonth,
       endOfMonth,
-      viewerUserId,
     ),
   ]);
 
@@ -294,19 +281,12 @@ export async function getSimilarUsers(
   const userEmbeddings = await Promise.all(
     otherUsers.map(async (user) => {
       const [overall, month] = await Promise.all([
-        getUserTopItemsWithEmbeddings(
-          serverIdNum,
-          user.id,
-          undefined,
-          undefined,
-          viewerUserId,
-        ),
+        getUserTopItemsWithEmbeddings(serverIdNum, user.id),
         getUserTopItemsWithEmbeddings(
           serverIdNum,
           user.id,
           startOfMonth,
           endOfMonth,
-          viewerUserId,
         ),
       ]);
       return {

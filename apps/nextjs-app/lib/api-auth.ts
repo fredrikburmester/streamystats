@@ -1,7 +1,12 @@
 import "server-only";
 
 import type { Server } from "@streamystats/database";
-import { db, servers, users } from "@streamystats/database";
+import {
+  db,
+  getMergedUserTarget,
+  servers,
+  users,
+} from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { jellyfinHeaders } from "./jellyfin-auth";
@@ -149,6 +154,13 @@ export async function authenticateMediaBrowser(
       parsed.token,
     );
     if (userInfo) {
+      if (
+        await getMergedUserTarget({
+          serverId: server.id,
+          userId: userInfo.userId,
+        })
+      )
+        return null;
       // Check if this user exists in our database for this server
       const dbUser = await db.query.users.findFirst({
         where: eq(users.id, userInfo.userId),

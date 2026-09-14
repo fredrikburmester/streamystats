@@ -91,17 +91,11 @@ function UserList({
 export async function UserSimilarity({
   serverId,
   userId,
-  viewerUserId,
 }: {
   serverId: string | number;
   userId: string;
-  viewerUserId?: string;
 }) {
-  const { overall, thisMonth } = await getSimilarUsers(
-    serverId,
-    userId,
-    viewerUserId,
-  );
+  const { overall, thisMonth } = await getSimilarUsers(serverId, userId);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

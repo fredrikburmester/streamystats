@@ -36,10 +36,7 @@ export async function GET(
 
   // Check authorization - user can only generate their own cards, admins can generate any
   const isAdmin = await isUserAdmin();
-  if (
-    session.serverId !== Number(serverId) ||
-    (session.id !== userId && !isAdmin)
-  ) {
+  if (session.id !== userId && !isAdmin) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -63,7 +60,6 @@ export async function GET(
     serverId: server.id,
     userId: user.id,
     year: yearNum,
-    viewerUserId: session.id,
   });
 
   // Generate the appropriate card

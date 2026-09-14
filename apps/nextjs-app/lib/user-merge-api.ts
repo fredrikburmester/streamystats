@@ -1,29 +1,26 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import {
-  changeUserGroup,
-  getUserGroupAccounts,
-  getUserGroups,
-  previewUserGroup,
-  UserGroupError,
+  getMergeAccounts,
+  mergeUsersPermanently,
+  previewUserMerge,
+  UserMergeError,
 } from "@streamystats/database";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "./api-auth";
 
-const changeSchema = z
+const inputSchema = z
   .object({
-    groupId: z.string().uuid().nullable(),
-    primaryUserId: z.string().min(1).max(256),
-    memberUserIds: z.array(z.string().min(1).max(256)).min(1).max(100),
-    expectedRevision: z.number().int().positive().nullable(),
+    sourceUserId: z.string().min(1).max(256),
+    targetUserId: z.string().min(1).max(256),
   })
   .strict();
-
 const commitSchema = z
   .object({
-    change: changeSchema,
+    input: inputSchema,
     previewToken: z.string().regex(/^[a-f0-9]{64}$/),
     operationId: z.string().uuid(),
+    confirmation: z.literal("MERGE"),
   })
   .strict();
 
@@ -44,9 +41,9 @@ function csrfToken({
     throw new Error("SESSION_SECRET is required");
   const signature = createHmac(
     "sha256",
-    secret ?? "user-groups-local-development",
+    secret ?? "user-merge-local-development",
   )
-    .update(JSON.stringify(["user-groups-csrf", serverId, actorId, hour]))
+    .update(JSON.stringify(["user-merge-csrf", serverId, actorId, hour]))
     .digest("hex");
   return `${hour}.${signature}`;
 }
@@ -60,7 +57,7 @@ function hasCsrfToken({
   serverId: number;
   actorId: string;
 }): boolean {
-  const token = request.headers.get("x-user-groups-csrf");
+  const token = request.headers.get("x-user-merge-csrf");
   if (!token || !/^\d+\.[a-f0-9]{64}$/.test(token)) return false;
   if (
     ["cross-site", "same-site"].includes(
@@ -95,7 +92,7 @@ export function hasSameOrigin(request: Request): boolean {
   }
 }
 
-export async function handleUserGroups({
+export async function handleUserMerge({
   request,
   serverId: rawServerId,
   preview = false,
@@ -108,9 +105,8 @@ export async function handleUserGroups({
     !/^\d+$/.test(rawServerId) ||
     !Number.isSafeInteger(Number(rawServerId)) ||
     Number(rawServerId) < 1
-  ) {
+  )
     return Response.json({ error: "Invalid server ID." }, { status: 400 });
-  }
   const serverId = Number(rawServerId);
   const auth = await requireAdmin(serverId);
   if (auth.error) return auth.error;
@@ -124,47 +120,49 @@ export async function handleUserGroups({
       { status: 403 },
     );
   try {
-    if (request.method === "GET") {
-      const [accounts, groups] = await Promise.all([
-        getUserGroupAccounts({ serverId }),
-        getUserGroups({ serverId }),
-      ]);
+    if (request.method === "GET")
       return Response.json(
         {
-          accounts,
-          groups,
+          accounts: (await getMergeAccounts({ serverId })).map((account) => ({
+            ...account,
+            canRetire: account.id !== auth.session.id,
+          })),
           csrfToken: csrfToken({ serverId, actorId: auth.session.id }),
         },
         { headers: { "Cache-Control": "private, no-store" } },
       );
-    }
     if (preview) {
-      const change = changeSchema.parse(await request.json());
+      const input = inputSchema.parse(await request.json());
+      if (input.sourceUserId === auth.session.id)
+        throw new UserMergeError(
+          "Sign in with a different administrator before retiring this account.",
+        );
       return Response.json({
-        ...(await previewUserGroup({ serverId, change })),
+        ...(await previewUserMerge({ serverId, input })),
         operationId: randomUUID(),
       });
     }
-    const input = commitSchema.parse(await request.json());
-    const group = await changeUserGroup({
+    const { confirmation: _, ...input } = commitSchema.parse(
+      await request.json(),
+    );
+    const result = await mergeUsersPermanently({
       serverId,
       ...input,
       actor: auth.session,
     });
-    // Covers nested recommendation/taste caches and previous Wrapped years too.
     revalidateTag("user-analytics", { expire: 0 });
     revalidatePath(`/servers/${serverId}`, "layout");
-    return Response.json({ group });
+    return Response.json(result);
   } catch (error) {
-    if (error instanceof UserGroupError)
+    if (error instanceof UserMergeError)
       return Response.json({ error: error.message }, { status: error.status });
     if (error instanceof z.ZodError || error instanceof SyntaxError)
       return Response.json(
-        { error: "Invalid user group request." },
+        { error: "Invalid permanent merge request." },
         { status: 400 },
       );
     return Response.json(
-      { error: "Could not save user group. Retry the request." },
+      { error: "Merge failed. Retry the same request." },
       { status: 500 },
     );
   }

@@ -29,8 +29,8 @@ Object.defineProperty(exports, "getDatabaseUrl", { enumerable: true, get: functi
 Object.defineProperty(exports, "getDb", { enumerable: true, get: function () { return connection_1.getDb; } });
 // Export all schema tables and types
 __exportStar(require("./schema"), exports);
-__exportStar(require("./user-groups"), exports);
-__exportStar(require("./user-group-backup"), exports);
+__exportStar(require("./user-merge"), exports);
+__exportStar(require("./user-merge-backup"), exports);
 // Export job defaults
 __exportStar(require("./job-defaults"), exports);
 // Export migration utilities

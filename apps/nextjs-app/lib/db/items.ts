@@ -1,8 +1,5 @@
 import "server-only";
 import {
-  analyticsSessionVisibility,
-  analyticsUserId,
-  analyticsUserScope,
   db,
   type Item,
   items,
@@ -215,7 +212,7 @@ export const getItemTotalStats = async ({
   const whereCondition = userId
     ? and(
         inArray(sessions.itemId, itemIdsToQuery),
-        analyticsUserScope(userId, { viewerUserId: userId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.playDuration),
       )
     : and(
@@ -274,7 +271,7 @@ export const getItemWatchDates = async ({
   const whereCondition = userId
     ? and(
         inArray(sessions.itemId, itemIdsToQuery),
-        analyticsUserScope(userId, { viewerUserId: userId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.startTime),
       )
     : and(
@@ -333,7 +330,7 @@ export const getItemCompletionRate = async ({
   const whereCondition = userId
     ? and(
         inArray(sessions.itemId, itemIdsToQuery),
-        analyticsUserScope(userId, { viewerUserId: userId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.percentComplete),
       )
     : and(
@@ -395,11 +392,10 @@ export const getItemUserStats = async ({
   const whereConditions: SQL[] = [
     inArray(sessions.itemId, itemIdsToQuery),
     isNotNull(sessions.userId),
-    analyticsSessionVisibility({ viewerUserId: userId }),
   ];
 
   if (userId) {
-    whereConditions.push(analyticsUserScope(userId, { viewerUserId: userId }));
+    whereConditions.push(eq(sessions.userId, userId));
   }
 
   // Add user exclusion filter
@@ -409,7 +405,7 @@ export const getItemUserStats = async ({
 
   const userStats = await db
     .select({
-      userId: analyticsUserId(),
+      userId: sessions.userId,
       userName: users.name,
       userServerId: users.serverId,
       userCreatedAt: users.createdAt,
@@ -421,10 +417,10 @@ export const getItemUserStats = async ({
       last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
     })
     .from(sessions)
-    .leftJoin(users, eq(analyticsUserId(), users.id))
+    .leftJoin(users, eq(sessions.userId, users.id))
     .where(and(...whereConditions))
     .groupBy(
-      analyticsUserId(),
+      sessions.userId,
       users.name,
       users.serverId,
       users.createdAt,
@@ -581,7 +577,7 @@ export const getItemWatchHistory = async ({
   const whereCondition = userId
     ? and(
         inArray(sessions.itemId, itemIdsToQuery),
-        analyticsUserScope(userId, { viewerUserId: userId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.startTime),
       )
     : and(
@@ -648,7 +644,7 @@ export const getItemWatchCountByMonth = async ({
   const whereCondition = userId
     ? and(
         inArray(sessions.itemId, itemIdsToQuery),
-        analyticsUserScope(userId, { viewerUserId: userId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.startTime),
       )
     : and(
@@ -661,7 +657,7 @@ export const getItemWatchCountByMonth = async ({
       month: sql<number>`EXTRACT(MONTH FROM ${sessions.startTime})`,
       year: sql<number>`EXTRACT(YEAR FROM ${sessions.startTime})`,
       watch_count: count(sessions.id),
-      unique_users: sql<number>`COUNT(DISTINCT ${analyticsUserId()})`,
+      unique_users: sql<number>`COUNT(DISTINCT ${sessions.userId})`,
       total_watch_time: sum(sessions.playDuration),
     })
     .from(sessions)
@@ -734,7 +730,7 @@ export const getSeriesEpisodeStats = async ({
   const whereCondition = userId
     ? and(
         inArray(sessions.itemId, episodeIds),
-        analyticsUserScope(userId, { viewerUserId: userId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.playDuration),
       )
     : and(
@@ -873,7 +869,7 @@ export const getAlmostDoneSeries = async ({
     .where(
       and(
         eq(sessions.serverId, serverIdNum),
-        analyticsUserScope(userId, { serverId, viewerUserId }),
+        eq(sessions.userId, userId),
         eq(items.type, "Episode"),
         isNotNull(items.seriesId),
         isNull(items.deletedAt),
@@ -926,7 +922,7 @@ export const getAlmostDoneSeries = async ({
     .where(
       and(
         eq(sessions.serverId, serverIdNum),
-        analyticsUserScope(userId, { serverId, viewerUserId }),
+        eq(sessions.userId, userId),
         inArray(sessions.itemId, episodeIds),
         isNotNull(sessions.playDuration),
       ),

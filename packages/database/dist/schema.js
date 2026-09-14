@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.userGroupAudit = exports.userGroupMembers = exports.userGroups = exports.users = exports.libraries = exports.servers = void 0;
+exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.userMergeAudit = exports.userMerges = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 // Custom vector type that supports variable dimensions
 // This allows storing embeddings of any size without hardcoding dimensions
@@ -199,41 +199,32 @@ exports.users = (0, pg_core_1.pgTable)("users", {
     (0, pg_core_1.unique)("users_server_id_id_unique").on(table.serverId, table.id),
     (0, pg_core_1.index)("users_search_vector_idx").using("gin", table.searchVector),
 ]);
-// Analytics identity is separate from the Jellyfin accounts used for access.
-exports.userGroups = (0, pg_core_1.pgTable)("user_groups", {
-    id: (0, pg_core_1.text)("id").primaryKey(),
+// Activities table - user activities and server events
+// Retired external IDs remain mapped so sync/import cannot recreate an account.
+exports.userMerges = (0, pg_core_1.pgTable)("user_merges", {
     serverId: (0, pg_core_1.integer)("server_id").notNull().references(() => exports.servers.id, { onDelete: "cascade" }),
-    primaryUserId: (0, pg_core_1.text)("primary_user_id").notNull(),
-    revision: (0, pg_core_1.integer)("revision").notNull().default(1),
-    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
-}, (table) => [
-    (0, pg_core_1.unique)("user_groups_server_id_id_unique").on(table.serverId, table.id),
-    (0, pg_core_1.foreignKey)({ columns: [table.serverId, table.primaryUserId], foreignColumns: [exports.users.serverId, exports.users.id], name: "user_groups_primary_account_fk" }),
-]);
-exports.userGroupMembers = (0, pg_core_1.pgTable)("user_group_members", {
-    serverId: (0, pg_core_1.integer)("server_id").notNull(),
-    groupId: (0, pg_core_1.text)("group_id").notNull(),
-    userId: (0, pg_core_1.text)("user_id").notNull(),
+    sourceUserId: (0, pg_core_1.text)("source_user_id").notNull(),
+    sourceName: (0, pg_core_1.text)("source_name").notNull(),
+    targetUserId: (0, pg_core_1.text)("target_user_id").notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-    (0, pg_core_1.primaryKey)({ columns: [table.serverId, table.userId] }),
-    (0, pg_core_1.unique)("user_group_members_group_user_unique").on(table.serverId, table.groupId, table.userId),
-    (0, pg_core_1.foreignKey)({ columns: [table.serverId, table.groupId], foreignColumns: [exports.userGroups.serverId, exports.userGroups.id], name: "user_group_members_group_fk" }).onDelete("cascade"),
-    (0, pg_core_1.foreignKey)({ columns: [table.serverId, table.userId], foreignColumns: [exports.users.serverId, exports.users.id], name: "user_group_members_account_fk" }),
+    (0, pg_core_1.primaryKey)({ columns: [table.serverId, table.sourceUserId] }),
+    (0, pg_core_1.foreignKey)({ columns: [table.serverId, table.targetUserId], foreignColumns: [exports.users.serverId, exports.users.id], name: "user_merges_target_fk" }).onDelete("cascade"),
 ]);
-exports.userGroupAudit = (0, pg_core_1.pgTable)("user_group_audit", {
+exports.userMergeAudit = (0, pg_core_1.pgTable)("user_merge_audit", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     serverId: (0, pg_core_1.integer)("server_id").notNull().references(() => exports.servers.id, { onDelete: "cascade" }),
     operationId: (0, pg_core_1.text)("operation_id").notNull(),
     actorId: (0, pg_core_1.text)("actor_id").notNull(),
     actorName: (0, pg_core_1.text)("actor_name").notNull(),
     requestHash: (0, pg_core_1.text)("request_hash").notNull(),
-    before: (0, pg_core_1.jsonb)("before").$type(),
-    after: (0, pg_core_1.jsonb)("after").$type(),
+    sourceUserId: (0, pg_core_1.text)("source_user_id").notNull(),
+    sourceName: (0, pg_core_1.text)("source_name").notNull(),
+    targetUserId: (0, pg_core_1.text)("target_user_id").notNull(),
+    targetName: (0, pg_core_1.text)("target_name").notNull(),
+    transferred: (0, pg_core_1.jsonb)("transferred").$type().notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (table) => [(0, pg_core_1.unique)("user_group_audit_operation_unique").on(table.serverId, table.operationId)]);
-// Activities table - user activities and server events
+}, (table) => [(0, pg_core_1.unique)("user_merge_audit_operation_unique").on(table.serverId, table.operationId)]);
 exports.activities = (0, pg_core_1.pgTable)("activities", {
     id: (0, pg_core_1.text)("id").primaryKey(), // External activity ID from server
     name: (0, pg_core_1.text)("name").notNull(),

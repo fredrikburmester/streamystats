@@ -1,12 +1,8 @@
 "use server";
 
 import "server-only";
-import {
-  analyticsUserScope,
-  db,
-  items,
-  sessions,
-} from "@streamystats/database";
+
+import { db, items, sessions } from "@streamystats/database";
 import { and, desc, eq, isNotNull, sql, sum } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { isBetterDisplayName, normalizeGenre } from "./genres";
@@ -111,7 +107,6 @@ export async function getUserTasteProfile(
   serverId: number,
   userId: string,
   userName: string,
-  viewerUserId?: string,
 ): Promise<TasteProfile> {
   "use cache";
   cacheTag("user-analytics");
@@ -126,7 +121,7 @@ export async function getUserTasteProfile(
     .where(
       and(
         eq(sessions.serverId, serverId),
-        analyticsUserScope(userId, { serverId, viewerUserId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.playDuration),
       ),
     );
@@ -142,7 +137,7 @@ export async function getUserTasteProfile(
     .where(
       and(
         eq(sessions.serverId, serverId),
-        analyticsUserScope(userId, { serverId, viewerUserId }),
+        eq(sessions.userId, userId),
         isNotNull(sessions.itemId),
       ),
     );
@@ -164,7 +159,7 @@ export async function getUserTasteProfile(
     .where(
       and(
         eq(sessions.serverId, serverId),
-        analyticsUserScope(userId, { serverId, viewerUserId }),
+        eq(sessions.userId, userId),
         isNotNull(items.embedding),
         isNotNull(sessions.playDuration),
       ),

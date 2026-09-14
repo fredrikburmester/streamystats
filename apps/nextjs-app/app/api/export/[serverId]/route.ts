@@ -1,10 +1,4 @@
-import {
-  db,
-  exportUserGroups,
-  hiddenRecommendations,
-  sessions,
-} from "@streamystats/database";
-import { eq } from "drizzle-orm";
+import { exportMergedUserData } from "@streamystats/database";
 import type { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
 import { getServerWithSecrets } from "@/lib/db/server";
@@ -69,19 +63,11 @@ export async function GET(
       apiKey: server.apiKey,
     });
 
-    const [
-      exportedSessions,
-      exportedHiddenRecommendations,
-      exportedUserGroups,
-    ] = await Promise.all([
-      db.query.sessions.findMany({
-        where: eq(sessions.serverId, serverIdNum),
-      }),
-      db.query.hiddenRecommendations.findMany({
-        where: eq(hiddenRecommendations.serverId, serverIdNum),
-      }),
-      exportUserGroups({ serverId: serverIdNum }),
-    ]);
+    const {
+      sessions: exportedSessions,
+      hiddenRecommendations: exportedHiddenRecommendations,
+      userMerges,
+    } = await exportMergedUserData({ serverId: serverIdNum });
 
     const exportData = {
       exportInfo: {
@@ -89,7 +75,6 @@ export async function GET(
         serverName: server.name,
         serverId: server.id,
         version: "streamystats",
-        formatRevision: 2,
         exportType: "backup",
       },
 
@@ -125,9 +110,9 @@ export async function GET(
       },
 
       // Data (server-scoped, non-Jellyfin derived)
+      userMerges,
       sessions: exportedSessions,
       hiddenRecommendations: exportedHiddenRecommendations,
-      userGroups: exportedUserGroups,
     };
 
     // Generate filename with timestamp

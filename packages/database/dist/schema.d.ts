@@ -1571,30 +1571,13 @@ export declare const users: import("drizzle-orm/pg-core").PgTableWithColumns<{
     };
     dialect: "pg";
 }>;
-export declare const userGroups: import("drizzle-orm/pg-core").PgTableWithColumns<{
-    name: "user_groups";
+export declare const userMerges: import("drizzle-orm/pg-core").PgTableWithColumns<{
+    name: "user_merges";
     schema: undefined;
     columns: {
-        id: import("drizzle-orm/pg-core").PgColumn<{
-            name: "id";
-            tableName: "user_groups";
-            dataType: "string";
-            columnType: "PgText";
-            data: string;
-            driverParam: string;
-            notNull: true;
-            hasDefault: false;
-            isPrimaryKey: true;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
         serverId: import("drizzle-orm/pg-core").PgColumn<{
             name: "server_id";
-            tableName: "user_groups";
+            tableName: "user_merges";
             dataType: "number";
             columnType: "PgInteger";
             data: number;
@@ -1609,9 +1592,9 @@ export declare const userGroups: import("drizzle-orm/pg-core").PgTableWithColumn
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
-        primaryUserId: import("drizzle-orm/pg-core").PgColumn<{
-            name: "primary_user_id";
-            tableName: "user_groups";
+        sourceUserId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "source_user_id";
+            tableName: "user_merges";
             dataType: "string";
             columnType: "PgText";
             data: string;
@@ -1626,43 +1609,43 @@ export declare const userGroups: import("drizzle-orm/pg-core").PgTableWithColumn
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
-        revision: import("drizzle-orm/pg-core").PgColumn<{
-            name: "revision";
-            tableName: "user_groups";
-            dataType: "number";
-            columnType: "PgInteger";
-            data: number;
-            driverParam: string | number;
+        sourceName: import("drizzle-orm/pg-core").PgColumn<{
+            name: "source_name";
+            tableName: "user_merges";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
             notNull: true;
-            hasDefault: true;
+            hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        targetUserId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "target_user_id";
+            tableName: "user_merges";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
         createdAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "created_at";
-            tableName: "user_groups";
-            dataType: "date";
-            columnType: "PgTimestamp";
-            data: Date;
-            driverParam: string;
-            notNull: true;
-            hasDefault: true;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: undefined;
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
-        updatedAt: import("drizzle-orm/pg-core").PgColumn<{
-            name: "updated_at";
-            tableName: "user_groups";
+            tableName: "user_merges";
             dataType: "date";
             columnType: "PgTimestamp";
             data: Date;
@@ -1680,95 +1663,13 @@ export declare const userGroups: import("drizzle-orm/pg-core").PgTableWithColumn
     };
     dialect: "pg";
 }>;
-export declare const userGroupMembers: import("drizzle-orm/pg-core").PgTableWithColumns<{
-    name: "user_group_members";
-    schema: undefined;
-    columns: {
-        serverId: import("drizzle-orm/pg-core").PgColumn<{
-            name: "server_id";
-            tableName: "user_group_members";
-            dataType: "number";
-            columnType: "PgInteger";
-            data: number;
-            driverParam: string | number;
-            notNull: true;
-            hasDefault: false;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: undefined;
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
-        groupId: import("drizzle-orm/pg-core").PgColumn<{
-            name: "group_id";
-            tableName: "user_group_members";
-            dataType: "string";
-            columnType: "PgText";
-            data: string;
-            driverParam: string;
-            notNull: true;
-            hasDefault: false;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
-        userId: import("drizzle-orm/pg-core").PgColumn<{
-            name: "user_id";
-            tableName: "user_group_members";
-            dataType: "string";
-            columnType: "PgText";
-            data: string;
-            driverParam: string;
-            notNull: true;
-            hasDefault: false;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
-        createdAt: import("drizzle-orm/pg-core").PgColumn<{
-            name: "created_at";
-            tableName: "user_group_members";
-            dataType: "date";
-            columnType: "PgTimestamp";
-            data: Date;
-            driverParam: string;
-            notNull: true;
-            hasDefault: true;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: undefined;
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
-    };
-    dialect: "pg";
-}>;
-export type UserGroupSnapshot = {
-    id: string;
-    serverId: number;
-    primaryUserId: string;
-    memberUserIds: string[];
-    revision: number;
-};
-export declare const userGroupAudit: import("drizzle-orm/pg-core").PgTableWithColumns<{
-    name: "user_group_audit";
+export declare const userMergeAudit: import("drizzle-orm/pg-core").PgTableWithColumns<{
+    name: "user_merge_audit";
     schema: undefined;
     columns: {
         id: import("drizzle-orm/pg-core").PgColumn<{
             name: "id";
-            tableName: "user_group_audit";
+            tableName: "user_merge_audit";
             dataType: "number";
             columnType: "PgSerial";
             data: number;
@@ -1785,7 +1686,7 @@ export declare const userGroupAudit: import("drizzle-orm/pg-core").PgTableWithCo
         }, {}, {}>;
         serverId: import("drizzle-orm/pg-core").PgColumn<{
             name: "server_id";
-            tableName: "user_group_audit";
+            tableName: "user_merge_audit";
             dataType: "number";
             columnType: "PgInteger";
             data: number;
@@ -1802,7 +1703,7 @@ export declare const userGroupAudit: import("drizzle-orm/pg-core").PgTableWithCo
         }, {}, {}>;
         operationId: import("drizzle-orm/pg-core").PgColumn<{
             name: "operation_id";
-            tableName: "user_group_audit";
+            tableName: "user_merge_audit";
             dataType: "string";
             columnType: "PgText";
             data: string;
@@ -1819,7 +1720,7 @@ export declare const userGroupAudit: import("drizzle-orm/pg-core").PgTableWithCo
         }, {}, {}>;
         actorId: import("drizzle-orm/pg-core").PgColumn<{
             name: "actor_id";
-            tableName: "user_group_audit";
+            tableName: "user_merge_audit";
             dataType: "string";
             columnType: "PgText";
             data: string;
@@ -1836,7 +1737,7 @@ export declare const userGroupAudit: import("drizzle-orm/pg-core").PgTableWithCo
         }, {}, {}>;
         actorName: import("drizzle-orm/pg-core").PgColumn<{
             name: "actor_name";
-            tableName: "user_group_audit";
+            tableName: "user_merge_audit";
             dataType: "string";
             columnType: "PgText";
             data: string;
@@ -1853,7 +1754,7 @@ export declare const userGroupAudit: import("drizzle-orm/pg-core").PgTableWithCo
         }, {}, {}>;
         requestHash: import("drizzle-orm/pg-core").PgColumn<{
             name: "request_hash";
-            tableName: "user_group_audit";
+            tableName: "user_merge_audit";
             dataType: "string";
             columnType: "PgText";
             data: string;
@@ -1868,14 +1769,82 @@ export declare const userGroupAudit: import("drizzle-orm/pg-core").PgTableWithCo
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
-        before: import("drizzle-orm/pg-core").PgColumn<{
-            name: "before";
-            tableName: "user_group_audit";
+        sourceUserId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "source_user_id";
+            tableName: "user_merge_audit";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        sourceName: import("drizzle-orm/pg-core").PgColumn<{
+            name: "source_name";
+            tableName: "user_merge_audit";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        targetUserId: import("drizzle-orm/pg-core").PgColumn<{
+            name: "target_user_id";
+            tableName: "user_merge_audit";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        targetName: import("drizzle-orm/pg-core").PgColumn<{
+            name: "target_name";
+            tableName: "user_merge_audit";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        transferred: import("drizzle-orm/pg-core").PgColumn<{
+            name: "transferred";
+            tableName: "user_merge_audit";
             dataType: "json";
             columnType: "PgJsonb";
-            data: UserGroupSnapshot | null;
+            data: Record<string, number>;
             driverParam: unknown;
-            notNull: false;
+            notNull: true;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
@@ -1885,30 +1854,11 @@ export declare const userGroupAudit: import("drizzle-orm/pg-core").PgTableWithCo
             identity: undefined;
             generated: undefined;
         }, {}, {
-            $type: UserGroupSnapshot | null;
-        }>;
-        after: import("drizzle-orm/pg-core").PgColumn<{
-            name: "after";
-            tableName: "user_group_audit";
-            dataType: "json";
-            columnType: "PgJsonb";
-            data: UserGroupSnapshot | null;
-            driverParam: unknown;
-            notNull: false;
-            hasDefault: false;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: undefined;
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {
-            $type: UserGroupSnapshot | null;
+            $type: Record<string, number>;
         }>;
         createdAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "created_at";
-            tableName: "user_group_audit";
+            tableName: "user_merge_audit";
             dataType: "date";
             columnType: "PgTimestamp";
             data: Date;

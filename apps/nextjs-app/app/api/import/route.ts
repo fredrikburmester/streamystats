@@ -1,4 +1,9 @@
-import { db, restoreUserGroups, UserGroupError } from "@streamystats/database";
+import {
+  db,
+  getRetiredUserIds,
+  restoreUserMerges,
+  UserMergeError,
+} from "@streamystats/database";
 import {
   hiddenRecommendations,
   items,
@@ -122,9 +127,9 @@ interface ImportHiddenRecommendation {
 }
 
 interface ImportData {
-  userGroups?: unknown;
   exportInfo: ExportInfo;
   sessions: ImportSession[];
+  userMerges?: unknown;
   hiddenRecommendations?: ImportHiddenRecommendation[];
   server: {
     id: number;
@@ -270,47 +275,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (importData.userGroups !== undefined) {
-      const identity = z.object({
-        id: z.string().min(1).max(256),
-        name: z.string().min(1).max(256),
-      });
+    if (importData.userMerges !== undefined) {
       const parsed = z
         .object({
-          accounts: z.array(identity).max(10000),
-          groups: z
-            .array(
-              z.object({
-                primaryUserId: z.string().min(1).max(256),
-                memberUserIds: z
-                  .array(z.string().min(1).max(256))
-                  .min(2)
-                  .max(100),
-              }),
-            )
-            .max(5000),
+          retiredUsers: z.array(
+            z.object({
+              sourceUserId: z.string().min(1),
+              sourceName: z.string().min(1),
+              targetUserId: z.string().min(1),
+            }),
+          ),
+          accounts: z.array(
+            z.object({ id: z.string().min(1), name: z.string().min(1) }),
+          ),
         })
-        .safeParse(importData.userGroups);
+        .safeParse(importData.userMerges);
       if (!parsed.success)
         return NextResponse.json(
-          { error: "Invalid user groups in backup." },
+          { error: "Invalid permanent merge metadata." },
           { status: 400 },
         );
       if (
-        parsed.data.groups.length &&
+        parsed.data.retiredUsers.length &&
         (!sourceJellyfinSystemId ||
           !targetJellyfinSystemId ||
           sourceJellyfinSystemId !== targetJellyfinSystemId)
-      ) {
+      )
         return NextResponse.json(
           {
             error:
-              "Restoring merged accounts requires a verified matching Jellyfin server. Import with an explicit account mapping instead.",
+              "Restoring permanent merges requires a verified matching Jellyfin server.",
           },
           { status: 409 },
         );
-      }
-      await restoreUserGroups({
+      await restoreUserMerges({
         serverId: serverIdNum,
         backup: parsed.data,
         actor: session,
@@ -380,6 +378,8 @@ export async function POST(req: NextRequest) {
       columns: { id: true },
     });
     const existingUserIds = new Set(existingUsers.map((u) => u.id));
+    for (const userId of await getRetiredUserIds({ serverId: serverIdNum }))
+      existingUserIds.add(userId);
 
     const existingItems = await db.query.items.findMany({
       where: eq(items.serverId, serverIdNum),
@@ -589,9 +589,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Also expire results populated while session batches were being restored.
-    revalidateTag("user-analytics", { expire: 0 });
-    revalidatePath(`/servers/${serverIdNum}`, "layout");
     return NextResponse.json({
       success: true,
       message,
@@ -616,7 +613,7 @@ export async function POST(req: NextRequest) {
       export_timestamp: importData.exportInfo.timestamp,
     });
   } catch (error) {
-    if (error instanceof UserGroupError)
+    if (error instanceof UserMergeError)
       return NextResponse.json(
         { error: error.message },
         { status: error.status },

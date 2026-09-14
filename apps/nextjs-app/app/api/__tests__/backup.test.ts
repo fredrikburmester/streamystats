@@ -20,10 +20,6 @@ const bunMock = await import("bun:test").then((m) => (m as any).mock);
 
 describe("backup export/import routes", () => {
   beforeEach(() => {
-    bunMock.module("next/cache", () => ({
-      revalidateTag() {},
-      revalidatePath() {},
-    }));
     // Reset fetch for each test
     globalThis.fetch = async () =>
       jsonResponse({ Id: "sys-1" }, { status: 200 });
@@ -80,10 +76,16 @@ describe("backup export/import routes", () => {
     }));
 
     bunMock.module("@streamystats/database", () => ({
-      exportUserGroups: async () => ({ accounts: [], groups: [] }),
-      restoreUserGroups: async () => {},
-      UserGroupError: class extends Error {},
       db: fakeDb,
+      getRetiredUserIds: async () => [],
+      restoreUserMerges: async () => {},
+      UserMergeError: class extends Error {},
+      exportMergedUserData: async () => ({
+        sessions: await fakeDb.query.sessions.findMany(),
+        hiddenRecommendations:
+          await fakeDb.query.hiddenRecommendations.findMany(),
+        userMerges: { retiredUsers: [], accounts: [] },
+      }),
       sessions: { serverId: "sessions.serverId" },
       hiddenRecommendations: { serverId: "hiddenRecommendations.serverId" },
     }));
@@ -178,10 +180,10 @@ describe("backup export/import routes", () => {
     }));
 
     bunMock.module("@streamystats/database", () => ({
-      exportUserGroups: async () => ({ accounts: [], groups: [] }),
-      restoreUserGroups: async () => {},
-      UserGroupError: class extends Error {},
       db: fakeDb,
+      getRetiredUserIds: async () => [],
+      restoreUserMerges: async () => {},
+      UserMergeError: class extends Error {},
     }));
 
     // Mock schema tables used only for db builder + eq()

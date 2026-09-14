@@ -5,7 +5,7 @@ import { Container } from "@/components/Container";
 import { WrappedContent } from "@/components/wrapped/WrappedContent";
 import { WrappedLoading } from "@/components/wrapped/WrappedLoading";
 import { getServer } from "@/lib/db/server";
-import { getUserById, getViewerUserId, isUserAdmin } from "@/lib/db/users";
+import { getUserById, isUserAdmin } from "@/lib/db/users";
 import { getAvailableWrappedYears, getWrappedOverview } from "@/lib/db/wrapped";
 import { formatDuration } from "@/lib/utils";
 
@@ -31,7 +31,6 @@ export async function generateMetadata({
     serverId: server.id,
     userId: user.id,
     year: yearNum,
-    viewerUserId: await getViewerUserId(),
   });
 
   const watchTime = formatDuration(overview.totalWatchTimeSeconds);
@@ -75,11 +74,7 @@ export default async function AdminWrappedPage({
     redirect(`/servers/${id}/wrapped`);
   }
 
-  const availableYears = await getAvailableWrappedYears(
-    server.id,
-    user.id,
-    await getViewerUserId(),
-  );
+  const availableYears = await getAvailableWrappedYears(server.id, user.id);
   if (!availableYears.includes(yearNum)) {
     redirect(`/servers/${id}/wrapped`);
   }
