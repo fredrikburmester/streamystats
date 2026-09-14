@@ -75,8 +75,14 @@ export default async function User({
     redirect("/");
   }
 
+  const [isAdmin, currentSession, viewerUserId] = await Promise.all([
+    isUserAdmin(server.id),
+    getSession(),
+    getViewerUserId(),
+  ]);
   const identity = await resolveAnalyticsUser({ serverId: server.id, userId });
-  if (identity.primaryUserId !== userId) {
+  // Regular members must keep their own URL: route access uses their signed ID.
+  if (isAdmin && identity.primaryUserId !== userId) {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(await searchParams))
       if (value) query.set(key, value);
@@ -88,12 +94,6 @@ export default async function User({
   if (!user) {
     redirect("/");
   }
-
-  const [isAdmin, currentSession, viewerUserId] = await Promise.all([
-    isUserAdmin(),
-    getSession(),
-    getViewerUserId(),
-  ]);
 
   // Check if current user is viewing their own page
   const actionUser =

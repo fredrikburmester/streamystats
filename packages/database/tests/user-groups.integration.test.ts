@@ -1,6 +1,7 @@
 import {
   afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -20,6 +21,7 @@ import {
   type UserGroupChange,
 } from "../src/user-groups";
 import { exportUserGroups, restoreUserGroups } from "../src/user-group-backup";
+import { migrateTestDatabase } from "./setup";
 
 const url = process.env.STREAMYSTATS_TEST_DATABASE_URL;
 describe.skipIf(!url)("reversible user analytics groups (PostgreSQL)", () => {
@@ -48,6 +50,7 @@ describe.skipIf(!url)("reversible user analytics groups (PostgreSQL)", () => {
   let libraryId: string;
   const actor = { id: "fixture-admin", name: "Fixture admin" };
 
+  beforeAll(() => migrateTestDatabase(url), 30_000);
   beforeEach(async () => {
     const nonce = randomUUID();
     const result = await database
@@ -115,6 +118,7 @@ describe.skipIf(!url)("reversible user analytics groups (PostgreSQL)", () => {
     await addPlayback(newId, 30, "2026-01-02");
   });
   afterEach(async () => {
+    if (!serverId || !otherServerId) return;
     await database
       .delete(servers)
       .where(sql`${servers.id} IN (${serverId}, ${otherServerId})`);

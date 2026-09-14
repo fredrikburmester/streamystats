@@ -14,7 +14,7 @@ import { ResponsiveFingerprint } from "@/components/TasteFingerprint";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getServer } from "@/lib/db/server";
 import { getUserTasteProfile } from "@/lib/db/taste-profile";
-import { getUserById, getViewerUserId } from "@/lib/db/users";
+import { getUserById, getViewerUserId, isUserAdmin } from "@/lib/db/users";
 import { formatDuration } from "@/lib/utils";
 
 export default async function FingerprintPage({
@@ -33,7 +33,7 @@ export default async function FingerprintPage({
     serverId: server.id,
     userId,
   });
-  if (primaryUserId !== userId)
+  if (primaryUserId !== userId && (await isUserAdmin(server.id)))
     redirect(
       `/servers/${server.id}/users/${encodeURIComponent(primaryUserId)}/fingerprint`,
     );

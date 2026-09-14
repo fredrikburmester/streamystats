@@ -57,9 +57,17 @@ expect(
 ).toBe(400);
 expect(state.mutations).toBe(0);
 expect((await call({ method: "GET" })).status).toBe(200);
-expect(
-  (await call({ preview: true, body: JSON.stringify(change) })).status,
-).toBe(200);
+const previewResponse = await call({
+  preview: true,
+  body: JSON.stringify(change),
+});
+expect(previewResponse.status).toBe(200);
+const preview = await previewResponse.json();
+expect(preview.operationId).toMatch(
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+);
+// The browser can pass the server-generated ID straight through on retries.
+input.operationId = preview.operationId;
 expect(state.mutations).toBe(0);
 state.conflict = true;
 expect((await call()).status).toBe(409);

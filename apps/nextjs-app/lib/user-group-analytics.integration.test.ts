@@ -1,7 +1,11 @@
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
+import { migrateTestDatabase } from "../../../packages/database/tests/setup";
 
 const url = process.env.STREAMYSTATS_TEST_DATABASE_URL;
+beforeAll(async () => {
+  if (url) await migrateTestDatabase(url);
+}, 30_000);
 test.skipIf(!url)(
   "backup routes restore merged historical accounts on a fresh server",
   async () => {

@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   changeUserGroup,
   getUserGroupAccounts,
@@ -140,7 +140,10 @@ export async function handleUserGroups({
     }
     if (preview) {
       const change = changeSchema.parse(await request.json());
-      return Response.json(await previewUserGroup({ serverId, change }));
+      return Response.json({
+        ...(await previewUserGroup({ serverId, change })),
+        operationId: randomUUID(),
+      });
     }
     const input = commitSchema.parse(await request.json());
     const group = await changeUserGroup({

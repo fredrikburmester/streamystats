@@ -175,7 +175,7 @@ export const getWatchTimePerWeekDay = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions))
     .groupBy(sql`TRIM(TO_CHAR(${sessions.startTime}, 'Day'))`);
 
@@ -258,7 +258,7 @@ export const getWatchTimePerHour = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions))
     .groupBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`)
     .orderBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`);
@@ -316,7 +316,7 @@ export const getTotalWatchTime = async ({
       playDuration: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions));
 
   return Number(result[0]?.playDuration || 0);
@@ -351,7 +351,7 @@ export const getTotalWatchTimeForUsers = async ({
       totalWatchTime: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(items, eq(sessions.itemId, items.id))
     .where(
       and(
         eq(sessions.serverId, serverId),
@@ -417,7 +417,7 @@ export const getUserActivityPerDay = async ({
       userId: analyticsUserId(),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions, itemLibraryExclusion));
 
   // Group by date and count distinct users manually
@@ -708,7 +708,7 @@ export const getUserWatchStats = async ({
         startTime: sessions.startTime,
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
+      .leftJoin(items, eq(sessions.itemId, items.id))
       .where(
         and(
           analyticsUserScope(userId, { serverId }),

@@ -540,7 +540,7 @@ export async function getMostActiveUsersDay({
       ),
     })
     .from(sessions)
-    .innerJoin(items, eq(items.id, sessions.itemId))
+    .leftJoin(items, eq(items.id, sessions.itemId))
     .where(and(...whereConditions, itemLibraryExclusion))
     .groupBy(sql`DATE(${sessions.startTime})`)
     .orderBy(desc(sql<number>`COUNT(DISTINCT ${analyticsUserId()})`))

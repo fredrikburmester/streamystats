@@ -54,6 +54,7 @@ const overviewSchema = z.object({
 });
 const previewSchema = z.object({
   token: z.string(),
+  operationId: z.string().uuid(),
   sessionCount: z.number(),
   watchTime: z.number(),
 });
@@ -112,7 +113,6 @@ export function MergeUsersManager({
   const [csrfToken, setCsrfToken] = useState("");
   const [preview, setPreview] = useState<
     | (z.infer<typeof previewSchema> & {
-        operationId: string;
         change: UserGroupChange;
       })
     | null
@@ -163,7 +163,6 @@ export function MergeUsersManager({
             csrfToken,
           }),
         ),
-        operationId: crypto.randomUUID(),
         change,
       });
     } catch (e) {
