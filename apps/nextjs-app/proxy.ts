@@ -1,3 +1,4 @@
+import { getMergedUserTarget } from "@streamystats/database";
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -190,6 +191,18 @@ const getSessionUser = async (
       isAdmin: payload.isAdmin as boolean,
     };
 
+    if (
+      await getMergedUserTarget({
+        serverId: session.serverId,
+        userId: session.id,
+      })
+    ) {
+      return {
+        type: ResultType.Error,
+        error:
+          "Account permanently merged. Sign in with the destination account.",
+      };
+    }
     // Validate the Jellyfin token is still valid
     const tokenValidation = await validateJellyfinToken(request, session);
     if (tokenValidation.type === ResultType.Error) {

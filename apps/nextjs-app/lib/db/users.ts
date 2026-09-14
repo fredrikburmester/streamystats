@@ -143,7 +143,7 @@ export const getWatchTimePerWeekDay = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions))
     .groupBy(sql`TRIM(TO_CHAR(${sessions.startTime}, 'Day'))`);
 
@@ -226,7 +226,7 @@ export const getWatchTimePerHour = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions))
     .groupBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`)
     .orderBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`);
@@ -284,7 +284,7 @@ export const getTotalWatchTime = async ({
       playDuration: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(items, eq(sessions.itemId, items.id))
     .where(and(...whereConditions));
 
   return Number(result[0]?.playDuration || 0);

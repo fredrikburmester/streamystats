@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
+exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.userMergeAudit = exports.userMerges = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 // Custom vector type that supports variable dimensions
 // This allows storing embeddings of any size without hardcoding dimensions
@@ -196,9 +196,35 @@ exports.users = (0, pg_core_1.pgTable)("users", {
     searchVector: tsvector("search_vector"),
 }, (table) => [
     (0, pg_core_1.index)("users_server_id_idx").on(table.serverId),
+    (0, pg_core_1.unique)("users_server_id_id_unique").on(table.serverId, table.id),
     (0, pg_core_1.index)("users_search_vector_idx").using("gin", table.searchVector),
 ]);
 // Activities table - user activities and server events
+// Retired external IDs remain mapped so sync/import cannot recreate an account.
+exports.userMerges = (0, pg_core_1.pgTable)("user_merges", {
+    serverId: (0, pg_core_1.integer)("server_id").notNull().references(() => exports.servers.id, { onDelete: "cascade" }),
+    sourceUserId: (0, pg_core_1.text)("source_user_id").notNull(),
+    sourceName: (0, pg_core_1.text)("source_name").notNull(),
+    targetUserId: (0, pg_core_1.text)("target_user_id").notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    (0, pg_core_1.primaryKey)({ columns: [table.serverId, table.sourceUserId] }),
+    (0, pg_core_1.foreignKey)({ columns: [table.serverId, table.targetUserId], foreignColumns: [exports.users.serverId, exports.users.id], name: "user_merges_target_fk" }).onDelete("cascade"),
+]);
+exports.userMergeAudit = (0, pg_core_1.pgTable)("user_merge_audit", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    serverId: (0, pg_core_1.integer)("server_id").notNull().references(() => exports.servers.id, { onDelete: "cascade" }),
+    operationId: (0, pg_core_1.text)("operation_id").notNull(),
+    actorId: (0, pg_core_1.text)("actor_id").notNull(),
+    actorName: (0, pg_core_1.text)("actor_name").notNull(),
+    requestHash: (0, pg_core_1.text)("request_hash").notNull(),
+    sourceUserId: (0, pg_core_1.text)("source_user_id").notNull(),
+    sourceName: (0, pg_core_1.text)("source_name").notNull(),
+    targetUserId: (0, pg_core_1.text)("target_user_id").notNull(),
+    targetName: (0, pg_core_1.text)("target_name").notNull(),
+    transferred: (0, pg_core_1.jsonb)("transferred").$type().notNull(),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [(0, pg_core_1.unique)("user_merge_audit_operation_unique").on(table.serverId, table.operationId)]);
 exports.activities = (0, pg_core_1.pgTable)("activities", {
     id: (0, pg_core_1.text)("id").primaryKey(), // External activity ID from server
     name: (0, pg_core_1.text)("name").notNull(),

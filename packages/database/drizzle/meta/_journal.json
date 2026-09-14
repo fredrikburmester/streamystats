@@ -316,6 +316,13 @@
       "when": 1773333333333,
       "tag": "0044_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1789375528419,
+      "tag": "0045_permanent_user_merge",
+      "breakpoints": true
     }
   ]
 }

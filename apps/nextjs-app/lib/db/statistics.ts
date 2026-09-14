@@ -22,7 +22,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getStatisticsExclusions } from "./exclusions";
 
 interface ItemWithStats extends Item {
@@ -46,6 +46,7 @@ export async function getMostWatchedItems({
   viewerUserId?: string;
 }): Promise<MostWatchedItems> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   // Get exclusion settings
@@ -228,6 +229,7 @@ export async function getWatchTimePerType({
   userId?: string | number;
   viewerUserId?: string;
 }): Promise<WatchTimePerType> {
+  cacheTag("user-analytics");
   // Get exclusion settings
   const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     serverId,
@@ -368,6 +370,7 @@ export async function getWatchTimeByLibrary({
   endDate: string;
   viewerUserId?: string;
 }): Promise<LibraryWatchTime> {
+  cacheTag("user-analytics");
   // Get exclusion settings
   const { userExclusion, librariesTableExclusion } =
     await getStatisticsExclusions(serverId, viewerUserId);
@@ -444,6 +447,7 @@ export async function getMostWatchedDay({
   userId?: string | number;
   viewerUserId?: string;
 }): Promise<MostWatchedDay | null> {
+  cacheTag("user-analytics");
   // Get exclusion settings
   const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
     serverId,
@@ -507,6 +511,7 @@ export async function getMostActiveUsersDay({
   endDate: string;
   viewerUserId?: string;
 }): Promise<MostActiveUsersDay | null> {
+  cacheTag("user-analytics");
   // Get exclusion settings
   const { userExclusion } = await getStatisticsExclusions(
     serverId,

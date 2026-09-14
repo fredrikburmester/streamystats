@@ -258,6 +258,7 @@ export async function getWrappedOverview(
   params: WrappedParams,
 ): Promise<WrappedOverview> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-overview-${params.serverId}-${params.userId}-${params.year}`,
@@ -401,6 +402,7 @@ export async function getWrappedTopItems(
   limit = 10,
 ): Promise<WrappedTopItems> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-top-items-${params.serverId}-${params.userId}-${params.year}`,
@@ -548,6 +550,7 @@ export async function getWrappedGenreStats(
   params: WrappedParams,
 ): Promise<WrappedGenres> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(`wrapped-genres-${params.serverId}-${params.userId}-${params.year}`);
 
@@ -613,6 +616,7 @@ export async function getWrappedPeopleStats(
   limit = 10,
 ): Promise<WrappedPeopleStats> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(`wrapped-people-${params.serverId}-${params.userId}-${params.year}`);
 
@@ -753,6 +757,7 @@ export async function getWrappedActivityPatterns(
   params: WrappedParams,
 ): Promise<WrappedActivityPatterns> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-activity-${params.serverId}-${params.userId}-${params.year}`,
@@ -924,6 +929,7 @@ export async function getWrappedTypeBreakdown(
   params: WrappedParams,
 ): Promise<TypeBreakdown> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-type-breakdown-${params.serverId}-${params.userId}-${params.year}`,
@@ -987,6 +993,7 @@ export async function getWrappedRewatchStats(
   params: WrappedParams,
 ): Promise<RewatchStats> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-rewatch-${params.serverId}-${params.userId}-${params.year}`,
@@ -1087,6 +1094,7 @@ export async function getWrappedGenrePercentiles(
   params: WrappedParams,
 ): Promise<GenrePercentile[]> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(
     `wrapped-percentiles-${params.serverId}-${params.userId}-${params.year}`,
@@ -1194,6 +1202,7 @@ export async function getAvailableWrappedYears(
   userId: string,
 ): Promise<number[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
   cacheTag(`wrapped-years-${serverId}-${userId}`);
 
@@ -1222,6 +1231,7 @@ export async function getWrappedData(
   params: WrappedParams,
 ): Promise<WrappedData> {
   "use cache";
+  cacheTag("user-analytics");
   getCacheLifeForYear(params.year);
   cacheTag(`wrapped-data-${params.serverId}-${params.userId}-${params.year}`);
 

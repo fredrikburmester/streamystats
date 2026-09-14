@@ -1,5 +1,11 @@
-import { db, items, mediaSources, users } from "@streamystats/database";
-import { eq, inArray } from "drizzle-orm";
+import {
+  db,
+  getMergedUserTarget,
+  items,
+  mediaSources,
+  users,
+} from "@streamystats/database";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
 import type { ActiveSession } from "@/lib/db/active-sessions";
 import { getServerWithSecrets } from "@/lib/db/server";
@@ -124,7 +130,11 @@ export async function GET(request: Request) {
 
   try {
     const activeSessions = (
-      await Promise.all(jellyfinSessions.map(mapJellyfinSessionToActiveSession))
+      await Promise.all(
+        jellyfinSessions.map((session) =>
+          mapJellyfinSessionToActiveSession(session, Number(serverId)),
+        ),
+      )
     ).filter((session): session is ActiveSession => Boolean(session));
 
     return new Response(JSON.stringify(activeSessions), {
@@ -191,6 +201,7 @@ async function findItemForPlayback(
  */
 async function mapJellyfinSessionToActiveSession(
   session: JellyfinSession,
+  serverId: number,
 ): Promise<ActiveSession | null> {
   // Skip sessions without NowPlayingItem
   if (!session.NowPlayingItem) {
@@ -206,8 +217,11 @@ async function mapJellyfinSessionToActiveSession(
     return null;
   }
 
+  const userId =
+    (await getMergedUserTarget({ serverId, userId: session.UserId })) ??
+    session.UserId;
   const user = await db.query.users.findFirst({
-    where: eq(users.id, session.UserId),
+    where: and(eq(users.id, userId), eq(users.serverId, serverId)),
   });
 
   const positionTicks = session.PlayState.PositionTicks;

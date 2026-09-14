@@ -21,7 +21,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getActiveHolidays, type Holiday } from "../holidays";
 import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
@@ -87,6 +87,7 @@ async function getSeasonalRecommendationsCached(
   viewerUserId?: string,
 ): Promise<SeasonalRecommendationResult | null> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   // Get server's disabled holidays and exclusion settings

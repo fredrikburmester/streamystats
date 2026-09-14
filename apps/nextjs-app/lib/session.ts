@@ -1,4 +1,5 @@
 "use server";
+import { getMergedUserTarget } from "@streamystats/database";
 
 import { type JWTPayload, jwtVerify, SignJWT } from "jose";
 import { cookies } from "next/headers";
@@ -78,6 +79,13 @@ export async function getSession(): Promise<SessionUser | null> {
 
   try {
     const { payload } = await jwtVerify<SessionPayload>(token, SECRET);
+    if (
+      await getMergedUserTarget({
+        serverId: payload.serverId,
+        userId: payload.id,
+      })
+    )
+      return null;
 
     return {
       id: payload.id,

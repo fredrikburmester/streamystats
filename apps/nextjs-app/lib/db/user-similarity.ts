@@ -4,7 +4,7 @@ import "server-only";
 
 import { db, items, sessions, type User } from "@streamystats/database";
 import { and, desc, eq, gte, inArray, isNotNull, lte, sum } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getExclusionSettings } from "./exclusions";
 import { getUsers } from "./users";
 
@@ -61,6 +61,7 @@ async function getUserTopItemsWithEmbeddings(
   endDate?: Date,
 ): Promise<UserTopItemsResult> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   const whereConditions = [
@@ -236,6 +237,7 @@ export async function getSimilarUsers(
   targetUserId: string,
 ): Promise<UserSimilarityResult> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   const serverIdNum = Number(serverId);

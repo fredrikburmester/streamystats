@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { Container } from "@/components/Container";
+import { MergeUsersManager } from "@/components/MergeUsersManager";
 import { PageTitle } from "@/components/PageTitle";
 import { getServer } from "@/lib/db/server";
-import { getUsersWithStats } from "@/lib/db/users";
+import { getUsersWithStats, isUserAdmin } from "@/lib/db/users";
 import { UserTable } from "./UserTable";
 
 export default async function UsersPage({
@@ -21,7 +22,12 @@ export default async function UsersPage({
 
   return (
     <Container className="flex flex-col">
-      <PageTitle title="Users" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageTitle title="Users" />
+        {(await isUserAdmin(server.id)) && (
+          <MergeUsersManager serverId={server.id} />
+        )}
+      </div>
       <UserTable data={users} server={server} />
     </Container>
   );

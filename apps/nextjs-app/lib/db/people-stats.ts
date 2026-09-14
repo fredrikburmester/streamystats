@@ -17,7 +17,7 @@ import {
   type SQL,
   sum,
 } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getStatisticsExclusions } from "./exclusions";
 
 export interface PersonStats {
@@ -63,6 +63,7 @@ export async function getTopPeopleByLibraryPresence(
   limit = 20,
 ): Promise<PersonLibraryStats[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   const serverIdNum = Number(serverId);
@@ -192,6 +193,7 @@ export async function getTopPeopleByWatchTime(
   limit = 20,
 ): Promise<PersonStats[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
   const serverIdNum = Number(serverId);
 
@@ -346,6 +348,7 @@ export async function getTopPeopleByPlayCount(
   sortBy: PlayCountSortBy = "titleCount",
 ): Promise<PersonStats[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   const serverIdNum = Number(serverId);
@@ -508,6 +511,7 @@ export async function getTopDirectorActorCombinations(
   limit = 15,
 ): Promise<DirectorActorCombination[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   const serverIdNum = Number(serverId);

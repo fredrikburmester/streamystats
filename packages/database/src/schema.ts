@@ -13,6 +13,7 @@ import {
   unique,
   customType,
   primaryKey,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 
 // Custom vector type that supports variable dimensions
@@ -289,11 +290,39 @@ export const users = pgTable(
   },
   (table) => [
     index("users_server_id_idx").on(table.serverId),
+    unique("users_server_id_id_unique").on(table.serverId, table.id),
     index("users_search_vector_idx").using("gin", table.searchVector),
   ]
 );
 
 // Activities table - user activities and server events
+// Retired external IDs remain mapped so sync/import cannot recreate an account.
+export const userMerges = pgTable("user_merges", {
+  serverId: integer("server_id").notNull().references(() => servers.id, { onDelete: "cascade" }),
+  sourceUserId: text("source_user_id").notNull(),
+  sourceName: text("source_name").notNull(),
+  targetUserId: text("target_user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.serverId, table.sourceUserId] }),
+  foreignKey({ columns: [table.serverId, table.targetUserId], foreignColumns: [users.serverId, users.id], name: "user_merges_target_fk" }).onDelete("cascade"),
+]);
+
+export const userMergeAudit = pgTable("user_merge_audit", {
+  id: serial("id").primaryKey(),
+  serverId: integer("server_id").notNull().references(() => servers.id, { onDelete: "cascade" }),
+  operationId: text("operation_id").notNull(),
+  actorId: text("actor_id").notNull(),
+  actorName: text("actor_name").notNull(),
+  requestHash: text("request_hash").notNull(),
+  sourceUserId: text("source_user_id").notNull(),
+  sourceName: text("source_name").notNull(),
+  targetUserId: text("target_user_id").notNull(),
+  targetName: text("target_name").notNull(),
+  transferred: jsonb("transferred").$type<Record<string, number>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [unique("user_merge_audit_operation_unique").on(table.serverId, table.operationId)]);
+
 export const activities = pgTable(
   "activities",
   {
