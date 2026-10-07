@@ -33,6 +33,7 @@ export async function getUserRatingSignals({
       itemId: userItemRatings.itemId,
       rating: userItemRatings.rating,
       ratedAt: userItemRatings.ratedAt,
+      type: items.type,
       seriesId: items.seriesId,
       hasEmbedding: sql<boolean>`${items.embedding} IS NOT NULL`,
     })
@@ -59,6 +60,7 @@ export async function getUserRatingSignals({
       itemId: row.itemId,
       rating: row.rating,
       ratedAt: row.ratedAt,
+      type: row.type,
       seriesId: row.seriesId,
       hasEmbedding: row.hasEmbedding === true,
     });

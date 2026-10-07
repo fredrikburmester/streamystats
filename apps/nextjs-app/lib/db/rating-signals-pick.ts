@@ -2,13 +2,15 @@
 export const LIKED_MIN_RATING = 4;
 export const DISLIKED_MAX_RATING = 2;
 /**
- * Each seed is one nearest-neighbour query. Enough to cover a broad taste
- * without the recommendation pass growing with every rating someone adds.
+ * Each seed is one nearest-neighbour query (results are cached for hours).
+ * Enough to cover a broad taste without the recommendation pass growing with
+ * every rating someone adds.
  */
-export const RATING_SEED_LIMIT = 40;
+export const RATING_SEED_LIMIT = 60;
 
 export interface RatingRow {
   itemId: string;
+  type: string | null;
   rating: number;
   ratedAt: Date | null;
   seriesId: string | null;
@@ -34,15 +36,43 @@ function byStrength(direction: 1 | -1) {
   };
 }
 
+/**
+ * Round-robin across item types, each already strongest-first, so the seed cap
+ * cannot be filled entirely by one kind: someone who rates movies often still
+ * gets their favourite episodes' themes represented.
+ */
+export function interleaveByType<T extends { type: string | null }>(
+  sorted: T[],
+): T[] {
+  const byType = new Map<string, T[]>();
+  for (const row of sorted) {
+    const key = row.type ?? "";
+    const list = byType.get(key);
+    if (list) list.push(row);
+    else byType.set(key, [row]);
+  }
+  const lists = [...byType.values()];
+  const result: T[] = [];
+  for (let i = 0; result.length < sorted.length; i++) {
+    for (const list of lists) {
+      const row = list[i];
+      if (row) result.push(row);
+    }
+  }
+  return result;
+}
+
 export function pickRatingSignals(rows: RatingRow[]): RatingSignals {
   const known = new Set<string>();
   for (const row of rows) {
     known.add(row.itemId);
     if (row.seriesId) known.add(row.seriesId);
   }
-  const liked = rows
-    .filter((r) => r.hasEmbedding && r.rating >= LIKED_MIN_RATING)
-    .sort(byStrength(1))
+  const liked = interleaveByType(
+    rows
+      .filter((r) => r.hasEmbedding && r.rating >= LIKED_MIN_RATING)
+      .sort(byStrength(1)),
+  )
     .slice(0, RATING_SEED_LIMIT)
     .map((r) => r.itemId);
   const disliked = rows

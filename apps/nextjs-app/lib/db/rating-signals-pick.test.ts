@@ -10,6 +10,7 @@ import {
 const row = (
   overrides: Partial<RatingRow> & { itemId: string },
 ): RatingRow => ({
+  type: "Movie",
   rating: 3,
   ratedAt: null,
   seriesId: null,
@@ -52,6 +53,29 @@ describe("pickRatingSignals", () => {
     expect(pickRatingSignals(rows).likedItemIds).toHaveLength(
       RATING_SEED_LIMIT,
     );
+  });
+});
+
+describe("interleaveByType", () => {
+  test("round-robins types so one kind cannot fill the seed cap", () => {
+    const seeds = pickRatingSignals([
+      row({ itemId: "m1", rating: 5, ratedAt: new Date("2026-05-01") }),
+      row({ itemId: "m2", rating: 5, ratedAt: new Date("2026-04-01") }),
+      row({ itemId: "m3", rating: 5, ratedAt: new Date("2026-03-01") }),
+      row({
+        itemId: "e1",
+        type: "Episode",
+        rating: 5,
+        ratedAt: new Date("2025-12-01"),
+      }),
+      row({
+        itemId: "e2",
+        type: "Episode",
+        rating: 4,
+        ratedAt: new Date("2025-12-01"),
+      }),
+    ]);
+    expect(seeds.likedItemIds).toEqual(["m1", "e1", "m2", "e2", "m3"]);
   });
 });
 
