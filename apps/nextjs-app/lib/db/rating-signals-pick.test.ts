@@ -4,6 +4,7 @@ import {
   pickRatingSignals,
   RATING_SEED_LIMIT,
   type RatingRow,
+  relativeSimilarity,
 } from "./rating-signals-pick";
 
 const row = (
@@ -54,10 +55,29 @@ describe("pickRatingSignals", () => {
   });
 });
 
+describe("relativeSimilarity", () => {
+  test("is relative to the seed's own best match", () => {
+    expect(relativeSimilarity(0.55, 0.55)).toBe(1);
+    expect(relativeSimilarity(0.44, 0.55)).toBeCloseTo(0.8);
+    expect(relativeSimilarity(0.5, 0)).toBe(0);
+  });
+
+  test("makes a short-text episode seed comparable to a movie seed", () => {
+    // Raw: the movie seed's 2nd match (0.70) outranks the episode's best (0.56).
+    const movieSecond = relativeSimilarity(0.7, 0.85);
+    const episodeBest = relativeSimilarity(0.56, 0.56);
+    expect(episodeBest).toBeGreaterThan(movieSecond);
+  });
+});
+
 describe("isNearerToDislike", () => {
-  test("drops a candidate at least as close to a dislike as to its seeds", () => {
-    expect(isNearerToDislike([0.6, 0.7], 0.7)).toBe(true);
+  test("drops a candidate relatively closer to a dislike than to its seeds", () => {
+    expect(isNearerToDislike([0.6, 0.7], 0.9)).toBe(true);
     expect(isNearerToDislike([0.6, 0.7], 0.65)).toBe(false);
     expect(isNearerToDislike([0.6], undefined)).toBe(false);
+  });
+
+  test("never drops a seed's own best match", () => {
+    expect(isNearerToDislike([1, 0.4], 1)).toBe(false);
   });
 });

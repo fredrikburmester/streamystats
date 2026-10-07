@@ -23,8 +23,8 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
-import { getDislikeSimilarities, getUserRatingSignals } from "./rating-signals";
-import { isNearerToDislike } from "./rating-signals-pick";
+import { getDislikeRelevances, getUserRatingSignals } from "./rating-signals";
+import { isNearerToDislike, relativeSimilarity } from "./rating-signals-pick";
 import { getMe } from "./users";
 
 const enableDebug = false;
@@ -442,6 +442,8 @@ async function getUserSpecificSeriesRecommendations(
     {
       item: SeriesRecommendationCardItem;
       similarities: number[];
+      /** Similarity relative to each seed's own nearest neighbour (0-1]. */
+      relevances: number[];
       basedOn: SeriesRecommendationCardItemWithEmbedding[];
     }
   >();
@@ -504,6 +506,7 @@ async function getUserSpecificSeriesRecommendations(
     debugLog(`  ${qualifiedSimilarSeries.length} series with similarity > 0.1`);
 
     // Add similarities to candidate series
+    const topSimilarity = Number(qualifiedSimilarSeries[0]?.similarity ?? 0);
     for (const result of qualifiedSimilarSeries) {
       const seriesId = result.item.id;
       const simScore = Number(result.similarity);
@@ -514,23 +517,25 @@ async function getUserSpecificSeriesRecommendations(
         candidate = {
           item: result.item,
           similarities: [],
+          relevances: [],
           basedOn: [],
         };
         candidateSeries.set(seriesId, candidate);
       }
 
       candidate.similarities.push(simScore);
+      candidate.relevances.push(relativeSimilarity(simScore, topSimilarity));
       candidate.basedOn.push(watchedSeries);
     }
   }
 
-  const dislikeSimilarity = await getDislikeSimilarities({
+  const dislikeRelevance = await getDislikeRelevances({
     dislikedItemIds: ratingSignals.dislikedItemIds,
     candidateIds: [...candidateSeries.keys()],
   });
   for (const [seriesId, candidate] of candidateSeries) {
     if (
-      isNearerToDislike(candidate.similarities, dislikeSimilarity.get(seriesId))
+      isNearerToDislike(candidate.relevances, dislikeRelevance.get(seriesId))
     ) {
       candidateSeries.delete(seriesId);
     }
@@ -538,17 +543,50 @@ async function getUserSpecificSeriesRecommendations(
 
   debugLog(`\n📋 Total unique candidate series: ${candidateSeries.size}`);
 
-  // Calculate final recommendations with weighted similarities
-  const finalRecommendations = Array.from(candidateSeries.values())
-    .map((candidate) => ({
-      item: candidate.item,
-      similarity:
-        candidate.similarities.reduce((sum, sim) => sum + sim, 0) /
-        candidate.similarities.length,
-      basedOn: candidate.basedOn.slice(0, 3).map(stripEmbedding), // Limit to 3 base series for clarity
-    }))
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, limit);
+  const toRecommendation = (candidate: {
+    item: SeriesRecommendationCardItem;
+    similarities: number[];
+    basedOn: SeriesRecommendationCardItemWithEmbedding[];
+  }): SeriesRecommendationItem => ({
+    item: candidate.item,
+    similarity:
+      candidate.similarities.reduce((sum, sim) => sum + sim, 0) /
+      candidate.similarities.length,
+    basedOn: candidate.basedOn.slice(0, 3).map(stripEmbedding), // Limit to 3 base series for clarity
+  });
+
+  // Each rated item's best match leads, in seed order (highest rated, most
+  // recent first). Raw similarity is not comparable across seeds -- an
+  // episode's short text scores lower against everything than a series' -- so
+  // ranking only by it would bury every episode-seeded pick.
+  const ratedPicks: SeriesRecommendationItem[] = [];
+  const pickedIds = new Set<string>();
+  for (const seed of likedSeeds) {
+    let best: { id: string; similarity: number } | null = null;
+    for (const [id, candidate] of candidateSeries) {
+      if (pickedIds.has(id)) continue;
+      const index = candidate.basedOn.findIndex((b) => b.id === seed.id);
+      if (index === -1) continue;
+      const similarity = candidate.similarities[index] ?? 0;
+      if (!best || similarity > best.similarity) best = { id, similarity };
+    }
+    const candidate = best ? candidateSeries.get(best.id) : undefined;
+    if (best && candidate) {
+      pickedIds.add(best.id);
+      ratedPicks.push({
+        ...toRecommendation(candidate),
+        basedOn: [stripEmbedding(seed)],
+      });
+    }
+  }
+
+  const finalRecommendations = [
+    ...ratedPicks,
+    ...Array.from(candidateSeries.entries())
+      .filter(([id]) => !pickedIds.has(id))
+      .map(([, candidate]) => toRecommendation(candidate))
+      .sort((a, b) => b.similarity - a.similarity),
+  ].slice(0, limit);
 
   debugLog(`\n✅ Final ${finalRecommendations.length} series recommendations:`);
   finalRecommendations.forEach((rec, index) => {

@@ -58,15 +58,31 @@ export function pickRatingSignals(rows: RatingRow[]): RatingSignals {
 }
 
 /**
- * A candidate is dropped when it sits at least as close to something the user
- * disliked as to anything that led to it being suggested.
+ * A candidate's similarity relative to its seed's own nearest neighbour.
+ * Raw cosine similarity is not comparable across seeds: an episode embedded
+ * from a short overview scores lower against everything than a movie with
+ * full metadata does. Relative to each seed's best match, every seed's
+ * strongest pick is 1 and the rest fall off from there.
+ */
+export function relativeSimilarity(
+  similarity: number,
+  topSimilarity: number,
+): number {
+  if (!(topSimilarity > 0)) return 0;
+  return Math.min(1, similarity / topSimilarity);
+}
+
+/**
+ * A candidate is dropped when it is relatively closer to something the user
+ * disliked than to anything that led to it being suggested. A seed's own best
+ * match (relevance 1) is never dropped.
  */
 export function isNearerToDislike(
-  seedSimilarities: number[],
-  dislikeSimilarity: number | undefined,
+  seedRelevances: number[],
+  dislikeRelevance: number | undefined,
 ): boolean {
-  if (dislikeSimilarity === undefined || seedSimilarities.length === 0) {
+  if (dislikeRelevance === undefined || seedRelevances.length === 0) {
     return false;
   }
-  return dislikeSimilarity >= Math.max(...seedSimilarities);
+  return dislikeRelevance > Math.max(...seedRelevances);
 }

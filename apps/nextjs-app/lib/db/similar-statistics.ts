@@ -26,8 +26,8 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
-import { getDislikeSimilarities, getUserRatingSignals } from "./rating-signals";
-import { isNearerToDislike } from "./rating-signals-pick";
+import { getDislikeRelevances, getUserRatingSignals } from "./rating-signals";
+import { isNearerToDislike, relativeSimilarity } from "./rating-signals-pick";
 import { getMe } from "./users";
 
 const debugLog = (..._args: unknown[]) => {};
@@ -411,6 +411,8 @@ async function getUserSpecificRecommendations(
     {
       item: RecommendationCardItem;
       similarities: number[];
+      /** Similarity relative to each seed's own nearest neighbour (0-1]. */
+      relevances: number[];
       basedOn: RecommendationCardItemWithEmbedding[];
     }
   >();
@@ -485,6 +487,7 @@ async function getUserSpecificRecommendations(
     }
 
     // Add similarities to candidate items
+    const topSimilarity = Number(similarItems[0]?.similarity ?? 0);
     for (const result of similarItems) {
       const itemId = result.item.id;
       const simScore = Number(result.similarity);
@@ -493,6 +496,7 @@ async function getUserSpecificRecommendations(
         candidateItems.set(itemId, {
           item: result.item,
           similarities: [],
+          relevances: [],
           basedOn: [],
         });
       }
@@ -500,18 +504,17 @@ async function getUserSpecificRecommendations(
       const candidate = candidateItems.get(itemId);
       if (!candidate) continue;
       candidate.similarities.push(simScore);
+      candidate.relevances.push(relativeSimilarity(simScore, topSimilarity));
       candidate.basedOn.push(watchedItem);
     }
   }
 
-  const dislikeSimilarity = await getDislikeSimilarities({
+  const dislikeRelevance = await getDislikeRelevances({
     dislikedItemIds: ratingSignals.dislikedItemIds,
     candidateIds: [...candidateItems.keys()],
   });
   for (const [itemId, candidate] of candidateItems) {
-    if (
-      isNearerToDislike(candidate.similarities, dislikeSimilarity.get(itemId))
-    ) {
+    if (isNearerToDislike(candidate.relevances, dislikeRelevance.get(itemId))) {
       candidateItems.delete(itemId);
     }
   }
@@ -563,8 +566,21 @@ async function getUserSpecificRecommendations(
     }
   }
 
-  // Sort guaranteed recommendations by similarity
-  guaranteedRecommendations.sort((a, b) => b.similarity - a.similarity);
+  // Picks for rated items lead, in seed order (highest rated, most recent
+  // first): raw similarity is not comparable across seeds -- an episode's
+  // short text scores lower against everything than a movie's -- so sorting
+  // by it would bury every episode-seeded pick. Watch-seeded picks keep their
+  // similarity order.
+  const seedOrder = new Map(baseMovies.map((m, index) => [m.id, index]));
+  const seedIndex = (rec: RecommendationItem) =>
+    seedOrder.get(rec.basedOn[0]?.id ?? "") ?? Number.MAX_SAFE_INTEGER;
+  guaranteedRecommendations.sort((a, b) => {
+    const aRated = likedSeedIds.has(a.basedOn[0]?.id ?? "");
+    const bRated = likedSeedIds.has(b.basedOn[0]?.id ?? "");
+    if (aRated && bRated) return seedIndex(a) - seedIndex(b);
+    if (aRated !== bRated) return aRated ? -1 : 1;
+    return b.similarity - a.similarity;
+  });
 
   // Get multi-movie matches for remaining slots
   const multiMovieMatches = Array.from(candidateItems.values())

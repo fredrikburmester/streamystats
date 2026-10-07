@@ -9,6 +9,7 @@ import {
   pickRatingSignals,
   type RatingRow,
   type RatingSignals,
+  relativeSimilarity,
 } from "./rating-signals-pick";
 
 export type { RatingSignals } from "./rating-signals-pick";
@@ -66,10 +67,12 @@ export async function getUserRatingSignals({
 }
 
 /**
- * For each candidate, its highest similarity to anything the user disliked.
- * Exact distances over the (small) candidate set rather than an index scan.
+ * For each candidate, its highest relative similarity (see relativeSimilarity)
+ * to anything the user disliked, each dislike normalized by its own closest
+ * candidate. Exact distances over the (small) candidate set rather than an
+ * index scan.
  */
-export async function getDislikeSimilarities({
+export async function getDislikeRelevances({
   dislikedItemIds,
   candidateIds,
 }: {
@@ -91,11 +94,12 @@ export async function getDislikeSimilarities({
       .select({ id: items.id, similarity: sql<number>`1 - (${distance})` })
       .from(items)
       .where(and(inArray(items.id, candidateIds), dimensionFilter));
+    const top = Math.max(0, ...rows.map((row) => Number(row.similarity)));
     for (const row of rows) {
-      const similarity = Number(row.similarity);
+      const relevance = relativeSimilarity(Number(row.similarity), top);
       const previous = result.get(row.id);
-      if (previous === undefined || similarity > previous) {
-        result.set(row.id, similarity);
+      if (previous === undefined || relevance > previous) {
+        result.set(row.id, relevance);
       }
     }
   }
