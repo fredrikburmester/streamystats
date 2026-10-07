@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  alternate,
   isNearerToDislike,
   pickRatingSignals,
   RATING_SEED_LIMIT,
@@ -103,5 +104,12 @@ describe("isNearerToDislike", () => {
 
   test("never drops a seed's own best match", () => {
     expect(isNearerToDislike([1, 0.4], 1)).toBe(false);
+  });
+});
+
+describe("alternate", () => {
+  test("keeps each list's order", () => {
+    expect(alternate([1, 2, 3], ["a"])).toEqual([1, "a", 2, 3]);
+    expect(alternate([], ["a", "b"])).toEqual(["a", "b"]);
   });
 });

@@ -28,6 +28,7 @@ import {
   findItemsByPerson,
 } from "@/lib/db/item-people-search";
 import { getRatedItems } from "@/lib/db/rated-items";
+import { alternate } from "@/lib/db/rating-signals-pick";
 import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import {
   getSimilarItemsForItem,
@@ -372,9 +373,9 @@ export function createChatTools(
             : getSimilarSeries({ serverId, userId, limit: limit * 2 }),
         ]);
 
-        const filtered = [...movieRecs, ...seriesRecs].sort(
-          (a, b) => b.similarity - a.similarity,
-        );
+        const filtered = alternate<
+          (typeof movieRecs)[number] | (typeof seriesRecs)[number]
+        >(movieRecs, seriesRecs);
 
         const enrichedRecs = filtered.slice(0, limit).map((r) => {
           const recGenres = new Set(r.item.genres || []);

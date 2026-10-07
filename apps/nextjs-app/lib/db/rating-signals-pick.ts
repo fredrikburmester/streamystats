@@ -116,3 +116,20 @@ export function isNearerToDislike(
   }
   return dislikeRelevance > Math.max(...seedRelevances);
 }
+
+/**
+ * Merge two ranked lists by alternating between them, keeping each list's own
+ * order. Each recommendation engine orders its picks deliberately (rated
+ * seeds first); re-sorting the union by raw similarity would undo that, since
+ * similarity is not comparable across seeds.
+ */
+export function alternate<T>(first: T[], second: T[]): T[] {
+  const result: T[] = [];
+  for (let i = 0; i < Math.max(first.length, second.length); i++) {
+    const a = first[i];
+    const b = second[i];
+    if (a !== undefined) result.push(a);
+    if (b !== undefined) result.push(b);
+  }
+  return result;
+}
