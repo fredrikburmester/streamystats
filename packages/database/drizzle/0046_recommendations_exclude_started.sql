@@ -1,0 +1,1 @@
+ALTER TABLE "servers" ADD COLUMN "recommendations_exclude_started" boolean DEFAULT false NOT NULL;

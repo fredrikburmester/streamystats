@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Container } from "@/components/Container";
 import { getServer } from "@/lib/db/server";
 import { EmbeddingsManager } from "../EmbeddingsManager";
+import { RecommendationSettingsManager } from "../RecommendationSettingsManager";
 
 export default async function AISettings(props: {
   params: Promise<{ id: string }>;
@@ -21,6 +22,10 @@ export default async function AISettings(props: {
 
       <div className="space-y-8">
         <EmbeddingsManager server={server} />
+        <RecommendationSettingsManager
+          serverId={server.id}
+          excludeStarted={server.recommendationsExcludeStarted}
+        />
       </div>
     </Container>
   );

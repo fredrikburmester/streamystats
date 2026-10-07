@@ -28,6 +28,7 @@ import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
 import { getDislikeRelevances, getUserRatingSignals } from "./rating-signals";
 import { isNearerToDislike, relativeSimilarity } from "./rating-signals-pick";
+import { getExcludedStartedIds } from "./started-items";
 import { getMe } from "./users";
 
 const debugLog = (..._args: unknown[]) => {};
@@ -303,7 +304,11 @@ async function getUserSpecificRecommendations(
   const watchedItemIds = watchedItems.map((item) => item.id);
   // Anything the user rated is something they already know.
   const excludedItemIds = [
-    ...new Set([...watchedItemIds, ...ratingSignals.knownItemIds]),
+    ...new Set([
+      ...watchedItemIds,
+      ...ratingSignals.knownItemIds,
+      ...(await getExcludedStartedIds({ serverId, userId })),
+    ]),
   ];
 
   // Get hidden recommendations for this user

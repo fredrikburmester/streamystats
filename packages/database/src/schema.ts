@@ -148,6 +148,12 @@ export const servers = pgTable(
 
     // Holiday/seasonal recommendations settings
     disabledHolidays: text("disabled_holidays").array().default([]),
+    // When on, recommendations skip anything the user has started at all (any
+    // session, any episode of a series, or another copy of the same title)
+    // instead of only what they watched past halfway.
+    recommendationsExcludeStarted: boolean("recommendations_exclude_started")
+      .default(false)
+      .notNull(),
 
     // Statistics exclusion settings
     // Users and libraries in these arrays will be hidden from all statistics

@@ -79,6 +79,12 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
     lastSyncCompleted: (0, pg_core_1.timestamp)("last_sync_completed", { withTimezone: true }),
     // Holiday/seasonal recommendations settings
     disabledHolidays: (0, pg_core_1.text)("disabled_holidays").array().default([]),
+    // When on, recommendations skip anything the user has started at all (any
+    // session, any episode of a series, or another copy of the same title)
+    // instead of only what they watched past halfway.
+    recommendationsExcludeStarted: (0, pg_core_1.boolean)("recommendations_exclude_started")
+        .default(false)
+        .notNull(),
     // Statistics exclusion settings
     // Users and libraries in these arrays will be hidden from all statistics
     excludedUserIds: (0, pg_core_1.text)("excluded_user_ids").array().default([]),

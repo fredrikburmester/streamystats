@@ -25,6 +25,7 @@ import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
 import { getDislikeRelevances, getUserRatingSignals } from "./rating-signals";
 import { isNearerToDislike, relativeSimilarity } from "./rating-signals-pick";
+import { getExcludedStartedIds } from "./started-items";
 import { getMe } from "./users";
 
 const enableDebug = false;
@@ -375,7 +376,11 @@ async function getUserSpecificSeriesRecommendations(
   // Anything the user rated (and the series of a rated episode) is already
   // known to them.
   const excludedItemIds = [
-    ...new Set([...watchedSeriesIds, ...ratingSignals.knownItemIds]),
+    ...new Set([
+      ...watchedSeriesIds,
+      ...ratingSignals.knownItemIds,
+      ...(await getExcludedStartedIds({ serverId, userId })),
+    ]),
   ];
   debugLog(`🙈 Found ${hiddenItemIds.length} hidden items`);
 

@@ -556,6 +556,23 @@ export declare const servers: import("drizzle-orm/pg-core").PgTableWithColumns<{
             }, {}, {}, import("drizzle-orm").ColumnBuilderExtraConfig>;
             size: undefined;
         }>;
+        recommendationsExcludeStarted: import("drizzle-orm/pg-core").PgColumn<{
+            name: "recommendations_exclude_started";
+            tableName: "servers";
+            dataType: "boolean";
+            columnType: "PgBoolean";
+            data: boolean;
+            driverParam: boolean;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         excludedUserIds: import("drizzle-orm/pg-core").PgColumn<{
             name: "excluded_user_ids";
             tableName: "servers";
