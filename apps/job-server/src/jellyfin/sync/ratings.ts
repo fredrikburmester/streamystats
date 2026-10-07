@@ -144,21 +144,25 @@ async function buildReviewLookups(
   return { movieByTmdb, seriesByTmdb, episodeByNumber };
 }
 
-async function replaceSource({
+/**
+ * Replace every source's ratings in one transaction, so readers never see one
+ * source from this sync next to another from the previous one.
+ */
+async function replaceSources({
   serverId,
-  source,
-  rows,
+  snapshots,
 }: {
   serverId: number;
-  source: string;
-  rows: NewUserItemRating[];
+  snapshots: { source: string; rows: NewUserItemRating[] }[];
 }): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx
-      .delete(userItemRatings)
-      .where(and(eq(userItemRatings.serverId, serverId), eq(userItemRatings.source, source)));
-    for (let i = 0; i < rows.length; i += 500) {
-      await tx.insert(userItemRatings).values(rows.slice(i, i + 500)).onConflictDoNothing();
+    for (const { source, rows } of snapshots) {
+      await tx
+        .delete(userItemRatings)
+        .where(and(eq(userItemRatings.serverId, serverId), eq(userItemRatings.source, source)));
+      for (let i = 0; i < rows.length; i += 500) {
+        await tx.insert(userItemRatings).values(rows.slice(i, i + 500)).onConflictDoNothing();
+      }
     }
   });
 }
@@ -196,7 +200,8 @@ export function buildEnhancedRows({
 /**
  * Pull every user's explicit opinions from Jellyfin (likes, dislikes,
  * favorites) and, when the Jellyfin Enhanced plugin is installed, its star
- * reviews. Each source is replaced wholesale so removals propagate.
+ * reviews. Both sources are replaced wholesale, together, so removals
+ * propagate.
  */
 export async function syncRatingsForServer(serverId: number): Promise<{
   native: number;
@@ -255,25 +260,29 @@ export async function syncRatingsForServer(serverId: number): Promise<{
       });
     }
   }
-  await replaceSource({ serverId, source: RATING_SOURCES.JELLYFIN, rows: nativeRows });
-
-  let enhancedCount: number | null = null;
-  let unmatched = nativeRows.filter((r) => r.itemId === null).length;
+  // An unavailable plugin (uninstalled, or the key lost access) contributes an
+  // empty snapshot: its earlier ratings must not keep shaping recommendations.
+  // Transient failures throw before anything is written.
   const reviews = await client.getJellyfinEnhancedReviews();
+  let enhancedRows: NewUserItemRating[] = [];
   if (reviews !== null) {
     const targets = reviews
       .map((r) => parseReviewTarget(r.mediaType, r.tmdbId))
       .filter((t): t is ReviewTarget => t !== null);
     const lookups = await buildReviewLookups(serverId, targets);
-    const enhancedRows = buildEnhancedRows({ serverId, reviews, knownUserIds, lookups });
-    await replaceSource({
-      serverId,
-      source: RATING_SOURCES.JELLYFIN_ENHANCED,
-      rows: enhancedRows,
-    });
-    enhancedCount = enhancedRows.length;
-    unmatched += enhancedRows.filter((r) => r.itemId === null).length;
+    enhancedRows = buildEnhancedRows({ serverId, reviews, knownUserIds, lookups });
   }
+
+  await replaceSources({
+    serverId,
+    snapshots: [
+      { source: RATING_SOURCES.JELLYFIN, rows: nativeRows },
+      { source: RATING_SOURCES.JELLYFIN_ENHANCED, rows: enhancedRows },
+    ],
+  });
+
+  const enhancedCount = reviews === null ? null : enhancedRows.length;
+  const unmatched = [...nativeRows, ...enhancedRows].filter((r) => r.itemId === null).length;
 
   console.info(
     formatSyncLogLine("ratings-sync", {

@@ -51,14 +51,20 @@ export function opinionToRating(userData: OpinionUserData): number {
 
 export function parseJellyfinEnhancedReviewPage(
   raw: unknown
-): { reviews: JellyfinEnhancedReview[]; total: number } | null {
+): {
+  reviews: JellyfinEnhancedReview[];
+  /** Entries on the page before filtering, which is what pagination counts. */
+  pageSize: number;
+  total: number;
+} | null {
   if (!isRecord(raw) || !Array.isArray(raw.reviews)) return null;
   const total = typeof raw.total === "number" ? raw.total : raw.reviews.length;
   const reviews: JellyfinEnhancedReview[] = [];
   for (const entry of raw.reviews) {
     if (!isRecord(entry)) continue;
     const { userId, mediaType, tmdbId, rating, content, updatedAt } = entry;
-    // A text-only review carries no score to learn from.
+    // A text-only review (null rating) carries no score to learn from; the
+    // plugin only accepts ratings from 1 to 5.
     if (typeof rating !== "number" || !Number.isFinite(rating) || rating <= 0) continue;
     if (typeof userId !== "string" || typeof tmdbId !== "string") continue;
     if (mediaType !== "movie" && mediaType !== "tv") continue;
@@ -71,7 +77,7 @@ export function parseJellyfinEnhancedReviewPage(
       updatedAt: typeof updatedAt === "string" ? updatedAt : null,
     });
   }
-  return { reviews, total };
+  return { reviews, pageSize: raw.reviews.length, total };
 }
 
 const NUMERIC = /^\d+$/;

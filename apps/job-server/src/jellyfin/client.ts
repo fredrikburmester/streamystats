@@ -744,8 +744,10 @@ export class JellyfinClient {
         throw new Error("Unexpected Jellyfin Enhanced reviews response");
       }
       reviews.push(...parsed.reviews);
-      offset += parsed.reviews.length;
-      if (parsed.reviews.length === 0 || offset >= parsed.total) break;
+      // Advance by raw entries: text-only reviews are filtered out of
+      // `parsed.reviews` but still occupy their place in the API's paging.
+      offset += parsed.pageSize;
+      if (parsed.pageSize === 0 || offset >= parsed.total) break;
     }
     return reviews;
   }

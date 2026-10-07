@@ -57,6 +57,8 @@ describe("parseJellyfinEnhancedReviewPage", () => {
   test("keeps scored reviews and drops text-only or unknown media", () => {
     const parsed = parseJellyfinEnhancedReviewPage(page);
     expect(parsed?.total).toBe(3);
+    // Paging counts every entry, including the ones filtered out.
+    expect(parsed?.pageSize).toBe(3);
     expect(parsed?.reviews).toEqual([
       {
         userId: "45e7d77f329d408eaefb7301c9c4a8cc",

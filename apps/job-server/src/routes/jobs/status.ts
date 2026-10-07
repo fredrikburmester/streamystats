@@ -390,6 +390,7 @@ app.get("/server-status", async (c) => {
         jellyfinRecentItemsSync: jellyfinQueueSizes[5],
         jellyfinRecentActivitiesSync: jellyfinQueueSizes[6],
         jellyfinPeopleSync: jellyfinQueueSizes[7],
+        jellyfinRatingsSync: jellyfinQueueSizes[8],
         totalQueued: [...queueSizes, ...jellyfinQueueSizes].reduce(
           (sum, stat) => sum + stat,
           0
