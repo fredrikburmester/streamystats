@@ -18,6 +18,7 @@ import {
   jellyfinRecentItemsSyncWorker,
   jellyfinRecentActivitiesSyncWorker,
   jellyfinPeopleSyncWorker,
+  jellyfinRatingsSyncWorker,
   JELLYFIN_JOB_NAMES,
   inferWatchtimeJob,
   INFER_WATCHTIME_JOB_NAME,
@@ -126,6 +127,7 @@ async function createQueues(boss: PgBoss) {
     JELLYFIN_JOB_NAMES.RECENT_ITEMS_SYNC,
     JELLYFIN_JOB_NAMES.RECENT_ACTIVITIES_SYNC,
     JELLYFIN_JOB_NAMES.PEOPLE_SYNC,
+    JELLYFIN_JOB_NAMES.RATINGS_SYNC,
     GEOLOCATION_JOB_NAMES.GEOLOCATE_ACTIVITIES,
     GEOLOCATION_JOB_NAMES.CALCULATE_FINGERPRINTS,
     GEOLOCATION_JOB_NAMES.BACKFILL_LOCATIONS,
@@ -160,6 +162,7 @@ async function registerJobHandlers(boss: PgBoss) {
   await boss.work(JELLYFIN_JOB_NAMES.RECENT_ITEMS_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinRecentItemsSyncWorker));
   await boss.work(JELLYFIN_JOB_NAMES.RECENT_ACTIVITIES_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinRecentActivitiesSyncWorker));
   await boss.work(JELLYFIN_JOB_NAMES.PEOPLE_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinPeopleSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.RATINGS_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinRatingsSyncWorker));
 
   // Register geolocation jobs
   await boss.work(GEOLOCATION_JOB_NAMES.GEOLOCATE_ACTIVITIES, DEFAULT_WORK_OPTIONS, firstJob(geolocateActivitiesJob));

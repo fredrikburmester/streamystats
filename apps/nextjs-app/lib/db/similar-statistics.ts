@@ -15,6 +15,7 @@ import {
   desc,
   eq,
   gte,
+  inArray,
   isNotNull,
   isNull,
   lte,
@@ -25,6 +26,8 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
+import { getDislikeSimilarities, getUserRatingSignals } from "./rating-signals";
+import { isNearerToDislike } from "./rating-signals-pick";
 import { getMe } from "./users";
 
 const debugLog = (..._args: unknown[]) => {};
@@ -123,6 +126,18 @@ const stripEmbedding = (
 };
 
 const RECOMMENDATION_POOL_SIZE = 500;
+
+async function getLikedSeedCards(
+  likedItemIds: string[],
+): Promise<RecommendationCardItemWithEmbedding[]> {
+  if (likedItemIds.length === 0) return [];
+  const rows = await db
+    .select(itemCardWithEmbeddingSelect)
+    .from(items)
+    .where(and(inArray(items.id, likedItemIds), isNotNull(items.embedding)));
+  const order = new Map(likedItemIds.map((id, index) => [id, index]));
+  return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
 
 async function getRecommendations(
   serverIdNum: number,
@@ -273,7 +288,12 @@ async function getUserSpecificRecommendations(
     );
   });
 
-  if (userWatchHistory.length === 0) {
+  const ratingSignals = await getUserRatingSignals({ serverId, userId });
+
+  if (
+    userWatchHistory.length === 0 &&
+    ratingSignals.likedItemIds.length === 0
+  ) {
     debugLog("❌ No watch history found, returning empty recommendations");
     return [];
   }
@@ -281,6 +301,10 @@ async function getUserSpecificRecommendations(
   // Extract watched items and their IDs
   const watchedItems = userWatchHistory.map((w) => w.item);
   const watchedItemIds = watchedItems.map((item) => item.id);
+  // Anything the user rated is something they already know.
+  const excludedItemIds = [
+    ...new Set([...watchedItemIds, ...ratingSignals.knownItemIds]),
+  ];
 
   // Get hidden recommendations for this user
   let hiddenItems: { itemId: string }[] = [];
@@ -357,13 +381,23 @@ async function getUserSpecificRecommendations(
     (item) => !recentIds.has(item.id),
   );
 
-  const baseMovies = [...recentWatches, ...additionalTopWatched].slice(0, 15);
+  // Liked items lead: a rating is a deliberate signal of taste, where a
+  // watch only says something was sat through. A liked episode seeds on that
+  // episode's own content, not on the series as a whole.
+  const likedSeeds = await getLikedSeedCards(ratingSignals.likedItemIds);
+  const likedSeedIds = new Set(likedSeeds.map((item) => item.id));
+  const watchSeeds = [...recentWatches, ...additionalTopWatched]
+    .filter((item) => !likedSeedIds.has(item.id))
+    .slice(0, 15);
+  const baseMovies = [...likedSeeds, ...watchSeeds];
   debugLog(`🎬 Final base movies for similarity (${baseMovies.length}):`);
   baseMovies.forEach((item, index) => {
-    const isRecent = recentIds.has(item.id);
-    debugLog(
-      `  ${index + 1}. "${item.name}" (${isRecent ? "recent" : "top watched"})`,
-    );
+    const origin = likedSeedIds.has(item.id)
+      ? "rated"
+      : recentIds.has(item.id)
+        ? "recent"
+        : "top watched";
+    debugLog(`  ${index + 1}. "${item.name}" (${origin})`);
   });
 
   if (baseMovies.length === 0) {
@@ -409,7 +443,9 @@ async function getUserSpecificRecommendations(
           eq(items.type, "Movie"),
           isNotNull(items.embedding),
           dimensionFilter,
-          notInArray(items.id, watchedItemIds), // Exclude already watched items
+          excludedItemIds.length > 0
+            ? notInArray(items.id, excludedItemIds)
+            : sql`true`, // Exclude already watched or rated items
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
             : sql`true`, // Exclude hidden items
@@ -465,6 +501,18 @@ async function getUserSpecificRecommendations(
       if (!candidate) continue;
       candidate.similarities.push(simScore);
       candidate.basedOn.push(watchedItem);
+    }
+  }
+
+  const dislikeSimilarity = await getDislikeSimilarities({
+    dislikedItemIds: ratingSignals.dislikedItemIds,
+    candidateIds: [...candidateItems.keys()],
+  });
+  for (const [itemId, candidate] of candidateItems) {
+    if (
+      isNearerToDislike(candidate.similarities, dislikeSimilarity.get(itemId))
+    ) {
+      candidateItems.delete(itemId);
     }
   }
 

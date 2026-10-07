@@ -64,6 +64,11 @@ const SCHEDULER_JOB_CONFIG: Record<JobKey, {
     buildData: (serverId) => ({ serverId }),
     sendOptions: SEND_OPTIONS.LONG,
   },
+  "ratings-sync": {
+    pgBossName: JELLYFIN_JOB_NAMES.RATINGS_SYNC,
+    buildData: (serverId) => ({ serverId }),
+    sendOptions: SEND_OPTIONS.STANDARD,
+  },
   "embeddings-sync": {
     pgBossName: "generate-item-embeddings",
     buildData: (serverId) => ({ serverId, batchSize: 50 }),
@@ -877,6 +882,7 @@ class SyncScheduler {
         recentItemsSync: getDefaultCron("recent-items-sync"),
         userSync: getDefaultCron("user-sync"),
         peopleSync: getDefaultCron("people-sync"),
+        ratingsSync: getDefaultCron("ratings-sync"),
         embeddingsSync: getDefaultCron("embeddings-sync"),
         geolocationSync: getDefaultCron("geolocation-sync"),
         fingerprintSync: getDefaultCron("fingerprint-sync"),

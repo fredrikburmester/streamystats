@@ -3,6 +3,12 @@ import Bottleneck from "bottleneck";
 import pRetry from "p-retry";
 import { Server } from "@streamystats/database";
 import { JellyfinSession } from "./types";
+import {
+  parseJellyfinEnhancedReviewPage,
+  parseOpinionUserData,
+  type JellyfinEnhancedReview,
+  type JellyfinOpinionItem,
+} from "./ratings-parse";
 import { getInternalUrl } from "../utils/server-url";
 import { STREAMYSTATS_VERSION } from "../utils/version";
 
@@ -665,6 +671,83 @@ export class JellyfinClient {
     }
 
     return allItems;
+  }
+
+  /**
+   * Items a user has liked, disliked or favorited in Jellyfin itself.
+   * Jellyfin has no "has an opinion" filter, so this is the union of the
+   * IsFavoriteOrLikes and Dislikes filters.
+   */
+  async getUserOpinionItems(
+    userId: string,
+    pageSize: number = 1000
+  ): Promise<JellyfinOpinionItem[]> {
+    const byId = new Map<string, JellyfinOpinionItem>();
+    for (const filter of ["IsFavoriteOrLikes", "Dislikes"]) {
+      let startIndex = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const response = await this.request<ItemsResponse>("get", "/Items", {
+          params: {
+            UserId: userId,
+            Recursive: true,
+            Filters: filter,
+            Fields: "UserData",
+            IncludeItemTypes: "Movie,Series,Episode",
+            EnableUserData: true,
+            StartIndex: startIndex,
+            Limit: pageSize,
+            IsPlaceHolder: false,
+          },
+        });
+        const page = response.Items || [];
+        for (const item of page) {
+          const userData = parseOpinionUserData(item.UserData);
+          if (userData) byId.set(item.Id, { Id: item.Id, UserData: userData });
+        }
+        startIndex += page.length;
+        hasMore = startIndex < response.TotalRecordCount && page.length > 0;
+      }
+    }
+    return [...byId.values()];
+  }
+
+  /**
+   * All star reviews from the Jellyfin Enhanced plugin, or null when the
+   * plugin is not installed (or its reviews API is unavailable to this key).
+   */
+  async getJellyfinEnhancedReviews(
+    pageSize: number = 1000
+  ): Promise<JellyfinEnhancedReview[] | null> {
+    const reviews: JellyfinEnhancedReview[] = [];
+    let offset = 0;
+    while (true) {
+      let page: unknown;
+      try {
+        page = await this.request<unknown>(
+          "get",
+          "/JellyfinEnhanced/reviews/admin/all",
+          { params: { limit: pageSize, offset }, retries: offset === 0 ? 0 : undefined }
+        );
+      } catch (error) {
+        // Absent plugin (404) or a non-admin key (401/403) is not a failure:
+        // ratings from this source are simply unavailable on this server.
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+        if (offset === 0 && (status === 404 || status === 401 || status === 403)) {
+          return null;
+        }
+        throw error;
+      }
+      const parsed = parseJellyfinEnhancedReviewPage(page);
+      if (!parsed) {
+        if (offset === 0) return null;
+        throw new Error("Unexpected Jellyfin Enhanced reviews response");
+      }
+      reviews.push(...parsed.reviews);
+      offset += parsed.reviews.length;
+      if (parsed.reviews.length === 0 || offset >= parsed.total) break;
+    }
+    return reviews;
   }
 
   // Helper method to create client from server configuration

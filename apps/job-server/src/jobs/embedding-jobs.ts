@@ -1,5 +1,6 @@
 import {
   db,
+  embeddableItemCondition,
   type Item,
   itemPeople,
   items,
@@ -275,10 +276,37 @@ async function ensureEmbeddingIndex(dimensions: number): Promise<void> {
 }
 
 /**
+ * Episodes are embedded for what happens in them. The series name, studio and
+ * the series' regular cast are identical across every episode and would pull
+ * each one toward its own franchise; the overview, plus the series' genres for
+ * context, is what distinguishes one episode from the next.
+ */
+async function prepareEpisodeTextForEmbedding(item: Item): Promise<string> {
+  const parts: string[] = [`Title: ${item.name}`, "Type: Episode"];
+  if (item.overview) parts.push(`Overview: ${item.overview}`);
+
+  let genres = item.genres ?? [];
+  if (genres.length === 0 && item.seriesId) {
+    const series = await db
+      .select({ genres: items.genres })
+      .from(items)
+      .where(eq(items.id, item.seriesId))
+      .limit(1);
+    genres = series[0]?.genres ?? [];
+  }
+  if (genres.length) parts.push(`Genres: ${genres.join(", ")}`);
+  if (item.tags?.length) parts.push(`Tags: ${item.tags.join(", ")}`);
+
+  return parts.join("\n").substring(0, DEFAULT_MAX_TEXT_LENGTH);
+}
+
+/**
  * Prepare item text for embedding.
  * Fetches people data from the normalized people/item_people tables.
  */
 async function prepareTextForEmbedding(item: Item, serverId: number): Promise<string> {
+  if (item.type === "Episode") return prepareEpisodeTextForEmbedding(item);
+
   const parts: string[] = [];
 
   parts.push(`Title: ${item.name}`);
@@ -922,7 +950,7 @@ export async function generateItemEmbeddingsJob(
           and(
             eq(items.serverId, serverId),
             eq(items.processed, false),
-            sql`${items.type} IN ('Movie', 'Series')`
+            embeddableItemCondition()
           )
         )
         .limit(ITEMS_PER_BATCH);

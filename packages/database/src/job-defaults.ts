@@ -9,6 +9,7 @@ export const CRON_JOB_KEYS = [
   "recent-items-sync",
   "user-sync",
   "people-sync",
+  "ratings-sync",
   "embeddings-sync",
   "geolocation-sync",
   "fingerprint-sync",
@@ -78,6 +79,15 @@ export const JOB_DEFAULTS: Record<JobKey, JobDefaultConfig> = {
     label: "People Sync",
     description: "Syncs actors, directors, and other people metadata",
     defaultCron: "*/15 * * * *",
+    category: "sync",
+  },
+  "ratings-sync": {
+    key: "ratings-sync",
+    type: "cron",
+    label: "Ratings Sync",
+    description:
+      "Syncs likes, favorites and Jellyfin Enhanced star reviews from Jellyfin",
+    defaultCron: "*/30 * * * *",
     category: "sync",
   },
   "embeddings-sync": {

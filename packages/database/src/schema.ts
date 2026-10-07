@@ -670,6 +670,48 @@ export const hiddenRecommendations = pgTable(
   ]
 );
 
+// Explicit per-user opinions on items, normalized to a 0-5 scale. Watch history
+// only says what someone sat through; ratings say what they actually liked, and
+// an episode rating says which content they liked, not just which series.
+// Rows are replaced per (server, user, source) on every ratings sync, so a
+// rating removed in Jellyfin disappears here too.
+export const userItemRatings = pgTable(
+  "user_item_ratings",
+  {
+    id: serial("id").primaryKey(),
+    serverId: integer("server_id")
+      .references(() => servers.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: text("user_id").notNull(), // Jellyfin user ID
+    // Null when the rated title is not (or no longer) in the library; kept so
+    // it matches as soon as the item is added.
+    itemId: text("item_id").references(() => items.id, { onDelete: "set null" }),
+    // "jellyfin-enhanced" (plugin star reviews) or "jellyfin" (likes/favorites)
+    source: text("source").notNull(),
+    // Stable key within the source: "movie:603" / "tv:1418:s4:e12" for
+    // Jellyfin Enhanced, the Jellyfin item ID for native user data.
+    sourceKey: text("source_key").notNull(),
+    rating: doublePrecision("rating").notNull(),
+    review: text("review"),
+    ratedAt: timestamp("rated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("user_item_ratings_unique").on(
+      table.serverId,
+      table.userId,
+      table.source,
+      table.sourceKey
+    ),
+    index("user_item_ratings_server_user_rating_idx").on(
+      table.serverId,
+      table.userId,
+      table.rating
+    ),
+    index("user_item_ratings_item_idx").on(table.itemId),
+  ]
+);
+
 // Activity locations table - geolocated IP data for activities
 export const activityLocations = pgTable(
   "activity_locations",
@@ -1154,6 +1196,8 @@ export type NewActivityLogCursor = typeof activityLogCursors.$inferInsert;
 
 export type HiddenRecommendation = typeof hiddenRecommendations.$inferSelect;
 export type NewHiddenRecommendation = typeof hiddenRecommendations.$inferInsert;
+export type UserItemRating = typeof userItemRatings.$inferSelect;
+export type NewUserItemRating = typeof userItemRatings.$inferInsert;
 
 export type ActivityLocation = typeof activityLocations.$inferSelect;
 export type NewActivityLocation = typeof activityLocations.$inferInsert;

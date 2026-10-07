@@ -27,6 +27,8 @@ import {
   findItemsByCharacter,
   findItemsByPerson,
 } from "@/lib/db/item-people-search";
+import { getRatedItems } from "@/lib/db/rated-items";
+import { getSimilarSeries } from "@/lib/db/similar-series-statistics";
 import {
   getSimilarItemsForItem,
   getSimilarStatistics,
@@ -358,19 +360,21 @@ export function createChatTools(
 
     getPersonalizedRecommendations: tool({
       description:
-        "Get personalized movie and series recommendations based on user's watch history using AI embeddings. Each recommendation includes a 'reason' field (e.g. 'Because you watched X and Y') and a 'basedOn' array with the watched items that led to this recommendation. Always use this data when presenting recommendations to explain what they're based on.",
+        "Get personalized movie and series recommendations from the library, seeded by what the user rated highly (4+ stars, likes, favorites) and their watch history, using AI embeddings. Only returns items the user has not watched or rated. Each recommendation includes a 'reason' field and a 'basedOn' array with the rated or watched items that led to it. Always use this data when presenting recommendations to explain what they're based on.",
       inputSchema: limitTypeSchema,
       execute: async ({ limit, type }: z.infer<typeof limitTypeSchema>) => {
-        const recommendations = await getSimilarStatistics({
-          serverId,
-          userId,
-          limit: limit * 2,
-        });
+        const [movieRecs, seriesRecs] = await Promise.all([
+          type === "Series"
+            ? Promise.resolve([])
+            : getSimilarStatistics({ serverId, userId, limit: limit * 2 }),
+          type === "Movie"
+            ? Promise.resolve([])
+            : getSimilarSeries({ serverId, userId, limit: limit * 2 }),
+        ]);
 
-        const filtered =
-          type === "all"
-            ? recommendations
-            : recommendations.filter((r) => r.item.type === type);
+        const filtered = [...movieRecs, ...seriesRecs].sort(
+          (a, b) => b.similarity - a.similarity,
+        );
 
         const enrichedRecs = filtered.slice(0, limit).map((r) => {
           const recGenres = new Set(r.item.genres || []);
@@ -385,9 +389,9 @@ export function createChatTools(
           if (basedOnItems.length > 0) {
             const baseNames = basedOnItems.map((b) => b.name);
             if (basedOnItems.length === 1) {
-              reason = `Because you watched "${baseNames[0]}"`;
+              reason = `Similar to "${baseNames[0]}"`;
             } else {
-              reason = `Because you watched "${baseNames
+              reason = `Similar to "${baseNames
                 .slice(0, -1)
                 .join('", "')}" and "${baseNames[baseNames.length - 1]}"`;
             }
@@ -418,7 +422,65 @@ export function createChatTools(
           message:
             enrichedRecs.length > 0
               ? `Found ${enrichedRecs.length} personalized recommendations with reasoning`
-              : "Unable to generate recommendations. Make sure embeddings are configured and you have watch history.",
+              : "Unable to generate recommendations. Make sure embeddings are configured and you have watch history or ratings.",
+        };
+      },
+    }),
+
+    getRatedItems: tool({
+      description:
+        "Get the movies, series and individual episodes the user has explicitly rated (Jellyfin Enhanced star reviews on a 0-5 scale, plus Jellyfin likes, dislikes and favorites), with each item's overview. Ratings are the strongest signal of taste: a highly rated episode shows which themes the user enjoys, even when the series as a whole is not a favorite. Use this to understand what the user likes before searching the library (e.g. with searchLibraryBySemanticQuery or getSimilarToItem) for things they have not seen.",
+      inputSchema: z.object({
+        minRating: z
+          .number()
+          .min(0)
+          .max(5)
+          .optional()
+          .default(4)
+          .describe("Lowest rating to include (0-5 stars)"),
+        maxRating: z
+          .number()
+          .min(0)
+          .max(5)
+          .optional()
+          .default(5)
+          .describe("Highest rating to include (0-5 stars)"),
+        type: z
+          .enum(["Movie", "Series", "Episode", "all"])
+          .optional()
+          .default("all")
+          .describe("Filter by item type"),
+        limit: z
+          .number()
+          .min(1)
+          .max(100)
+          .optional()
+          .default(25)
+          .describe("Number of items to return, highest rated first"),
+      }),
+      execute: async ({ minRating, maxRating, type, limit }) => {
+        const rated = await getRatedItems({
+          serverId,
+          userId,
+          minRating,
+          maxRating,
+          type: type === "all" ? null : type,
+          limit,
+        });
+        return {
+          items: rated.map((r) => ({
+            ...formatItem({ ...r.item, overview: r.item.overview }),
+            overview: r.item.overview?.slice(0, 300),
+            seriesName: r.item.seriesName,
+            season: r.item.parentIndexNumber,
+            episode: r.item.indexNumber,
+            userRating: r.rating,
+            userReview: r.review?.slice(0, 300) ?? undefined,
+          })),
+          message:
+            rated.length > 0
+              ? `Found ${rated.length} rated items`
+              : "No rated items found in that range",
         };
       },
     }),

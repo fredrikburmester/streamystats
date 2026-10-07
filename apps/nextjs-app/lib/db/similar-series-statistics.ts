@@ -23,6 +23,8 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
+import { getDislikeSimilarities, getUserRatingSignals } from "./rating-signals";
+import { isNearerToDislike } from "./rating-signals-pick";
 import { getMe } from "./users";
 
 const enableDebug = false;
@@ -130,6 +132,18 @@ const stripEmbedding = (
 
 const RECOMMENDATION_POOL_SIZE = 500;
 
+async function getLikedSeedCards(
+  likedItemIds: string[],
+): Promise<SeriesRecommendationCardItemWithEmbedding[]> {
+  if (likedItemIds.length === 0) return [];
+  const rows = await db
+    .select(itemCardWithEmbeddingSelect)
+    .from(items)
+    .where(and(inArray(items.id, likedItemIds), isNotNull(items.embedding)));
+  const order = new Map(likedItemIds.map((id, index) => [id, index]));
+  return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
 async function getSeriesRecommendations(
   serverIdNum: number,
   userId: string,
@@ -231,6 +245,9 @@ async function getUserSpecificSeriesRecommendations(
     viewerUserId,
   );
 
+  const ratingSignals = await getUserRatingSignals({ serverId, userId });
+  const hasLikedSeeds = ratingSignals.likedItemIds.length > 0;
+
   // Get user's watch history for episodes, aggregated by series
   // Only include series where user watched at least 2 episodes
   const userSeriesWatchHistory = await db
@@ -259,7 +276,7 @@ async function getUserSpecificSeriesRecommendations(
 
   debugLog(`📊 Found ${userSeriesWatchHistory.length} series in watch history`);
 
-  if (userSeriesWatchHistory.length === 0) {
+  if (userSeriesWatchHistory.length === 0 && !hasLikedSeeds) {
     debugLog(
       "❌ No series watch history found, returning empty recommendations",
     );
@@ -271,7 +288,7 @@ async function getUserSpecificSeriesRecommendations(
     .map((w) => w.seriesId)
     .filter((id): id is string => !!id);
 
-  if (seriesIds.length === 0) {
+  if (seriesIds.length === 0 && !hasLikedSeeds) {
     debugLog("❌ No valid series IDs found, returning empty recommendations");
     return [];
   }
@@ -329,7 +346,7 @@ async function getUserSpecificSeriesRecommendations(
     );
   });
 
-  if (watchedSeriesWithStats.length === 0) {
+  if (watchedSeriesWithStats.length === 0 && !hasLikedSeeds) {
     debugLog(
       "❌ No series with embeddings found, returning empty recommendations",
     );
@@ -355,6 +372,11 @@ async function getUserSpecificSeriesRecommendations(
 
   const hiddenItemIds = hiddenItems.map((h) => h.itemId).filter(Boolean);
   const watchedSeriesIds = watchedSeriesWithStats.map((w) => w.series.id);
+  // Anything the user rated (and the series of a rated episode) is already
+  // known to them.
+  const excludedItemIds = [
+    ...new Set([...watchedSeriesIds, ...ratingSignals.knownItemIds]),
+  ];
   debugLog(`🙈 Found ${hiddenItemIds.length} hidden items`);
 
   // Use top watched series to create recommendations
@@ -397,7 +419,19 @@ async function getUserSpecificSeriesRecommendations(
     );
   });
 
-  if (baseSeries.length === 0) {
+  // Liked items lead the seeds, ahead of watch history. A liked episode or
+  // movie seeds on its own content, so a standout episode can surface a
+  // series that shares its theme rather than its parent series' format.
+  const likedSeeds = await getLikedSeedCards(ratingSignals.likedItemIds);
+  const likedSeedIds = new Set(likedSeeds.map((item) => item.id));
+  const seedSeries: SeriesRecommendationCardItemWithEmbedding[] = [
+    ...likedSeeds,
+    ...baseSeries
+      .map((b) => b.series)
+      .filter((series) => !likedSeedIds.has(series.id)),
+  ];
+
+  if (seedSeries.length === 0) {
     debugLog("❌ No base series found, returning empty recommendations");
     return [];
   }
@@ -412,8 +446,7 @@ async function getUserSpecificSeriesRecommendations(
     }
   >();
 
-  for (const watchedSeriesItem of baseSeries) {
-    const watchedSeries = watchedSeriesItem.series;
+  for (const watchedSeries of seedSeries) {
     if (!watchedSeries.embedding) {
       debugLog(`⚠️ Skipping "${watchedSeries.name}" - no embedding`);
       continue;
@@ -441,7 +474,9 @@ async function getUserSpecificSeriesRecommendations(
           eq(items.type, "Series"),
           isNotNull(items.embedding),
           dimensionFilter,
-          notInArray(items.id, watchedSeriesIds), // Exclude already watched series
+          excludedItemIds.length > 0
+            ? notInArray(items.id, excludedItemIds)
+            : sql`true`, // Exclude already watched or rated series
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
             : sql`true`, // Exclude hidden items
@@ -486,6 +521,18 @@ async function getUserSpecificSeriesRecommendations(
 
       candidate.similarities.push(simScore);
       candidate.basedOn.push(watchedSeries);
+    }
+  }
+
+  const dislikeSimilarity = await getDislikeSimilarities({
+    dislikedItemIds: ratingSignals.dislikedItemIds,
+    candidateIds: [...candidateSeries.keys()],
+  });
+  for (const [seriesId, candidate] of candidateSeries) {
+    if (
+      isNearerToDislike(candidate.similarities, dislikeSimilarity.get(seriesId))
+    ) {
+      candidateSeries.delete(seriesId);
     }
   }
 
