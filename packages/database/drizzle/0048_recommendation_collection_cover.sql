@@ -1,0 +1,1 @@
+ALTER TABLE "recommendation_collections" ADD COLUMN "cover_item_ids" text;

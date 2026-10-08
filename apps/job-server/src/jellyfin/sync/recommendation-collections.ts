@@ -42,6 +42,26 @@ async function fetchRecommendedIds(serverId: number, userId: string): Promise<st
   return isRecord(response.data) ? stringArray(response.data.ids) : [];
 }
 
+/** A 2x2 poster collage of the given items, drawn by the web app. */
+async function fetchCollage(serverId: number, itemIds: string[]): Promise<Buffer | null> {
+  const nextjsUrl = process.env.NEXTJS_URL || "http://localhost:3000";
+  const internalKey = process.env.INTERNAL_API_KEY || process.env.SESSION_SECRET;
+  try {
+    const response = await axios.post(
+      `${nextjsUrl}/api/internal/recommendation-collage`,
+      { serverId, itemIds },
+      {
+        headers: internalKey ? { "x-internal-key": internalKey } : {},
+        responseType: "arraybuffer",
+        timeout: 60_000,
+      }
+    );
+    return Buffer.from(response.data);
+  } catch {
+    return null;
+  }
+}
+
 /** Set every user's blocked tags: their own hide tag, or none when disabling. */
 async function reconcileUserPolicies(
   client: JellyfinClient,
@@ -216,6 +236,27 @@ export async function syncRecommendationCollectionsForServer(serverId: number): 
     );
     await client.addToCollection(collectionId, add);
     await client.removeFromCollection(collectionId, remove);
+
+    // Cover: the top picks as a collage, redrawn only when they change. A
+    // failed cover is not worth failing the sync over; the next run retries.
+    const coverItemIds = ids.slice(0, 4).join(",");
+    const coverIsCurrent =
+      row?.collectionId === collectionId && row.coverItemIds === coverItemIds;
+    if (!coverIsCurrent) {
+      const collage = await fetchCollage(serverId, ids.slice(0, 4));
+      if (collage) {
+        await client.setPrimaryImage(collectionId, collage);
+        await db
+          .update(recommendationCollections)
+          .set({ coverItemIds })
+          .where(
+            and(
+              eq(recommendationCollections.serverId, serverId),
+              eq(recommendationCollections.userId, user.id)
+            )
+          );
+      }
+    }
     collections++;
   }
 

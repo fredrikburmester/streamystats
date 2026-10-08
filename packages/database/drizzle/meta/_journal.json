@@ -337,6 +337,13 @@
       "when": 1791472588201,
       "tag": "0047_recommendation_collections",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791475328218,
+      "tag": "0048_recommendation_collection_cover",
+      "breakpoints": true
     }
   ]
 }

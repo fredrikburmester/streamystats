@@ -359,6 +359,7 @@ export class JellyfinClient {
       timeoutMs?: number;
       signal?: AbortSignal;
       retries?: number;
+      headers?: Record<string, string>;
     }
   ): Promise<T> {
     const timeoutMs = options?.timeoutMs ?? this.config.timeout;
@@ -373,6 +374,7 @@ export class JellyfinClient {
           data: options?.data,
           timeout: timeoutMs,
           signal: options?.signal,
+          headers: options?.headers,
         })
       );
       return response.data;
@@ -826,6 +828,14 @@ export class JellyfinClient {
       if (axios.isAxiosError(error) && error.response?.status === 404) return null;
       throw error;
     }
+  }
+
+  /** Jellyfin takes the image as a base64 body with the image content type. */
+  async setPrimaryImage(itemId: string, jpeg: Buffer): Promise<void> {
+    await this.request("post", `/Items/${itemId}/Images/Primary`, {
+      data: jpeg.toString("base64"),
+      headers: { "Content-Type": "image/jpeg" },
+    });
   }
 
   async updateItem(itemId: string, dto: Record<string, unknown>): Promise<void> {

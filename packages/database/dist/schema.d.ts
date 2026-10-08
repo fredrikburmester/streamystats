@@ -4895,6 +4895,23 @@ export declare const recommendationCollections: import("drizzle-orm/pg-core").Pg
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        coverItemIds: import("drizzle-orm/pg-core").PgColumn<{
+            name: "cover_item_ids";
+            tableName: "recommendation_collections";
+            dataType: "string";
+            columnType: "PgText";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         updatedAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "updated_at";
             tableName: "recommendation_collections";

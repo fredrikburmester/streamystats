@@ -692,6 +692,9 @@ export const recommendationCollections = pgTable(
       .notNull(),
     userId: text("user_id").notNull(), // Jellyfin user ID
     collectionId: text("collection_id").notNull(), // Jellyfin BoxSet ID
+    // The items the current cover collage was made from, so it is only
+    // redrawn when the top of the list changes.
+    coverItemIds: text("cover_item_ids"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

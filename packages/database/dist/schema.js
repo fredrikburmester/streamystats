@@ -521,6 +521,9 @@ exports.recommendationCollections = (0, pg_core_1.pgTable)("recommendation_colle
         .notNull(),
     userId: (0, pg_core_1.text)("user_id").notNull(), // Jellyfin user ID
     collectionId: (0, pg_core_1.text)("collection_id").notNull(), // Jellyfin BoxSet ID
+    // The items the current cover collage was made from, so it is only
+    // redrawn when the top of the list changes.
+    coverItemIds: (0, pg_core_1.text)("cover_item_ids"),
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.unique)("recommendation_collections_server_user_unique").on(table.serverId, table.userId),
