@@ -105,7 +105,7 @@ export function RecommendationSettingsManager({
               Create recommendation collections in Jellyfin
             </Label>
             <p className="text-sm text-muted-foreground">
-              Keeps an "AI Recommendations for &lt;user&gt;" collection in
+              Keeps a personal "AI Recommendations" collection in
               Jellyfin for every user, refreshed hourly. Each collection is
               hidden from everyone else with{" "}
               <code>.hide-from-&lt;user&gt;</code> tags, and each user's

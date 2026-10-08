@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  collectionName,
+  collectionFolderName,
   collectionTagsFor,
   hideTagFor,
   membershipDiff,
@@ -37,8 +37,9 @@ describe("collectionTagsFor", () => {
     expect(collectionTagsFor(sarah, [sarah, twin])).toEqual([]);
   });
 
-  test("names the collection after its owner", () => {
-    expect(collectionName(sarah)).toBe("AI Recommendations for Sarah");
+  test("creates each user's collection under a unique folder name", () => {
+    expect(collectionFolderName(sarah)).toBe("AI Recommendations s1");
+    expect(collectionFolderName(sarah)).not.toBe(collectionFolderName(nullable));
   });
 });
 

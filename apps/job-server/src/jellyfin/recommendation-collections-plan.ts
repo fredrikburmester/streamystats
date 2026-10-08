@@ -15,8 +15,16 @@ export interface CollectionUser {
   name: string;
 }
 
-export function collectionName(user: CollectionUser): string {
-  return `AI Recommendations for ${user.name}`;
+/** What every user sees; each only ever sees their own collection. */
+export const COLLECTION_DISPLAY_NAME = "AI Recommendations";
+
+/**
+ * The name a collection is created with. Jellyfin keeps each collection in a
+ * folder named after it, so this stays unique per user; the displayed name is
+ * then set to COLLECTION_DISPLAY_NAME.
+ */
+export function collectionFolderName(user: CollectionUser): string {
+  return `AI Recommendations ${user.id}`;
 }
 
 /** `.hide-from-<slug>`; falls back to the user id when the name has no usable characters. */

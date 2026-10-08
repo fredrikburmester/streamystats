@@ -9,8 +9,9 @@ import {
 import { JellyfinClient } from "../client";
 import { isRecord } from "../ratings-parse";
 import {
+  COLLECTION_DISPLAY_NAME,
   COLLECTION_SIZE,
-  collectionName,
+  collectionFolderName,
   collectionTagsFor,
   hideTagFor,
   membershipDiff,
@@ -65,7 +66,7 @@ async function applyCollectionMetadata(
   owner: CollectionUser,
   tags: string[]
 ): Promise<void> {
-  const name = collectionName(owner);
+  const name = COLLECTION_DISPLAY_NAME;
   // Read as the owner: the one user the collection is never hidden from.
   const dto = await client.getItemDto(collectionId, owner.id);
   if (!dto) throw new Error(`Collection ${collectionId} disappeared`);
@@ -181,7 +182,7 @@ export async function syncRecommendationCollectionsForServer(serverId: number): 
     if (!collectionId) {
       // Created empty, recorded at once, and hidden before anything goes in.
       // If hiding fails it is deleted again rather than left visible.
-      const created = await client.createCollection(collectionName(user));
+      const created = await client.createCollection(collectionFolderName(user));
       await db
         .insert(recommendationCollections)
         .values({ serverId, userId: user.id, collectionId: created })
