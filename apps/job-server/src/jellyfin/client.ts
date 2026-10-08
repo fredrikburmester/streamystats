@@ -786,9 +786,10 @@ export class JellyfinClient {
     return id;
   }
 
-  async getCollectionMemberIds(collectionId: string): Promise<string[]> {
+  /** Members as seen by `userId` (without a user Jellyfin lists none). */
+  async getCollectionMemberIds(collectionId: string, userId: string): Promise<string[]> {
     const response = await this.request<ItemsResponse>("get", "/Items", {
-      params: { ParentId: collectionId, Recursive: false, Limit: 1000 },
+      params: { ParentId: collectionId, userId, Recursive: false, Limit: 1000 },
     });
     return (response.Items || []).map((item) => item.Id);
   }
@@ -807,10 +808,17 @@ export class JellyfinClient {
     });
   }
 
-  /** The full item DTO (needed to write metadata back), or null if gone. */
-  async getItemDto(itemId: string): Promise<Record<string, unknown> | null> {
+  /**
+   * The full item DTO (needed to write metadata back), or null if gone or not
+   * visible to `userId`. Jellyfin 10.11 rejects this read without a user.
+   */
+  async getItemDto(
+    itemId: string,
+    userId: string
+  ): Promise<Record<string, unknown> | null> {
     try {
       const item = await this.request<unknown>("get", `/Items/${itemId}`, {
+        params: { userId },
         retries: 0,
       });
       return isRecord(item) ? item : null;

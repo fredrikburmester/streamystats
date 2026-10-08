@@ -62,10 +62,12 @@ async function reconcileUserPolicies(
 async function applyCollectionMetadata(
   client: JellyfinClient,
   collectionId: string,
-  name: string,
+  owner: CollectionUser,
   tags: string[]
 ): Promise<void> {
-  const dto = await client.getItemDto(collectionId);
+  const name = collectionName(owner);
+  // Read as the owner: the one user the collection is never hidden from.
+  const dto = await client.getItemDto(collectionId, owner.id);
   if (!dto) throw new Error(`Collection ${collectionId} disappeared`);
   const locked = new Set(stringArray(dto.LockedFields));
   const needsLock = !locked.has("Tags") || !locked.has("Name");
@@ -170,24 +172,32 @@ export async function syncRecommendationCollectionsForServer(serverId: number): 
       continue;
     }
 
-    const name = collectionName(user);
     const tags = collectionTagsFor(user, jellyfinUsers);
     let collectionId =
-      row && (await client.getItemDto(row.collectionId)) ? row.collectionId : null;
+      row && (await client.getItemDto(row.collectionId, user.id))
+        ? row.collectionId
+        : null;
 
     if (!collectionId) {
-      // Created empty and hidden before anything goes in.
-      collectionId = await client.createCollection(name);
-      await applyCollectionMetadata(client, collectionId, name, tags);
+      // Created empty, recorded at once, and hidden before anything goes in.
+      // If hiding fails it is deleted again rather than left visible.
+      const created = await client.createCollection(collectionName(user));
       await db
         .insert(recommendationCollections)
-        .values({ serverId, userId: user.id, collectionId })
+        .values({ serverId, userId: user.id, collectionId: created })
         .onConflictDoUpdate({
           target: [recommendationCollections.serverId, recommendationCollections.userId],
-          set: { collectionId, updatedAt: new Date() },
+          set: { collectionId: created, updatedAt: new Date() },
         });
+      try {
+        await applyCollectionMetadata(client, created, user, tags);
+      } catch (error) {
+        await removeCollection(client, serverId, user.id, created);
+        throw error;
+      }
+      collectionId = created;
     } else {
-      await applyCollectionMetadata(client, collectionId, name, tags);
+      await applyCollectionMetadata(client, collectionId, user, tags);
       await db
         .update(recommendationCollections)
         .set({ updatedAt: new Date() })
@@ -200,7 +210,7 @@ export async function syncRecommendationCollectionsForServer(serverId: number): 
     }
 
     const { add, remove } = membershipDiff(
-      await client.getCollectionMemberIds(collectionId),
+      await client.getCollectionMemberIds(collectionId, user.id),
       ids
     );
     await client.addToCollection(collectionId, add);
