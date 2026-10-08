@@ -37,5 +37,6 @@ export {
   jellyfinRecentActivitiesSyncWorker,
   jellyfinPeopleSyncWorker,
   jellyfinRatingsSyncWorker,
+  jellyfinRecommendationCollectionsWorker,
   JELLYFIN_JOB_NAMES,
 } from "../jellyfin/workers";

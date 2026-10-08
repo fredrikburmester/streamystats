@@ -102,6 +102,27 @@ app.post("/scheduler/trigger-full-sync", async (c) => {
   }
 });
 
+app.post("/scheduler/trigger-recommendation-collections", async (c) => {
+  try {
+    const { serverId } = await c.req.json();
+    if (!serverId) {
+      return c.json({ error: "Server ID is required" }, 400);
+    }
+    const server = await getServerById(serverId);
+    if (!server) {
+      return c.json({ error: "Server not found" }, 404);
+    }
+    await activityScheduler.triggerServerRecommendationCollections(server.id);
+    return c.json({
+      success: true,
+      message: `Recommendation collections sync triggered for server: ${server.name}`,
+    });
+  } catch (error) {
+    console.error("Error triggering recommendation collections sync:", error);
+    return c.json({ error: "Failed to trigger recommendation collections sync" }, 500);
+  }
+});
+
 app.post("/scheduler/trigger-people-sync", async (c) => {
   try {
     const { serverId } = await c.req.json();

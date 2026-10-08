@@ -119,6 +119,12 @@ app.get("/servers/:serverId/status", async (c) => {
         name: JELLYFIN_JOB_NAMES.RATINGS_SYNC,
         category: "background",
       },
+      {
+        key: "jellyfin-recommendation-collections",
+        label: "Recommendation collections",
+        name: JELLYFIN_JOB_NAMES.RECOMMENDATION_COLLECTIONS,
+        category: "background",
+      },
     ];
 
     const jobNames = jobDefinitions.map((j) => j.name);
@@ -316,6 +322,7 @@ app.get("/server-status", async (c) => {
       boss.getQueueStats(JELLYFIN_JOB_NAMES.RECENT_ACTIVITIES_SYNC),
       boss.getQueueStats(JELLYFIN_JOB_NAMES.PEOPLE_SYNC),
       boss.getQueueStats(JELLYFIN_JOB_NAMES.RATINGS_SYNC),
+      boss.getQueueStats(JELLYFIN_JOB_NAMES.RECOMMENDATION_COLLECTIONS),
     ]);
     const jellyfinQueueSizes = jellyfinQueueStats.map(
       (s) => latestQueueStats(s)?.queuedCount ?? 0,
@@ -391,6 +398,7 @@ app.get("/server-status", async (c) => {
         jellyfinRecentActivitiesSync: jellyfinQueueSizes[6],
         jellyfinPeopleSync: jellyfinQueueSizes[7],
         jellyfinRatingsSync: jellyfinQueueSizes[8],
+        jellyfinRecommendationCollections: jellyfinQueueSizes[9],
         totalQueued: [...queueSizes, ...jellyfinQueueSizes].reduce(
           (sum, stat) => sum + stat,
           0

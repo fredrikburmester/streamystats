@@ -59,6 +59,7 @@ const STATUS_KEY_TO_SCHEDULER_KEY: Record<string, JobKey> = {
   "jellyfin-recent-activities-sync": "activity-sync",
   "jellyfin-people-sync": "people-sync",
   "jellyfin-ratings-sync": "ratings-sync",
+  "jellyfin-recommendation-collections": "recommendation-collections-sync",
   "generate-item-embeddings": "embeddings-sync",
 };
 

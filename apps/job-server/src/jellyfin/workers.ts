@@ -12,6 +12,7 @@ import {
 } from "./sync";
 import { syncPeopleForServer } from "./sync/people";
 import { syncRatingsForServer } from "./sync/ratings";
+import { syncRecommendationCollectionsForServer } from "./sync/recommendation-collections";
 import { getJobQueue } from "../jobs/queue";
 import { logJobResult } from "../jobs/job-logger";
 import { publishJobEvent, nowIsoMicroUtc } from "../events/job-events";
@@ -255,6 +256,39 @@ export async function jellyfinRatingsSyncWorker(job: {
   }
 }
 
+export async function jellyfinRecommendationCollectionsWorker(job: {
+  id: string;
+  data: { serverId: number };
+}): Promise<{ success: boolean; collections: number; removed: number; policiesChanged: number }> {
+  const startTime = Date.now();
+  const { serverId } = job.data;
+  try {
+    const result = await syncRecommendationCollectionsForServer(serverId);
+    await logJobResult(
+      job.id,
+      JELLYFIN_JOB_NAMES.RECOMMENDATION_COLLECTIONS,
+      "completed",
+      { serverId, ...result },
+      Date.now() - startTime
+    );
+    console.info(
+      `[recommendation-collections] serverId=${serverId} action=completed collections=${result.collections} removed=${result.removed} policiesChanged=${result.policiesChanged}`
+    );
+    return { success: true, ...result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await logJobResult(
+      job.id,
+      JELLYFIN_JOB_NAMES.RECOMMENDATION_COLLECTIONS,
+      "failed",
+      { serverId, error: message },
+      Date.now() - startTime,
+      message
+    );
+    throw error;
+  }
+}
+
 export async function jellyfinPeopleSyncWorker(job: {
   id: string;
   data: JellyfinPeopleSyncJobData;
@@ -350,4 +384,5 @@ export const JELLYFIN_JOB_NAMES = {
   RECENT_ACTIVITIES_SYNC: "jellyfin-recent-activities-sync",
   PEOPLE_SYNC: "jellyfin-people-sync",
   RATINGS_SYNC: "jellyfin-ratings-sync",
+  RECOMMENDATION_COLLECTIONS: "jellyfin-recommendation-collections",
 } as const;

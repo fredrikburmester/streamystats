@@ -103,6 +103,7 @@ export interface ServerStatusResponse {
     jellyfinRecentActivitiesSync: number;
     jellyfinPeopleSync: number;
     jellyfinRatingsSync: number;
+    jellyfinRecommendationCollections: number;
     totalQueued: number;
     standardJobsQueued: number;
     jellyfinJobsQueued: number;

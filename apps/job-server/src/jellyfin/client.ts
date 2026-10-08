@@ -4,10 +4,12 @@ import pRetry from "p-retry";
 import { Server } from "@streamystats/database";
 import { JellyfinSession } from "./types";
 import {
+  isRecord,
   parseJellyfinEnhancedReviewPage,
   parseOpinionUserData,
   type JellyfinEnhancedReview,
   type JellyfinOpinionItem,
+  type JellyfinUserWithPolicy,
 } from "./ratings-parse";
 import { getInternalUrl } from "../utils/server-url";
 import { STREAMYSTATS_VERSION } from "../utils/version";
@@ -750,6 +752,85 @@ export class JellyfinClient {
       if (parsed.pageSize === 0 || offset >= parsed.total) break;
     }
     return reviews;
+  }
+
+  /** Users with their full policy objects (needed to write a policy back). */
+  async getUsersWithPolicy(): Promise<JellyfinUserWithPolicy[]> {
+    const users = await this.request<unknown>("get", "/Users");
+    if (!Array.isArray(users)) return [];
+    const result: JellyfinUserWithPolicy[] = [];
+    for (const user of users) {
+      if (!isRecord(user)) continue;
+      const { Id, Name, Policy } = user;
+      if (typeof Id !== "string" || typeof Name !== "string") continue;
+      if (!isRecord(Policy)) continue;
+      result.push({ Id, Name, Policy });
+    }
+    return result;
+  }
+
+  /** Jellyfin replaces the whole policy, so pass the complete object. */
+  async updateUserPolicy(
+    userId: string,
+    policy: Record<string, unknown>
+  ): Promise<void> {
+    await this.request("post", `/Users/${userId}/Policy`, { data: policy });
+  }
+
+  async createCollection(name: string): Promise<string> {
+    const response = await this.request<unknown>("post", "/Collections", {
+      params: { Name: name },
+    });
+    const id = isRecord(response) ? response.Id : undefined;
+    if (typeof id !== "string") throw new Error("Collection was not created");
+    return id;
+  }
+
+  async getCollectionMemberIds(collectionId: string): Promise<string[]> {
+    const response = await this.request<ItemsResponse>("get", "/Items", {
+      params: { ParentId: collectionId, Recursive: false, Limit: 1000 },
+    });
+    return (response.Items || []).map((item) => item.Id);
+  }
+
+  async addToCollection(collectionId: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.request("post", `/Collections/${collectionId}/Items`, {
+      params: { Ids: ids.join(",") },
+    });
+  }
+
+  async removeFromCollection(collectionId: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.request("delete", `/Collections/${collectionId}/Items`, {
+      params: { Ids: ids.join(",") },
+    });
+  }
+
+  /** The full item DTO (needed to write metadata back), or null if gone. */
+  async getItemDto(itemId: string): Promise<Record<string, unknown> | null> {
+    try {
+      const item = await this.request<unknown>("get", `/Items/${itemId}`, {
+        retries: 0,
+      });
+      return isRecord(item) ? item : null;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async updateItem(itemId: string, dto: Record<string, unknown>): Promise<void> {
+    await this.request("post", `/Items/${itemId}`, { data: dto });
+  }
+
+  async deleteItem(itemId: string): Promise<void> {
+    try {
+      await this.request("delete", `/Items/${itemId}`, { retries: 0 });
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) return;
+      throw error;
+    }
   }
 
   // Helper method to create client from server configuration

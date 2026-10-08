@@ -47,3 +47,60 @@ export async function updateExcludeStartedAction(
     };
   }
 }
+
+const collectionsSchema = z.object({
+  serverId: z.number().int().positive(),
+  enabled: z.boolean(),
+});
+
+export async function updateRecommendationCollectionsAction(
+  serverId: number,
+  enabled: boolean,
+) {
+  try {
+    if (!(await isUserAdmin(serverId))) {
+      return { success: false, message: "Admin privileges required" };
+    }
+    const parsed = collectionsSchema.safeParse({ serverId, enabled });
+    if (!parsed.success) {
+      return { success: false, message: "Invalid input" };
+    }
+
+    await db
+      .update(servers)
+      .set({ recommendationCollectionsEnabled: parsed.data.enabled })
+      .where(eq(servers.id, parsed.data.serverId));
+    revalidatePath(`/servers/${parsed.data.serverId}/settings/ai`);
+
+    // Create (or remove) the collections now rather than at the next run.
+    const jobServerUrl =
+      process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
+        ? process.env.JOB_SERVER_URL
+        : "http://localhost:3005";
+    try {
+      await fetch(
+        `${jobServerUrl}/api/jobs/scheduler/trigger-recommendation-collections`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ serverId: parsed.data.serverId }),
+        },
+      );
+    } catch {
+      // The scheduled run picks it up.
+    }
+
+    return {
+      success: true,
+      message: parsed.data.enabled
+        ? "Recommendation collections enabled"
+        : "Recommendation collections will be removed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Failed to update settings",
+    };
+  }
+}

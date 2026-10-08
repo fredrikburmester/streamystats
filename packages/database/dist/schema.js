@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.userItemRatings = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
+exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.userItemRatings = exports.recommendationCollections = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 // Custom vector type that supports variable dimensions
 // This allows storing embeddings of any size without hardcoding dimensions
@@ -83,6 +83,11 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
     // session, any episode of a series, or another copy of the same title)
     // instead of only what they watched past halfway.
     recommendationsExcludeStarted: (0, pg_core_1.boolean)("recommendations_exclude_started")
+        .default(false)
+        .notNull(),
+    // When on, a scheduled job keeps an "AI Recommendations for <user>"
+    // collection in Jellyfin per user, hidden from everyone else via tags.
+    recommendationCollectionsEnabled: (0, pg_core_1.boolean)("recommendation_collections_enabled")
         .default(false)
         .notNull(),
     // Statistics exclusion settings
@@ -506,6 +511,19 @@ exports.hiddenRecommendations = (0, pg_core_1.pgTable)("hidden_recommendations",
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     (0, pg_core_1.index)("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
+]);
+// Jellyfin collections Streamystats manages, one per user, so the sync can
+// find, update and remove exactly the collections it created.
+exports.recommendationCollections = (0, pg_core_1.pgTable)("recommendation_collections", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    serverId: (0, pg_core_1.integer)("server_id")
+        .references(() => exports.servers.id, { onDelete: "cascade" })
+        .notNull(),
+    userId: (0, pg_core_1.text)("user_id").notNull(), // Jellyfin user ID
+    collectionId: (0, pg_core_1.text)("collection_id").notNull(), // Jellyfin BoxSet ID
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    (0, pg_core_1.unique)("recommendation_collections_server_user_unique").on(table.serverId, table.userId),
 ]);
 // Explicit per-user opinions on items, normalized to a 0-5 scale. Watch history
 // only says what someone sat through; ratings say what they actually liked, and

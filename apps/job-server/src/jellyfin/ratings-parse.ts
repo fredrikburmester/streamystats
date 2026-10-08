@@ -4,6 +4,12 @@ export interface OpinionUserData {
   Likes: boolean | null;
 }
 
+export interface JellyfinUserWithPolicy {
+  Id: string;
+  Name: string;
+  Policy: Record<string, unknown>;
+}
+
 export interface JellyfinOpinionItem {
   Id: string;
   UserData: OpinionUserData;
@@ -26,7 +32,7 @@ export type ReviewTarget =
   | { kind: "season"; seriesTmdbId: string; season: number }
   | { kind: "episode"; seriesTmdbId: string; season: number; episode: number };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

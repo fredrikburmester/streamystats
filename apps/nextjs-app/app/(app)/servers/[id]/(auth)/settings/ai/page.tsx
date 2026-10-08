@@ -25,6 +25,7 @@ export default async function AISettings(props: {
         <RecommendationSettingsManager
           serverId={server.id}
           excludeStarted={server.recommendationsExcludeStarted}
+          collectionsEnabled={server.recommendationCollectionsEnabled}
         />
       </div>
     </Container>

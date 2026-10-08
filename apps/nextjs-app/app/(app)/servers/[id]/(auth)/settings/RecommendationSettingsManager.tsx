@@ -12,17 +12,25 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { updateExcludeStartedAction } from "./recommendation-actions";
+import {
+  updateExcludeStartedAction,
+  updateRecommendationCollectionsAction,
+} from "./recommendation-actions";
 
 interface RecommendationSettingsManagerProps {
   serverId: number;
   excludeStarted: boolean;
+  collectionsEnabled: boolean;
 }
 
 export function RecommendationSettingsManager({
   serverId,
   excludeStarted: initialExcludeStarted,
+  collectionsEnabled: initialCollectionsEnabled,
 }: RecommendationSettingsManagerProps) {
+  const [collectionsEnabled, setCollectionsEnabled] = useState(
+    initialCollectionsEnabled,
+  );
   const [excludeStarted, setExcludeStarted] = useState(initialExcludeStarted);
   const [isPending, startTransition] = useTransition();
 
@@ -38,6 +46,22 @@ export function RecommendationSettingsManager({
         );
       } else {
         setExcludeStarted(!checked);
+        toast.error(result.message || "Failed to update settings");
+      }
+    });
+  };
+
+  const handleCollectionsToggle = (checked: boolean) => {
+    setCollectionsEnabled(checked);
+    startTransition(async () => {
+      const result = await updateRecommendationCollectionsAction(
+        serverId,
+        checked,
+      );
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        setCollectionsEnabled(!checked);
         toast.error(result.message || "Failed to update settings");
       }
     });
@@ -72,6 +96,28 @@ export function RecommendationSettingsManager({
             id="exclude-started"
             checked={excludeStarted}
             onCheckedChange={handleToggle}
+            disabled={isPending}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-4 mt-6">
+          <div className="space-y-1">
+            <Label htmlFor="recommendation-collections">
+              Create recommendation collections in Jellyfin
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Keeps an "AI Recommendations for &lt;user&gt;" collection in
+              Jellyfin for every user, refreshed hourly. Each collection is
+              hidden from everyone else with{" "}
+              <code>.hide-from-&lt;user&gt;</code> tags, and each user's
+              parental control gets their own <code>.hide-from-</code> tag added
+              to its blocked tags. Turning this off removes the collections and
+              those tags.
+            </p>
+          </div>
+          <Switch
+            id="recommendation-collections"
+            checked={collectionsEnabled}
+            onCheckedChange={handleCollectionsToggle}
             disabled={isPending}
           />
         </div>

@@ -10,6 +10,7 @@ export const CRON_JOB_KEYS = [
   "user-sync",
   "people-sync",
   "ratings-sync",
+  "recommendation-collections-sync",
   "embeddings-sync",
   "geolocation-sync",
   "fingerprint-sync",
@@ -88,6 +89,15 @@ export const JOB_DEFAULTS: Record<JobKey, JobDefaultConfig> = {
     description:
       "Syncs likes, favorites and Jellyfin Enhanced star reviews from Jellyfin",
     defaultCron: "*/30 * * * *",
+    category: "sync",
+  },
+  "recommendation-collections-sync": {
+    key: "recommendation-collections-sync",
+    type: "cron",
+    label: "Recommendation Collections",
+    description:
+      "Keeps each user's AI recommendations collection in Jellyfin up to date (when enabled)",
+    defaultCron: "20 * * * *",
     category: "sync",
   },
   "embeddings-sync": {

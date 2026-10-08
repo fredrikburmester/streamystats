@@ -154,6 +154,11 @@ export const servers = pgTable(
     recommendationsExcludeStarted: boolean("recommendations_exclude_started")
       .default(false)
       .notNull(),
+    // When on, a scheduled job keeps an "AI Recommendations for <user>"
+    // collection in Jellyfin per user, hidden from everyone else via tags.
+    recommendationCollectionsEnabled: boolean("recommendation_collections_enabled")
+      .default(false)
+      .notNull(),
 
     // Statistics exclusion settings
     // Users and libraries in these arrays will be hidden from all statistics
@@ -673,6 +678,27 @@ export const hiddenRecommendations = pgTable(
   },
   (table) => [
     index("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
+  ]
+);
+
+// Jellyfin collections Streamystats manages, one per user, so the sync can
+// find, update and remove exactly the collections it created.
+export const recommendationCollections = pgTable(
+  "recommendation_collections",
+  {
+    id: serial("id").primaryKey(),
+    serverId: integer("server_id")
+      .references(() => servers.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: text("user_id").notNull(), // Jellyfin user ID
+    collectionId: text("collection_id").notNull(), // Jellyfin BoxSet ID
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("recommendation_collections_server_user_unique").on(
+      table.serverId,
+      table.userId
+    ),
   ]
 );
 
@@ -1203,6 +1229,7 @@ export type NewActivityLogCursor = typeof activityLogCursors.$inferInsert;
 export type HiddenRecommendation = typeof hiddenRecommendations.$inferSelect;
 export type NewHiddenRecommendation = typeof hiddenRecommendations.$inferInsert;
 export type UserItemRating = typeof userItemRatings.$inferSelect;
+export type RecommendationCollection = typeof recommendationCollections.$inferSelect;
 export type NewUserItemRating = typeof userItemRatings.$inferInsert;
 
 export type ActivityLocation = typeof activityLocations.$inferSelect;

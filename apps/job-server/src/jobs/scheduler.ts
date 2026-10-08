@@ -69,6 +69,11 @@ const SCHEDULER_JOB_CONFIG: Record<JobKey, {
     buildData: (serverId) => ({ serverId }),
     sendOptions: SEND_OPTIONS.STANDARD,
   },
+  "recommendation-collections-sync": {
+    pgBossName: JELLYFIN_JOB_NAMES.RECOMMENDATION_COLLECTIONS,
+    buildData: (serverId) => ({ serverId }),
+    sendOptions: SEND_OPTIONS.STANDARD,
+  },
   "embeddings-sync": {
     pgBossName: "generate-item-embeddings",
     buildData: (serverId) => ({ serverId, batchSize: 50 }),
@@ -815,6 +820,21 @@ class SyncScheduler {
    * Manually trigger people sync for a specific server.
    * Syncs actors, directors, and other people data from Jellyfin.
    */
+  async triggerServerRecommendationCollections(serverId: number): Promise<void> {
+    const boss = await getJobQueue();
+    await boss.send(
+      JELLYFIN_JOB_NAMES.RECOMMENDATION_COLLECTIONS,
+      { serverId },
+      {
+        singletonKey: `jellyfin-recommendation-collections-${serverId}`,
+        expireInSeconds: 3600,
+        retryLimit: 1,
+        retryDelay: 60,
+      }
+    );
+    console.log(`[scheduler] queued=manual-recommendation-collections serverId=${serverId}`);
+  }
+
   async triggerServerPeopleSync(serverId: number): Promise<void> {
     try {
       const boss = await getJobQueue();
@@ -883,6 +903,7 @@ class SyncScheduler {
         userSync: getDefaultCron("user-sync"),
         peopleSync: getDefaultCron("people-sync"),
         ratingsSync: getDefaultCron("ratings-sync"),
+        recommendationCollectionsSync: getDefaultCron("recommendation-collections-sync"),
         embeddingsSync: getDefaultCron("embeddings-sync"),
         geolocationSync: getDefaultCron("geolocation-sync"),
         fingerprintSync: getDefaultCron("fingerprint-sync"),
