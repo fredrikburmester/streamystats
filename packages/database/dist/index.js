@@ -17,7 +17,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.migrate = exports.getDb = exports.getDatabaseUrl = exports.getClient = exports.closeConnection = exports.database = exports.db = exports.client = void 0;
+exports.migrate = exports.embeddableItemCondition = exports.resolveDatabaseUrl = exports.loadFileEnv = exports.FILE_ENV_VARS = exports.buildDatabaseUrl = exports.getDb = exports.getDatabaseUrl = exports.getClient = exports.closeConnection = exports.database = exports.db = exports.client = void 0;
 // Export the database connection (lazy-init; safe to import in Next.js build/SSG)
 var connection_1 = require("./connection");
 Object.defineProperty(exports, "client", { enumerable: true, get: function () { return connection_1.client; } });
@@ -27,12 +27,19 @@ Object.defineProperty(exports, "closeConnection", { enumerable: true, get: funct
 Object.defineProperty(exports, "getClient", { enumerable: true, get: function () { return connection_1.getClient; } });
 Object.defineProperty(exports, "getDatabaseUrl", { enumerable: true, get: function () { return connection_1.getDatabaseUrl; } });
 Object.defineProperty(exports, "getDb", { enumerable: true, get: function () { return connection_1.getDb; } });
+var env_1 = require("./env");
+Object.defineProperty(exports, "buildDatabaseUrl", { enumerable: true, get: function () { return env_1.buildDatabaseUrl; } });
+Object.defineProperty(exports, "FILE_ENV_VARS", { enumerable: true, get: function () { return env_1.FILE_ENV_VARS; } });
+Object.defineProperty(exports, "loadFileEnv", { enumerable: true, get: function () { return env_1.loadFileEnv; } });
+Object.defineProperty(exports, "resolveDatabaseUrl", { enumerable: true, get: function () { return env_1.resolveDatabaseUrl; } });
 // Export all schema tables and types
 __exportStar(require("./schema"), exports);
 __exportStar(require("./user-merge"), exports);
 __exportStar(require("./user-merge-backup"), exports);
 // Export job defaults
 __exportStar(require("./job-defaults"), exports);
+var embeddable_1 = require("./embeddable");
+Object.defineProperty(exports, "embeddableItemCondition", { enumerable: true, get: function () { return embeddable_1.embeddableItemCondition; } });
 // Export migration utilities
 var migrate_1 = require("./migrate");
 Object.defineProperty(exports, "migrate", { enumerable: true, get: function () { return migrate_1.migrate; } });

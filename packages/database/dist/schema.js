@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.userItemRatings = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.userMergeAudit = exports.userMerges = exports.users = exports.libraries = exports.servers = void 0;
+exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.userItemRatings = exports.userRecommendationProfiles = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.userMergeAudit = exports.userMerges = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 // Custom vector type that supports variable dimensions
 // This allows storing embeddings of any size without hardcoding dimensions
@@ -542,6 +542,29 @@ exports.hiddenRecommendations = (0, pg_core_1.pgTable)("hidden_recommendations",
         foreignColumns: [exports.items.serverId, exports.items.id],
     }).onDelete("cascade"),
     (0, pg_core_1.index)("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
+]);
+// How each user wants their recommendations steered. Themes are embedded with
+// the server's embedding model when saved, so they compare directly against
+// item embeddings.
+exports.userRecommendationProfiles = (0, pg_core_1.pgTable)("user_recommendation_profiles", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    serverId: (0, pg_core_1.integer)("server_id")
+        .references(() => exports.servers.id, { onDelete: "cascade" })
+        .notNull(),
+    userId: (0, pg_core_1.text)("user_id").notNull(), // Jellyfin user ID
+    likesText: (0, pg_core_1.text)("likes_text").default("").notNull(),
+    dislikesText: (0, pg_core_1.text)("dislikes_text").default("").notNull(),
+    likeThemes: (0, pg_core_1.jsonb)("like_themes").$type().default([]).notNull(),
+    dislikeThemes: (0, pg_core_1.jsonb)("dislike_themes").$type().default([]).notNull(),
+    // Off: watch history no longer steers recommendations (watched titles are
+    // still never recommended). For shared viewing that isn't your taste.
+    useWatchHistory: (0, pg_core_1.boolean)("use_watch_history").default(true).notNull(),
+    // On: skip anything started at all (any session, any episode of a series,
+    // or another copy of the same title), not only what was watched past half.
+    excludeStarted: (0, pg_core_1.boolean)("exclude_started").default(false).notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    (0, pg_core_1.unique)("user_recommendation_profiles_server_user_unique").on(table.serverId, table.userId),
 ]);
 // Explicit per-user opinions on items, normalized to a 0-5 scale. Watch history
 // only says what someone sat through; ratings say what they actually liked, and

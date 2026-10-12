@@ -194,6 +194,7 @@ export function RecommendationsSection({
                       item,
                       basedOn = [],
                       similarity = 0,
+                      matchedThemes = [],
                     } = recommendation;
 
                     return (
@@ -280,6 +281,14 @@ export function RecommendationsSection({
                               </div>
                             </Link>
 
+                            {matchedThemes.length > 0 && (
+                              <div className="px-3 pb-2 pt-1.5 border-t border-border/50 text-[10px] text-muted-foreground">
+                                Matches your interest in{" "}
+                                <span className="font-medium text-foreground">
+                                  {matchedThemes.slice(0, 2).join(", ")}
+                                </span>
+                              </div>
+                            )}
                             {basedOn.length > 0 && (
                               <div className="px-3 pb-3 space-y-1.5 pt-1.5 border-t border-border/50 bg-gradient-to-b from-card to-card/95">
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

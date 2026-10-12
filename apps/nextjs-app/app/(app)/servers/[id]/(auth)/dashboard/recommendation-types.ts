@@ -30,4 +30,6 @@ export type RecommendationListItem = {
   item: RecommendationCardItem;
   similarity: number;
   basedOn: RecommendationCardItem[];
+  /** The user's own stated interests this matches. */
+  matchedThemes?: string[];
 };
