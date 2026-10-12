@@ -11,6 +11,7 @@ import {
   SyncOptions,
 } from "./sync";
 import { syncPeopleForServer } from "./sync/people";
+import { syncRatingsForServer } from "./sync/ratings";
 import { getJobQueue } from "../jobs/queue";
 import { logJobResult } from "../jobs/job-logger";
 import { publishJobEvent, nowIsoMicroUtc } from "../events/job-events";
@@ -35,6 +36,10 @@ export interface JellyfinServerSyncJobData {
 }
 
 export interface JellyfinPeopleSyncJobData {
+  serverId: number;
+}
+
+export interface JellyfinRatingsSyncJobData {
   serverId: number;
 }
 
@@ -214,6 +219,42 @@ export const jellyfinRecentActivitiesSyncWorker = createSyncWorker("recent_activ
 /**
  * People sync job worker - syncs people data to the people and item_people tables
  */
+export async function jellyfinRatingsSyncWorker(job: {
+  id: string;
+  data: JellyfinRatingsSyncJobData;
+}): Promise<{ success: boolean; native: number; enhanced: number | null; unmatched: number }> {
+  const startTime = Date.now();
+  const { serverId } = job.data;
+  try {
+    await logJobResult(
+      job.id,
+      JELLYFIN_JOB_NAMES.RATINGS_SYNC,
+      "processing",
+      { serverId, status: "starting" },
+      Date.now() - startTime
+    );
+    const result = await syncRatingsForServer(serverId);
+    await logJobResult(
+      job.id,
+      JELLYFIN_JOB_NAMES.RATINGS_SYNC,
+      "completed",
+      { serverId, ...result },
+      Date.now() - startTime
+    );
+    return { success: true, ...result };
+  } catch (error) {
+    await logJobResult(
+      job.id,
+      JELLYFIN_JOB_NAMES.RATINGS_SYNC,
+      "failed",
+      { serverId, error: error instanceof Error ? error.message : String(error) },
+      Date.now() - startTime,
+      error instanceof Error ? error.message : String(error)
+    );
+    throw error;
+  }
+}
+
 export async function jellyfinPeopleSyncWorker(job: {
   id: string;
   data: JellyfinPeopleSyncJobData;
@@ -308,4 +349,5 @@ export const JELLYFIN_JOB_NAMES = {
   RECENT_ITEMS_SYNC: "jellyfin-recent-items-sync",
   RECENT_ACTIVITIES_SYNC: "jellyfin-recent-activities-sync",
   PEOPLE_SYNC: "jellyfin-people-sync",
+  RATINGS_SYNC: "jellyfin-ratings-sync",
 } as const;
