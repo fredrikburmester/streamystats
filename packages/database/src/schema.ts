@@ -715,6 +715,43 @@ export const hiddenRecommendations = pgTable(
   ]
 );
 
+/** A short phrase from a taste profile and its embedding. */
+export interface TasteTheme {
+  text: string;
+  embedding: number[];
+}
+
+// How each user wants their recommendations steered. Themes are embedded with
+// the server's embedding model when saved, so they compare directly against
+// item embeddings.
+export const userRecommendationProfiles = pgTable(
+  "user_recommendation_profiles",
+  {
+    id: serial("id").primaryKey(),
+    serverId: integer("server_id")
+      .references(() => servers.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: text("user_id").notNull(), // Jellyfin user ID
+    likesText: text("likes_text").default("").notNull(),
+    dislikesText: text("dislikes_text").default("").notNull(),
+    likeThemes: jsonb("like_themes").$type<TasteTheme[]>().default([]).notNull(),
+    dislikeThemes: jsonb("dislike_themes").$type<TasteTheme[]>().default([]).notNull(),
+    // Off: watch history no longer steers recommendations (watched titles are
+    // still never recommended). For shared viewing that isn't your taste.
+    useWatchHistory: boolean("use_watch_history").default(true).notNull(),
+    // On: skip anything started at all (any session, any episode of a series,
+    // or another copy of the same title), not only what was watched past half.
+    excludeStarted: boolean("exclude_started").default(false).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("user_recommendation_profiles_server_user_unique").on(
+      table.serverId,
+      table.userId
+    ),
+  ]
+);
+
 // Explicit per-user opinions on items, normalized to a 0-5 scale. Watch history
 // only says what someone sat through; ratings say what they actually liked, and
 // an episode rating says which content they liked, not just which series.
@@ -1259,6 +1296,7 @@ export type NewActivityLogCursor = typeof activityLogCursors.$inferInsert;
 export type HiddenRecommendation = typeof hiddenRecommendations.$inferSelect;
 export type NewHiddenRecommendation = typeof hiddenRecommendations.$inferInsert;
 export type UserItemRating = typeof userItemRatings.$inferSelect;
+export type UserRecommendationProfile = typeof userRecommendationProfiles.$inferSelect;
 export type NewUserItemRating = typeof userItemRatings.$inferInsert;
 
 export type ActivityLocation = typeof activityLocations.$inferSelect;

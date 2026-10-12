@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { Container } from "@/components/Container";
 import { InferWatchtimeSetting } from "./InferWatchtimeSetting";
+import { RecommendationProfileSetting } from "./RecommendationProfileSetting";
 
 export default function UserSettingsPage() {
   const params = useParams();
@@ -19,6 +20,7 @@ export default function UserSettingsPage() {
         </div>
 
         <div className="space-y-4">
+          <RecommendationProfileSetting serverId={serverId} />
           <InferWatchtimeSetting serverId={serverId} />
         </div>
       </div>
