@@ -112,7 +112,7 @@ describe.skipIf(!url)("permanent user merge (PostgreSQL)", () => {
     sourceListId = lists[0].id;
     await database
       .insert(watchlistItems)
-      .values({ watchlistId: sourceListId, itemId });
+      .values({ serverId, watchlistId: sourceListId, itemId });
     await database
       .insert(hiddenRecommendations)
       .values(
