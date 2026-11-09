@@ -94,7 +94,7 @@ exports.servers = (0, pg_core_1.pgTable)("servers", {
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [(0, pg_core_1.unique)("servers_url_unique").on(table.url)]);
 exports.libraries = (0, pg_core_1.pgTable)("libraries", {
-    id: (0, pg_core_1.text)("id").primaryKey(), // External library ID from server
+    id: (0, pg_core_1.text)("id").notNull(), // External library ID from server
     name: (0, pg_core_1.text)("name").notNull(),
     type: (0, pg_core_1.text)("type").notNull(), // Movie, TV, Music, etc.
     serverId: (0, pg_core_1.integer)("server_id")
@@ -103,6 +103,7 @@ exports.libraries = (0, pg_core_1.pgTable)("libraries", {
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+    (0, pg_core_1.primaryKey)({ columns: [table.serverId, table.id] }),
     (0, pg_core_1.index)("libraries_server_id_idx").on(table.serverId),
 ]);
 // Users table - users from various servers
@@ -279,13 +280,11 @@ exports.serverJobConfigurations = (0, pg_core_1.pgTable)("server_job_configurati
 // Items table - media items within servers
 exports.items = (0, pg_core_1.pgTable)("items", {
     // Primary key and relationships
-    id: (0, pg_core_1.text)("id").primaryKey(),
+    id: (0, pg_core_1.text)("id").notNull(),
     serverId: (0, pg_core_1.integer)("server_id")
         .notNull()
         .references(() => exports.servers.id, { onDelete: "cascade" }),
-    libraryId: (0, pg_core_1.text)("library_id")
-        .notNull()
-        .references(() => exports.libraries.id, { onDelete: "cascade" }),
+    libraryId: (0, pg_core_1.text)("library_id").notNull(),
     // Core metadata fields
     name: (0, pg_core_1.text)("name").notNull(),
     type: (0, pg_core_1.text)("type").notNull(), // Movie, Episode, Series, etc.
@@ -368,6 +367,12 @@ exports.items = (0, pg_core_1.pgTable)("items", {
 // CREATE INDEX items_embedding_idx ON items USING hnsw ((embedding::vector(N)) vector_cosine_ops)
 // WHERE vector_dims(embedding) = N;
 (table) => [
+    (0, pg_core_1.foreignKey)({
+        name: "items_libraries_server_fk",
+        columns: [table.serverId, table.libraryId],
+        foreignColumns: [exports.libraries.serverId, exports.libraries.id],
+    }).onDelete("cascade"),
+    (0, pg_core_1.primaryKey)({ columns: [table.serverId, table.id] }),
     (0, pg_core_1.index)("items_server_type_idx").on(table.serverId, table.type),
     (0, pg_core_1.index)("items_series_id_idx").on(table.seriesId),
     (0, pg_core_1.index)("items_library_id_idx").on(table.libraryId),
@@ -375,10 +380,8 @@ exports.items = (0, pg_core_1.pgTable)("items", {
 ]);
 // Media sources table - file information for items (size, bitrate, etc.)
 exports.mediaSources = (0, pg_core_1.pgTable)("media_sources", {
-    id: (0, pg_core_1.text)("id").primaryKey(), // MediaSource ID from Jellyfin
-    itemId: (0, pg_core_1.text)("item_id")
-        .notNull()
-        .references(() => exports.items.id, { onDelete: "cascade" }),
+    id: (0, pg_core_1.text)("id").notNull(), // MediaSource ID from Jellyfin
+    itemId: (0, pg_core_1.text)("item_id").notNull(),
     serverId: (0, pg_core_1.integer)("server_id")
         .notNull()
         .references(() => exports.servers.id, { onDelete: "cascade" }),
@@ -395,6 +398,12 @@ exports.mediaSources = (0, pg_core_1.pgTable)("media_sources", {
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+    (0, pg_core_1.foreignKey)({
+        name: "media_sources_items_server_fk",
+        columns: [table.serverId, table.itemId],
+        foreignColumns: [exports.items.serverId, exports.items.id],
+    }).onDelete("cascade"),
+    (0, pg_core_1.primaryKey)({ columns: [table.serverId, table.id] }),
     (0, pg_core_1.index)("media_sources_item_id_idx").on(table.itemId),
     (0, pg_core_1.index)("media_sources_server_id_idx").on(table.serverId),
 ]);
@@ -408,9 +417,7 @@ exports.sessions = (0, pg_core_1.pgTable)("sessions", {
     userId: (0, pg_core_1.text)("user_id").references(() => exports.users.id, {
         onDelete: "set null",
     }),
-    itemId: (0, pg_core_1.text)("item_id").references(() => exports.items.id, {
-        onDelete: "set null",
-    }),
+    itemId: (0, pg_core_1.text)("item_id"),
     // User information
     userName: (0, pg_core_1.text)("user_name").notNull(),
     userServerId: (0, pg_core_1.text)("user_server_id"), // User ID from Jellyfin server
@@ -482,6 +489,12 @@ exports.sessions = (0, pg_core_1.pgTable)("sessions", {
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+    // Migration limits SET NULL to item_id, preserving the session server.
+    (0, pg_core_1.foreignKey)({
+        name: "sessions_items_server_fk",
+        columns: [table.serverId, table.itemId],
+        foreignColumns: [exports.items.serverId, exports.items.id],
+    }).onDelete("set null"),
     // Performance indexes for common query patterns
     (0, pg_core_1.index)("sessions_server_user_idx").on(table.serverId, table.userId),
     (0, pg_core_1.index)("sessions_server_item_idx").on(table.serverId, table.itemId),
@@ -520,11 +533,14 @@ exports.hiddenRecommendations = (0, pg_core_1.pgTable)("hidden_recommendations",
         .references(() => exports.servers.id, { onDelete: "cascade" })
         .notNull(),
     userId: (0, pg_core_1.text)("user_id").notNull(), // Jellyfin user ID
-    itemId: (0, pg_core_1.text)("item_id")
-        .references(() => exports.items.id, { onDelete: "cascade" })
-        .notNull(),
+    itemId: (0, pg_core_1.text)("item_id").notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+    (0, pg_core_1.foreignKey)({
+        name: "hidden_recommendations_items_server_fk",
+        columns: [table.serverId, table.itemId],
+        foreignColumns: [exports.items.serverId, exports.items.id],
+    }).onDelete("cascade"),
     (0, pg_core_1.index)("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
 ]);
 // Activity locations table - geolocated IP data for activities
@@ -638,9 +654,7 @@ exports.people = (0, pg_core_1.pgTable)("people", {
 // (e.g., Clint Eastwood can be Actor in one movie and Director in another)
 exports.itemPeople = (0, pg_core_1.pgTable)("item_people", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
-    itemId: (0, pg_core_1.text)("item_id")
-        .notNull()
-        .references(() => exports.items.id, { onDelete: "cascade" }),
+    itemId: (0, pg_core_1.text)("item_id").notNull(),
     personId: (0, pg_core_1.text)("person_id").notNull(),
     serverId: (0, pg_core_1.integer)("server_id")
         .notNull()
@@ -650,8 +664,13 @@ exports.itemPeople = (0, pg_core_1.pgTable)("item_people", {
     sortOrder: (0, pg_core_1.integer)("sort_order"),
     createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+    (0, pg_core_1.foreignKey)({
+        name: "item_people_items_server_fk",
+        columns: [table.serverId, table.itemId],
+        foreignColumns: [exports.items.serverId, exports.items.id],
+    }).onDelete("cascade"),
     // Unique per item+person+type (same person can be Actor AND Director in same item)
-    (0, pg_core_1.unique)("item_people_unique").on(table.itemId, table.personId, table.type),
+    (0, pg_core_1.unique)("item_people_unique").on(table.serverId, table.itemId, table.personId, table.type),
     (0, pg_core_1.index)("item_people_person_idx").on(table.personId, table.serverId),
     (0, pg_core_1.index)("item_people_item_idx").on(table.itemId),
     (0, pg_core_1.index)("item_people_type_idx").on(table.serverId, table.type),
@@ -674,6 +693,7 @@ exports.watchlists = (0, pg_core_1.pgTable)("watchlists", {
     // Full-text search vector - populated by database trigger
     searchVector: tsvector("search_vector"),
 }, (table) => [
+    (0, pg_core_1.unique)("watchlists_server_id_id_unique").on(table.serverId, table.id),
     (0, pg_core_1.index)("watchlists_server_user_idx").on(table.serverId, table.userId),
     (0, pg_core_1.index)("watchlists_server_public_idx").on(table.serverId, table.isPublic),
     (0, pg_core_1.index)("watchlists_server_promoted_idx").on(table.serverId, table.isPromoted),
@@ -682,15 +702,22 @@ exports.watchlists = (0, pg_core_1.pgTable)("watchlists", {
 // Watchlist items junction table - items within watchlists
 exports.watchlistItems = (0, pg_core_1.pgTable)("watchlist_items", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
-    watchlistId: (0, pg_core_1.integer)("watchlist_id")
-        .notNull()
-        .references(() => exports.watchlists.id, { onDelete: "cascade" }),
-    itemId: (0, pg_core_1.text)("item_id")
-        .notNull()
-        .references(() => exports.items.id, { onDelete: "cascade" }),
+    serverId: (0, pg_core_1.integer)("server_id").notNull(),
+    watchlistId: (0, pg_core_1.integer)("watchlist_id").notNull(),
+    itemId: (0, pg_core_1.text)("item_id").notNull(),
     position: (0, pg_core_1.integer)("position").notNull().default(0), // For custom ordering
     addedAt: (0, pg_core_1.timestamp)("added_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+    (0, pg_core_1.foreignKey)({
+        name: "watchlist_items_watchlist_server_fk",
+        columns: [table.serverId, table.watchlistId],
+        foreignColumns: [exports.watchlists.serverId, exports.watchlists.id],
+    }).onDelete("cascade"),
+    (0, pg_core_1.foreignKey)({
+        name: "watchlist_items_items_server_fk",
+        columns: [table.serverId, table.itemId],
+        foreignColumns: [exports.items.serverId, exports.items.id],
+    }).onDelete("cascade"),
     (0, pg_core_1.index)("watchlist_items_watchlist_idx").on(table.watchlistId),
     (0, pg_core_1.index)("watchlist_items_item_idx").on(table.itemId),
     (0, pg_core_1.unique)("watchlist_items_unique").on(table.watchlistId, table.itemId),
@@ -751,12 +778,12 @@ exports.itemsRelations = (0, drizzle_orm_1.relations)(exports.items, ({ one, man
         references: [exports.servers.id],
     }),
     library: one(exports.libraries, {
-        fields: [exports.items.libraryId],
-        references: [exports.libraries.id],
+        fields: [exports.items.serverId, exports.items.libraryId],
+        references: [exports.libraries.serverId, exports.libraries.id],
     }),
     parent: one(exports.items, {
-        fields: [exports.items.parentId],
-        references: [exports.items.id],
+        fields: [exports.items.serverId, exports.items.parentId],
+        references: [exports.items.serverId, exports.items.id],
     }),
     sessions: many(exports.sessions),
     hiddenRecommendations: many(exports.hiddenRecommendations),
@@ -773,8 +800,8 @@ exports.sessionsRelations = (0, drizzle_orm_1.relations)(exports.sessions, ({ on
         references: [exports.users.id],
     }),
     item: one(exports.items, {
-        fields: [exports.sessions.itemId],
-        references: [exports.items.id],
+        fields: [exports.sessions.serverId, exports.sessions.itemId],
+        references: [exports.items.serverId, exports.items.id],
     }),
 }));
 exports.activityLocationsRelations = (0, drizzle_orm_1.relations)(exports.activityLocations, ({ one }) => ({
@@ -813,8 +840,8 @@ exports.hiddenRecommendationsRelations = (0, drizzle_orm_1.relations)(exports.hi
         references: [exports.servers.id],
     }),
     item: one(exports.items, {
-        fields: [exports.hiddenRecommendations.itemId],
-        references: [exports.items.id],
+        fields: [exports.hiddenRecommendations.serverId, exports.hiddenRecommendations.itemId],
+        references: [exports.items.serverId, exports.items.id],
     }),
 }));
 exports.watchlistsRelations = (0, drizzle_orm_1.relations)(exports.watchlists, ({ one, many }) => ({
@@ -826,12 +853,12 @@ exports.watchlistsRelations = (0, drizzle_orm_1.relations)(exports.watchlists, (
 }));
 exports.watchlistItemsRelations = (0, drizzle_orm_1.relations)(exports.watchlistItems, ({ one }) => ({
     watchlist: one(exports.watchlists, {
-        fields: [exports.watchlistItems.watchlistId],
-        references: [exports.watchlists.id],
+        fields: [exports.watchlistItems.serverId, exports.watchlistItems.watchlistId],
+        references: [exports.watchlists.serverId, exports.watchlists.id],
     }),
     item: one(exports.items, {
-        fields: [exports.watchlistItems.itemId],
-        references: [exports.items.id],
+        fields: [exports.watchlistItems.serverId, exports.watchlistItems.itemId],
+        references: [exports.items.serverId, exports.items.id],
     }),
 }));
 exports.peopleRelations = (0, drizzle_orm_1.relations)(exports.people, ({ one, many }) => ({
@@ -843,8 +870,8 @@ exports.peopleRelations = (0, drizzle_orm_1.relations)(exports.people, ({ one, m
 }));
 exports.itemPeopleRelations = (0, drizzle_orm_1.relations)(exports.itemPeople, ({ one }) => ({
     item: one(exports.items, {
-        fields: [exports.itemPeople.itemId],
-        references: [exports.items.id],
+        fields: [exports.itemPeople.serverId, exports.itemPeople.itemId],
+        references: [exports.items.serverId, exports.items.id],
     }),
     person: one(exports.people, {
         fields: [exports.itemPeople.personId, exports.itemPeople.serverId],

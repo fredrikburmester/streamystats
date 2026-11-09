@@ -130,7 +130,7 @@ async function searchItems(
         END
       as rank
     FROM ${items}
-    LEFT JOIN ${libraries} ON ${items.libraryId} = ${libraries.id}
+    LEFT JOIN ${libraries} ON ${items.libraryId} = ${libraries.id} AND ${items.serverId} = ${libraries.serverId}
     WHERE ${items.serverId} = ${serverId}
       AND ${items.deletedAt} IS NULL
       ${libraryFilter}

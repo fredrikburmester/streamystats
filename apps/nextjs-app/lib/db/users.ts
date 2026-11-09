@@ -18,6 +18,10 @@ import { cookies } from "next/headers";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { getInternalUrl } from "../server-url";
 import { destroySession, getSession } from "../session";
+import {
+  mapWatchTimePerWeekDayByType,
+  type WatchTimePerWeekDayByType,
+} from "../watch-time-per-week-day";
 import { getStatisticsExclusions } from "./exclusions";
 import { isBetterDisplayName, normalizeGenre } from "./genres";
 import { getServer } from "./server";
@@ -143,7 +147,10 @@ export const getWatchTimePerWeekDay = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`TRIM(TO_CHAR(${sessions.startTime}, 'Day'))`);
 
@@ -170,6 +177,63 @@ export const getWatchTimePerWeekDay = async ({
     day,
     watchTime: resultMap[day] || 0,
   }));
+};
+
+export const getWatchTimePerWeekDayByType = async ({
+  serverId,
+  userId,
+  startDate,
+  endDate,
+  viewerUserId,
+}: {
+  serverId: string | number;
+  userId?: string | number;
+  startDate?: string;
+  endDate?: string;
+  viewerUserId?: string;
+}): Promise<WatchTimePerWeekDayByType[]> => {
+  const start = getStartDateConstraint(startDate);
+  const end = getEndDateConstraint(endDate);
+
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    Number(serverId),
+    viewerUserId,
+  );
+
+  const whereConditions: SQL[] = [eq(sessions.serverId, Number(serverId))];
+  if (userId !== undefined) {
+    whereConditions.push(eq(sessions.userId, String(userId)));
+  }
+  if (start) {
+    whereConditions.push(gte(sessions.startTime, start));
+  }
+  if (end) {
+    whereConditions.push(lte(sessions.startTime, end));
+  }
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
+  }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
+
+  const result = await db
+    .select({
+      weekDay: sql<string>`TRIM(TO_CHAR(${sessions.startTime}, 'Day'))`.as(
+        "weekDay",
+      ),
+      itemType: items.type,
+      watchTime: sum(sessions.playDuration).as("watchTime"),
+    })
+    .from(sessions)
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
+    .where(and(...whereConditions))
+    .groupBy(sql`TRIM(TO_CHAR(${sessions.startTime}, 'Day'))`, items.type);
+
+  return mapWatchTimePerWeekDayByType(result);
 };
 
 export interface WatchTimePerHour {
@@ -226,7 +290,10 @@ export const getWatchTimePerHour = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`)
     .orderBy(sql`EXTRACT(HOUR FROM ${sessions.startTime})`);
@@ -284,7 +351,10 @@ export const getTotalWatchTime = async ({
       playDuration: sum(sessions.playDuration),
     })
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions));
 
   return Number(result[0]?.playDuration || 0);
@@ -555,7 +625,10 @@ export const getUserStatsSummaryForServer = async ({
     .leftJoin(users, eq(sessions.userId, users.id));
 
   if (needsItemJoin) {
-    query = query.innerJoin(items, eq(sessions.itemId, items.id));
+    query = query.innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    );
 
     if (needsItemTypeFilter) {
       if (itemType === "Series") {
@@ -743,7 +816,10 @@ export const getUserGenreStats = async ({
       genres: items.genres,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.userId, userId),

@@ -88,7 +88,13 @@ async function getUserTopItemsWithEmbeddings(
           duration: sum(sessions.playDuration),
         })
         .from(sessions)
-        .innerJoin(items, eq(sessions.itemId, items.id))
+        .innerJoin(
+          items,
+          and(
+            eq(sessions.itemId, items.id),
+            eq(sessions.serverId, items.serverId),
+          ),
+        )
         .where(and(...whereConditions, isNotNull(sessions.seriesId)))
         .groupBy(sessions.seriesId)
         .orderBy(desc(sum(sessions.playDuration)))
@@ -109,7 +115,13 @@ async function getUserTopItemsWithEmbeddings(
           genres: items.genres,
         })
         .from(items)
-        .where(and(inArray(items.id, seriesIds), isNotNull(items.embedding)));
+        .where(
+          and(
+            eq(items.serverId, serverId),
+            inArray(items.id, seriesIds),
+            isNotNull(items.embedding),
+          ),
+        );
 
       return seriesItems;
     }
@@ -120,7 +132,13 @@ async function getUserTopItemsWithEmbeddings(
         duration: sum(sessions.playDuration),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
       .where(and(...whereConditions, eq(items.type, "Movie")))
       .groupBy(sessions.itemId)
       .orderBy(desc(sum(sessions.playDuration)))
@@ -141,7 +159,13 @@ async function getUserTopItemsWithEmbeddings(
         genres: items.genres,
       })
       .from(items)
-      .where(and(inArray(items.id, movieIds), isNotNull(items.embedding)));
+      .where(
+        and(
+          eq(items.serverId, serverId),
+          inArray(items.id, movieIds),
+          isNotNull(items.embedding),
+        ),
+      );
 
     return movieItems;
   };

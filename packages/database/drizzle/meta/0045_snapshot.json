@@ -1,6 +1,6 @@
 {
-  "id": "ff164375-f76e-4ab4-9867-7bdffc3e4bb3",
-  "prevId": "01fae73e-e45d-42b6-abd3-64a1b6c7a857",
+  "id": "0c16a08d-4b21-4285-b93c-b0d06910c9ef",
+  "prevId": "a819fdb7-ffbc-43bd-b12e-621c5d08cf16",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -718,14 +718,16 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "hidden_recommendations_item_id_items_id_fk": {
-          "name": "hidden_recommendations_item_id_items_id_fk",
+        "hidden_recommendations_items_server_fk": {
+          "name": "hidden_recommendations_items_server_fk",
           "tableFrom": "hidden_recommendations",
           "tableTo": "items",
           "columnsFrom": [
+            "server_id",
             "item_id"
           ],
           "columnsTo": [
+            "server_id",
             "id"
           ],
           "onDelete": "cascade",
@@ -852,19 +854,6 @@
         }
       },
       "foreignKeys": {
-        "item_people_item_id_items_id_fk": {
-          "name": "item_people_item_id_items_id_fk",
-          "tableFrom": "item_people",
-          "tableTo": "items",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "item_people_server_id_servers_id_fk": {
           "name": "item_people_server_id_servers_id_fk",
           "tableFrom": "item_people",
@@ -877,6 +866,21 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "item_people_items_server_fk": {
+          "name": "item_people_items_server_fk",
+          "tableFrom": "item_people",
+          "tableTo": "items",
+          "columnsFrom": [
+            "server_id",
+            "item_id"
+          ],
+          "columnsTo": [
+            "server_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -885,6 +889,7 @@
           "name": "item_people_unique",
           "nullsNotDistinct": false,
           "columns": [
+            "server_id",
             "item_id",
             "person_id",
             "type"
@@ -902,7 +907,7 @@
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
         },
         "server_id": {
@@ -1365,21 +1370,31 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "items_library_id_libraries_id_fk": {
-          "name": "items_library_id_libraries_id_fk",
+        "items_libraries_server_fk": {
+          "name": "items_libraries_server_fk",
           "tableFrom": "items",
           "tableTo": "libraries",
           "columnsFrom": [
+            "server_id",
             "library_id"
           ],
           "columnsTo": [
+            "server_id",
             "id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "items_server_id_id_pk": {
+          "name": "items_server_id_id_pk",
+          "columns": [
+            "server_id",
+            "id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -1500,7 +1515,7 @@
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
         },
         "name": {
@@ -1568,7 +1583,15 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "libraries_server_id_id_pk": {
+          "name": "libraries_server_id_id_pk",
+          "columns": [
+            "server_id",
+            "id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -1581,7 +1604,7 @@
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
         },
         "item_id": {
@@ -1686,19 +1709,6 @@
         }
       },
       "foreignKeys": {
-        "media_sources_item_id_items_id_fk": {
-          "name": "media_sources_item_id_items_id_fk",
-          "tableFrom": "media_sources",
-          "tableTo": "items",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "media_sources_server_id_servers_id_fk": {
           "name": "media_sources_server_id_servers_id_fk",
           "tableFrom": "media_sources",
@@ -1711,9 +1721,32 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "media_sources_items_server_fk": {
+          "name": "media_sources_items_server_fk",
+          "tableFrom": "media_sources",
+          "tableTo": "items",
+          "columnsFrom": [
+            "server_id",
+            "item_id"
+          ],
+          "columnsTo": [
+            "server_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "media_sources_server_id_id_pk": {
+          "name": "media_sources_server_id_id_pk",
+          "columns": [
+            "server_id",
+            "id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -2709,14 +2742,16 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "sessions_item_id_items_id_fk": {
-          "name": "sessions_item_id_items_id_fk",
+        "sessions_items_server_fk": {
+          "name": "sessions_items_server_fk",
           "tableFrom": "sessions",
           "tableTo": "items",
           "columnsFrom": [
+            "server_id",
             "item_id"
           ],
           "columnsTo": [
+            "server_id",
             "id"
           ],
           "onDelete": "set null",
@@ -2905,196 +2940,6 @@
           ]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.user_merge_audit": {
-      "name": "user_merge_audit",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "server_id": {
-          "name": "server_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "operation_id": {
-          "name": "operation_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actor_id": {
-          "name": "actor_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actor_name": {
-          "name": "actor_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "request_hash": {
-          "name": "request_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_user_id": {
-          "name": "source_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_name": {
-          "name": "source_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_user_id": {
-          "name": "target_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_name": {
-          "name": "target_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "transferred": {
-          "name": "transferred",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "user_merge_audit_server_id_servers_id_fk": {
-          "name": "user_merge_audit_server_id_servers_id_fk",
-          "tableFrom": "user_merge_audit",
-          "tableTo": "servers",
-          "columnsFrom": [
-            "server_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "user_merge_audit_operation_unique": {
-          "name": "user_merge_audit_operation_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "server_id",
-            "operation_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.user_merges": {
-      "name": "user_merges",
-      "schema": "",
-      "columns": {
-        "server_id": {
-          "name": "server_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_user_id": {
-          "name": "source_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_name": {
-          "name": "source_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_user_id": {
-          "name": "target_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "user_merges_server_id_servers_id_fk": {
-          "name": "user_merges_server_id_servers_id_fk",
-          "tableFrom": "user_merges",
-          "tableTo": "servers",
-          "columnsFrom": [
-            "server_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "user_merges_target_fk": {
-          "name": "user_merges_target_fk",
-          "tableFrom": "user_merges",
-          "tableTo": "users",
-          "columnsFrom": [
-            "server_id",
-            "target_user_id"
-          ],
-          "columnsTo": [
-            "server_id",
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "user_merges_server_id_source_user_id_pk": {
-          "name": "user_merges_server_id_source_user_id_pk",
-          "columns": [
-            "server_id",
-            "source_user_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -3439,16 +3284,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "users_server_id_id_unique": {
-          "name": "users_server_id_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "server_id",
-            "id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -3461,6 +3297,12 @@
           "name": "id",
           "type": "serial",
           "primaryKey": true,
+          "notNull": true
+        },
+        "server_id": {
+          "name": "server_id",
+          "type": "integer",
+          "primaryKey": false,
           "notNull": true
         },
         "watchlist_id": {
@@ -3523,27 +3365,31 @@
         }
       },
       "foreignKeys": {
-        "watchlist_items_watchlist_id_watchlists_id_fk": {
-          "name": "watchlist_items_watchlist_id_watchlists_id_fk",
+        "watchlist_items_watchlist_server_fk": {
+          "name": "watchlist_items_watchlist_server_fk",
           "tableFrom": "watchlist_items",
           "tableTo": "watchlists",
           "columnsFrom": [
+            "server_id",
             "watchlist_id"
           ],
           "columnsTo": [
+            "server_id",
             "id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "watchlist_items_item_id_items_id_fk": {
-          "name": "watchlist_items_item_id_items_id_fk",
+        "watchlist_items_items_server_fk": {
+          "name": "watchlist_items_items_server_fk",
           "tableFrom": "watchlist_items",
           "tableTo": "items",
           "columnsFrom": [
+            "server_id",
             "item_id"
           ],
           "columnsTo": [
+            "server_id",
             "id"
           ],
           "onDelete": "cascade",
@@ -3743,7 +3589,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "watchlists_server_id_id_unique": {
+          "name": "watchlists_server_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "server_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

@@ -155,7 +155,10 @@ export async function getUserTasteProfile(
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.serverId, serverId),
@@ -164,7 +167,7 @@ export async function getUserTasteProfile(
         isNotNull(sessions.playDuration),
       ),
     )
-    .groupBy(items.id)
+    .groupBy(items.serverId, items.id)
     .orderBy(desc(sum(sessions.playDuration)))
     .limit(100);
 

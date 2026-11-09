@@ -92,7 +92,13 @@ export async function getTopPeopleByLibraryPresence(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(items)
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -136,7 +142,13 @@ export async function getTopPeopleByLibraryPresence(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(items)
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -228,8 +240,20 @@ export async function getTopPeopleByWatchTime(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -283,8 +307,20 @@ export async function getTopPeopleByWatchTime(
         itemCount: countDistinct(items.seriesId).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.seriesId, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.seriesId, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -384,8 +420,20 @@ export async function getTopPeopleByPlayCount(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -442,8 +490,20 @@ export async function getTopPeopleByPlayCount(
         itemCount: countDistinct(items.seriesId).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.seriesId, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.seriesId, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -597,7 +657,13 @@ export async function getTopDirectorActorCombinations(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
       .innerJoin(directors, eq(items.id, directors.itemId))
       .innerJoin(actors, eq(items.id, actors.itemId))
       .innerJoin(directorPeople, eq(directors.personId, directorPeople.id))
@@ -684,7 +750,13 @@ export async function getTopDirectorActorCombinations(
         itemCount: countDistinct(items.seriesId).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
       .innerJoin(seriesDirectors, eq(items.seriesId, seriesDirectors.itemId))
       .innerJoin(seriesActors, eq(items.seriesId, seriesActors.itemId))
       .innerJoin(

@@ -59,7 +59,13 @@ export const getActorDetails = async ({
       type: itemPeople.type,
     })
     .from(itemPeople)
-    .innerJoin(items, eq(itemPeople.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(itemPeople.itemId, items.id),
+        eq(itemPeople.serverId, items.serverId),
+      ),
+    )
     .where(
       and(
         eq(itemPeople.personId, actorId),
@@ -84,7 +90,13 @@ export const getActorDetails = async ({
         const episodes = await db
           .select({ id: items.id })
           .from(items)
-          .where(and(eq(items.type, "Episode"), eq(items.seriesId, item.id)));
+          .where(
+            and(
+              eq(items.serverId, serverId),
+              eq(items.type, "Episode"),
+              eq(items.seriesId, item.id),
+            ),
+          );
         itemIdsToQuery = episodes.map((ep) => ep.id);
         if (itemIdsToQuery.length === 0) {
           return {
@@ -98,6 +110,7 @@ export const getActorDetails = async ({
 
       // Build where conditions
       const whereConditions = [
+        eq(sessions.serverId, serverId),
         sql`${sessions.itemId} IN (${sql.join(
           itemIdsToQuery.map((id) => sql`${id}`),
           sql`, `,
