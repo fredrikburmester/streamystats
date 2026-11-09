@@ -15,6 +15,8 @@ env:
   IMAGE_NAMESPACE: ghcr.io/${{ github.repository_owner }}
   # Fork PRs get a read-only token (can't push to GHCR or comment) → same-repo only.
   IS_SAME_REPO_PR: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+  # Same Bun as the Docker images; Bun 1.4.4 leaks a test file's database mock into the integration suite.
+  BUN_VERSION: 1.4.2
 
 jobs:
   lint:
@@ -27,7 +29,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -61,7 +63,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -82,7 +84,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
