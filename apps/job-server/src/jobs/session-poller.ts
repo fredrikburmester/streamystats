@@ -669,6 +669,9 @@ class SessionPoller {
   ): Promise<void> {
     try {
       await db.transaction(async (tx) => {
+        // A merge may outlast the save timeout. Wait for it before starting the
+        // timer, and keep the shared lock until this playback record commits.
+        await tx.execute(sql`SELECT pg_advisory_xact_lock_shared(582, ${server.id})`);
         await tx.execute(setLocalStatementTimeoutSql(DB_STATEMENT_TIMEOUT_MS));
 
         const user = await tx

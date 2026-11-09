@@ -1,4 +1,10 @@
-import { db, items, mediaSources, users } from "@streamystats/database";
+import {
+  db,
+  getMergedUserTarget,
+  items,
+  mediaSources,
+  users,
+} from "@streamystats/database";
 import { and, eq, inArray } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
 import type { ActiveSession } from "@/lib/db/active-sessions";
@@ -222,8 +228,11 @@ async function mapJellyfinSessionToActiveSession(
     return null;
   }
 
+  const userId =
+    (await getMergedUserTarget({ serverId, userId: session.UserId })) ??
+    session.UserId;
   const user = await db.query.users.findFirst({
-    where: and(eq(users.id, session.UserId), eq(users.serverId, serverId)),
+    where: and(eq(users.id, userId), eq(users.serverId, serverId)),
   });
 
   const positionTicks = session.PlayState.PositionTicks;

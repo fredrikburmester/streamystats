@@ -76,6 +76,7 @@ export async function getClientStatistics({
   viewerUserId?: string;
 }): Promise<ClientStatisticsResponse> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
   cacheTag(`client-statistics-${serverId}`);
 

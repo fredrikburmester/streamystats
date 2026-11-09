@@ -1,6 +1,7 @@
 "use server";
 
 import "server-only";
+import { getMergedUserTarget } from "@streamystats/database";
 
 import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "@/lib/secure-cookies";
@@ -20,7 +21,7 @@ export const login = async ({
   username: string;
   password?: string | null;
   userAgent?: string;
-}): Promise<void> => {
+}): Promise<{ error: string } | undefined> => {
   const server = await getServerWithSecrets({ serverId: serverId.toString() });
 
   if (!server) {
@@ -52,6 +53,12 @@ export const login = async ({
 
   const accessToken = data.AccessToken;
   const user = data.User;
+  if (await getMergedUserTarget({ serverId, userId: user.Id })) {
+    return {
+      error:
+        "This Streamystats account was permanently merged. Sign in with the destination account.",
+    };
+  }
   const isAdmin = user.Policy.IsAdministrator;
 
   const secure = await shouldUseSecureCookies();

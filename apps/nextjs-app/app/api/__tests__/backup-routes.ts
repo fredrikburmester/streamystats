@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { NextRequest } from "next/server";
 
 // NOTE: These tests are pure unit tests for the route handlers.
 // We mock db/auth/server lookups and the Jellyfin /System/Info request.
 
 type Json = Record<string, unknown>;
+const requestedUrls: string[] = [];
 
 function jsonResponse(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -20,12 +22,20 @@ const bunMock = await import("bun:test").then((m) => (m as any).mock);
 
 describe("backup export/import routes", () => {
   beforeEach(() => {
+    requestedUrls.length = 0;
     // Reset fetch for each test
-    globalThis.fetch = async () =>
-      jsonResponse({ Id: "sys-1" }, { status: 200 });
+    globalThis.fetch = async (url) => {
+      requestedUrls.push(String(url));
+      return jsonResponse({ Id: "sys-1" }, { status: 200 });
+    };
   });
 
   test("export produces streamystats backup JSON", async () => {
+    let retiredUsers: {
+      sourceUserId: string;
+      sourceName: string;
+      targetUserId: string;
+    }[] = [];
     const fakeDb = {
       query: {
         sessions: {
@@ -55,6 +65,7 @@ describe("backup export/import routes", () => {
         id: 1,
         name: "My Server",
         url: "http://jellyfin.local",
+        internalUrl: "http://internal-jellyfin:8096",
         apiKey: "SECRET",
         localAddress: null,
         version: "10.9.0",
@@ -77,15 +88,30 @@ describe("backup export/import routes", () => {
 
     bunMock.module("@streamystats/database", () => ({
       db: fakeDb,
+      getRetiredUserIds: async () => [],
+      restoreUserMerges: async () => {},
+      UserMergeError: class extends Error {},
+      exportMergedUserData: async () => ({
+        sessions: await fakeDb.query.sessions.findMany(),
+        hiddenRecommendations:
+          await fakeDb.query.hiddenRecommendations.findMany(),
+        userMerges: {
+          retiredUsers,
+          accounts: retiredUsers.length ? [{ id: "u2", name: "New" }] : [],
+        },
+      }),
       sessions: { serverId: "sessions.serverId" },
       hiddenRecommendations: { serverId: "hiddenRecommendations.serverId" },
     }));
 
     const { GET } = await import("../export/[serverId]/route");
 
-    const res = await GET({} as any, {
-      params: Promise.resolve({ serverId: "1" }),
-    });
+    const res = await GET(
+      new NextRequest("http://streamystats.test/api/export/1"),
+      {
+        params: Promise.resolve({ serverId: "1" }),
+      },
+    );
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as Json;
@@ -100,6 +126,41 @@ describe("backup export/import routes", () => {
       "sys-1",
     );
     expect((body.server as any).apiKey).toBeUndefined();
+    expect(requestedUrls).toEqual([
+      "http://internal-jellyfin:8096/System/Info",
+    ]);
+
+    retiredUsers = [
+      { sourceUserId: "u1", sourceName: "Old", targetUserId: "u2" },
+    ];
+    const mergedExport = await GET(
+      new NextRequest("http://streamystats.test/api/export/1"),
+      {
+        params: Promise.resolve({ serverId: "1" }),
+      },
+    );
+    expect(mergedExport.status).toBe(200);
+    expect((await mergedExport.json()).server.jellyfinSystemId).toBe("sys-1");
+    globalThis.fetch = async () => {
+      throw new Error("Jellyfin offline");
+    };
+    const incomplete = await GET(
+      new NextRequest("http://streamystats.test/api/export/1"),
+      {
+        params: Promise.resolve({ serverId: "1" }),
+      },
+    );
+    expect(incomplete.status).toBe(503);
+    expect((await incomplete.json()).error).toContain("Reconnect Jellyfin");
+    expect(incomplete.headers.get("Content-Disposition")).toBeNull();
+    retiredUsers = [];
+    expect(
+      (
+        await GET(new NextRequest("http://streamystats.test/api/export/1"), {
+          params: Promise.resolve({ serverId: "1" }),
+        })
+      ).status,
+    ).toBe(200);
   });
 
   test("import restores hidden recommendations + sessions", async () => {
@@ -166,12 +227,16 @@ describe("backup export/import routes", () => {
         id: 99,
         name: "Target Server",
         url: "http://jellyfin.local",
+        internalUrl: "http://internal-jellyfin:8096",
         apiKey: "TARGET_SECRET",
       }),
     }));
 
     bunMock.module("@streamystats/database", () => ({
       db: fakeDb,
+      getRetiredUserIds: async () => [],
+      restoreUserMerges: async () => {},
+      UserMergeError: class extends Error {},
     }));
 
     // Mock schema tables used only for db builder + eq()
@@ -299,5 +364,8 @@ describe("backup export/import routes", () => {
     expect(insertedHidden.length).toBe(1);
     expect(insertedSessions.length).toBe(1);
     expect(deleted.length).toBeGreaterThan(0);
+    expect(requestedUrls).toEqual([
+      "http://internal-jellyfin:8096/System/Info",
+    ]);
   });
 });

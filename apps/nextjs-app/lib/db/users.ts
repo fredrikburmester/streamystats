@@ -147,7 +147,7 @@ export const getWatchTimePerWeekDay = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(
+    .leftJoin(
       items,
       and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
     )
@@ -290,7 +290,7 @@ export const getWatchTimePerHour = async ({
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(
+    .leftJoin(
       items,
       and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
     )
@@ -351,7 +351,7 @@ export const getTotalWatchTime = async ({
       playDuration: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(
+    .leftJoin(
       items,
       and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
     )
