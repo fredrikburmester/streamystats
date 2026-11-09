@@ -214,7 +214,7 @@ async function createInferredSessionForItem(
   itemId: string,
 ): Promise<void> {
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
   });
 
   if (!item?.runtimeTicks) return;

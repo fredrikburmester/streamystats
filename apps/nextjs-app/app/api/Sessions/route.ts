@@ -1,5 +1,5 @@
 import { db, items, mediaSources, users } from "@streamystats/database";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
 import type { ActiveSession } from "@/lib/db/active-sessions";
 import { getServerWithSecrets } from "@/lib/db/server";
@@ -124,7 +124,11 @@ export async function GET(request: Request) {
 
   try {
     const activeSessions = (
-      await Promise.all(jellyfinSessions.map(mapJellyfinSessionToActiveSession))
+      await Promise.all(
+        jellyfinSessions.map((entry) =>
+          mapJellyfinSessionToActiveSession(entry, server.id),
+        ),
+      )
     ).filter((session): session is ActiveSession => Boolean(session));
 
     return new Response(JSON.stringify(activeSessions), {
@@ -160,12 +164,17 @@ export async function GET(request: Request) {
  * items whose ids only exist as media source ids on the listed item, so a
  * session playing one is mapped back through media_sources.
  */
-async function findItemForPlayback(
-  nowPlayingItemId: string,
-  mediaSourceId?: string,
-) {
+async function findItemForPlayback({
+  serverId,
+  nowPlayingItemId,
+  mediaSourceId,
+}: {
+  serverId: number;
+  nowPlayingItemId: string;
+  mediaSourceId?: string;
+}) {
   const direct = await db.query.items.findFirst({
-    where: eq(items.id, nowPlayingItemId),
+    where: and(eq(items.id, nowPlayingItemId), eq(items.serverId, serverId)),
   });
   if (direct) return direct;
 
@@ -175,13 +184,18 @@ async function findItemForPlayback(
   const source = await db
     .select({ itemId: mediaSources.itemId })
     .from(mediaSources)
-    .where(inArray(mediaSources.id, candidates))
+    .where(
+      and(
+        inArray(mediaSources.id, candidates),
+        eq(mediaSources.serverId, serverId),
+      ),
+    )
     .limit(1);
   if (source.length === 0) return null;
 
   return (
     (await db.query.items.findFirst({
-      where: eq(items.id, source[0].itemId),
+      where: and(eq(items.id, source[0].itemId), eq(items.serverId, serverId)),
     })) ?? null
   );
 }
@@ -191,23 +205,25 @@ async function findItemForPlayback(
  */
 async function mapJellyfinSessionToActiveSession(
   session: JellyfinSession,
+  serverId: number,
 ): Promise<ActiveSession | null> {
   // Skip sessions without NowPlayingItem
   if (!session.NowPlayingItem) {
     return null;
   }
 
-  const item = await findItemForPlayback(
-    session.NowPlayingItem.Id,
-    session.PlayState?.MediaSourceId,
-  );
+  const item = await findItemForPlayback({
+    serverId,
+    nowPlayingItemId: session.NowPlayingItem.Id,
+    mediaSourceId: session.PlayState?.MediaSourceId,
+  });
 
   if (!item) {
     return null;
   }
 
   const user = await db.query.users.findFirst({
-    where: eq(users.id, session.UserId),
+    where: and(eq(users.id, session.UserId), eq(users.serverId, serverId)),
   });
 
   const positionTicks = session.PlayState.PositionTicks;

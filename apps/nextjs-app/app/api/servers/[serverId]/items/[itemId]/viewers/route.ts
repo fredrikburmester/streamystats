@@ -71,7 +71,7 @@ export async function GET(
   const sortOrder = (searchParams.get("sortOrder") || "desc") as "asc" | "desc";
 
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.id, itemId), eq(items.serverId, Number(serverId))),
   });
 
   if (!item) {
