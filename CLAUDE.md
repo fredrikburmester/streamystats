@@ -156,7 +156,7 @@ Sync status tracked on `servers` table: `syncStatus` (pending/syncing/completed/
 
 **Session cookie** (`streamystats-session`): httpOnly, sameSite=lax, 30-day maxAge. JWT signed with `SESSION_SECRET` containing `id`, `name`, `serverId`, `isAdmin`. Separate `streamystats-token` cookie stores Jellyfin access token. Functions in `lib/session.ts`: `createSession()`, `getSession()`, `destroySession()`, `updateSession()`.
 
-**MediaBrowser token** (external API clients): `Authorization: MediaBrowser Token="<jellyfin-access-token>"`. Validated by calling Jellyfin `/Users/Me`.
+**MediaBrowser token** (external API clients): `Authorization: MediaBrowser Token="<jellyfin-access-token>"`. Validated by calling Jellyfin `/Users/Me`. A Jellyfin server API key works too, as the admin `system-api-key` identity, but only when `/Auth/Keys` lists it (`isServerApiKey()`); a 200 from `/System/Info` proves nothing, since any signed-in user gets one.
 
 **Auth guards**: `requireSession()` (web app, 401), `requireAuth(request)` (session OR MediaBrowser), `requireAdmin()` (session + admin, 403), `requireApiKey()` (validates against Jellyfin `/System/Info`).
 

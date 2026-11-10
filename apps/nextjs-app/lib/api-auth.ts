@@ -9,15 +9,13 @@ import {
 } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { jellyfinHeaders } from "./jellyfin-auth";
+import { isServerApiKey, jellyfinHeaders } from "./jellyfin-auth";
 import { getInternalUrl } from "./server-url";
 import { getSession, type SessionUser } from "./session";
 
 /**
  * Identity surfaced when a request authenticates with a Jellyfin server
- * API key rather than a user access token. Centralised so the
- * MediaBrowser path here and `getUserFromEmbyToken` in `jellyfin-auth.ts`
- * stay in sync.
+ * API key rather than a user access token.
  */
 const SYSTEM_API_KEY_USER_ID = "system-api-key";
 const SYSTEM_API_KEY_USER_NAME = "System API Key";
@@ -64,12 +62,13 @@ function parseMediaBrowserHeader(authHeader: string): {
  * `/Users/AuthenticateByName`) and Jellyfin server API keys. User
  * tokens are validated via `/Users/Me`. A server API key has no user
  * context, so `/Users/Me` rejects it (the exact status varies by
- * Jellyfin version); any non-OK response therefore falls back to a
- * `/System/Info` check and, on success, surfaces the caller as the
- * admin "system-api-key" pseudo-user — matching the pattern already
- * used by `getUserFromEmbyToken` in `jellyfin-auth.ts`. A valid user
- * token always returns 200 here, so the fallback never runs for real
- * users.
+ * Jellyfin version); any non-OK response therefore falls back to
+ * `isServerApiKey` and, when the token is one of the server's API keys,
+ * surfaces the caller as the admin "system-api-key" pseudo-user.
+ *
+ * `/Users/Me` can fail for a real user too, outside their parental
+ * access schedule or on a server error, so the fallback must only ever
+ * accept an API key: a user token that got through it would be an admin.
  */
 export async function validateJellyfinToken(
   serverUrl: string,
@@ -98,7 +97,7 @@ export async function validateJellyfinToken(
     if (error instanceof Error && error.name === "AbortError") {
       return null;
     }
-    // A network error on /Users/Me may still leave /System/Info
+    // A network error on /Users/Me may still leave /Auth/Keys
     // reachable for a valid API key; try the fallback before failing.
     return await validateAsApiKey(serverUrl, token);
   }
@@ -108,23 +107,13 @@ async function validateAsApiKey(
   serverUrl: string,
   token: string,
 ): Promise<{ userId: string; userName: string; isAdmin: boolean } | null> {
-  try {
-    const sysRes = await fetch(`${serverUrl}/System/Info`, {
-      method: "GET",
-      headers: jellyfinHeaders(token),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (sysRes.ok) {
-      return {
-        userId: SYSTEM_API_KEY_USER_ID,
-        userName: SYSTEM_API_KEY_USER_NAME,
-        isAdmin: true,
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  if (!(await isServerApiKey({ serverUrl, token }))) return null;
+
+  return {
+    userId: SYSTEM_API_KEY_USER_ID,
+    userName: SYSTEM_API_KEY_USER_NAME,
+    isAdmin: true,
+  };
 }
 
 /**
