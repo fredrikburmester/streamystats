@@ -11,12 +11,14 @@ const admin: SessionUser = {
   isAdmin: true,
 };
 let session: SessionUser | null = admin;
+let retired = false;
 const queriedServers: number[] = [];
 
 mock.module("server-only", () => ({}));
 mock.module("../session", () => ({ getSession: async () => session }));
 mock.module("@streamystats/database", () => ({
   ...schema,
+  getMergedUserTarget: async () => (retired ? "destination" : null),
   db: {
     select: () => ({
       from: async () => [{ id: 1, url: "http://jellyfin.invalid" }],
@@ -109,3 +111,6 @@ for (const id of [2, "2", ...invalidIds]) {
   assert.equal(result.error?.status, 403, `Token guard accepted ${String(id)}`);
   assert.equal(result.session, null);
 }
+
+retired = true;
+assert.equal((await requireAuth(tokenRequest, 1)).error?.status, 401);

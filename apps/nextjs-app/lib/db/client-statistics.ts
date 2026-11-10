@@ -76,6 +76,7 @@ export async function getClientStatistics({
   viewerUserId?: string;
 }): Promise<ClientStatisticsResponse> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
   cacheTag(`client-statistics-${serverId}`);
 
@@ -106,7 +107,10 @@ export async function getClientStatistics({
     whereConditions.push(itemLibraryExclusion);
   }
 
-  const itemsJoinCondition = eq(sessions.itemId, items.id);
+  const itemsJoinCondition = and(
+    eq(sessions.itemId, items.id),
+    eq(sessions.serverId, items.serverId),
+  );
 
   // Get all client statistics
   const clientStatsQuery = db

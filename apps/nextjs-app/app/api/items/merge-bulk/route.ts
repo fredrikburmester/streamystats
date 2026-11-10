@@ -71,7 +71,11 @@ async function mergeSinglePair(
       )
       .returning({ id: hiddenRecommendations.id });
 
-    await tx.delete(items).where(eq(items.id, pair.deletedItemId));
+    await tx
+      .delete(items)
+      .where(
+        and(eq(items.id, pair.deletedItemId), eq(items.serverId, serverId)),
+      );
 
     return {
       sessionsMigrated: migratedSessions.length,
@@ -118,7 +122,12 @@ export async function POST(request: Request) {
         const deletedItem = await db
           .select()
           .from(items)
-          .where(eq(items.id, pair.deletedItemId))
+          .where(
+            and(
+              eq(items.id, pair.deletedItemId),
+              eq(items.serverId, session.serverId),
+            ),
+          )
           .limit(1);
 
         if (deletedItem.length === 0) {
@@ -134,7 +143,12 @@ export async function POST(request: Request) {
         const activeItem = await db
           .select()
           .from(items)
-          .where(eq(items.id, pair.activeItemId))
+          .where(
+            and(
+              eq(items.id, pair.activeItemId),
+              eq(items.serverId, session.serverId),
+            ),
+          )
           .limit(1);
 
         if (activeItem.length === 0) {

@@ -52,12 +52,16 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
   async function onSubmit(data: z.infer<typeof FormSchema>) {
     setLoading(true);
     try {
-      await login({
+      const result = await login({
         serverId: server.id,
         username: data.username,
         password: data.password || "",
         userAgent: navigator.userAgent,
       });
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
       toast.success("Logged in successfully");
       router.push(`/servers/${server.id}/dashboard`);
     } catch (error) {

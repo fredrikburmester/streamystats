@@ -178,7 +178,10 @@ export const getHistory = async (
   const baseQuery = db
     .select()
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .leftJoin(users, eq(sessions.userId, users.id))
     .where(and(...conditions));
 
@@ -225,7 +228,10 @@ export const getHistory = async (
   const totalCountQuery = db
     .select({ count: sql<number>`COUNT(*)` })
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .leftJoin(users, eq(sessions.userId, users.id))
     .where(and(...conditions));
 
@@ -326,7 +332,10 @@ export const getUserHistory = async (
   const baseQuery = db
     .select()
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .leftJoin(users, eq(sessions.userId, users.id))
     .where(and(...conditions));
 
@@ -374,7 +383,10 @@ export const getUserHistory = async (
   const totalCount = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .leftJoin(users, eq(sessions.userId, users.id))
     .where(and(...conditions))
     .then((result) => result[0]?.count || 0);
@@ -422,7 +434,10 @@ export const getItemHistory = async (
   const data = await db
     .select()
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .leftJoin(users, eq(sessions.userId, users.id))
     .where(and(...conditions))
     .orderBy(desc(sessions.createdAt))
@@ -513,7 +528,10 @@ export const getHistoryByFilters = async ({
   const query = db
     .select()
     .from(sessions)
-    .leftJoin(items, eq(sessions.itemId, items.id))
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .leftJoin(users, eq(sessions.userId, users.id));
 
   if (needsItemJoin) {
