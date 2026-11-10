@@ -12,17 +12,25 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { cn } from "@/lib/utils";
+import { type FilterOption, MultiSelectFilter } from "./MultiSelectFilter";
 
 const DATE_PARAM_FORMAT = "yyyy-MM-dd";
+
+// No "Series": plays are recorded per episode, so it filtered on episodes too
+// and unticking one of the two contradicted the other. Old ?itemType=Series
+// links still work.
+const ITEM_TYPE_OPTIONS: FilterOption[] = [
+  { value: "Movie", label: "Movie" },
+  { value: "Episode", label: "Episode" },
+  { value: "Audio", label: "Audio" },
+  { value: "MusicAlbum", label: "Music Album" },
+  { value: "MusicArtist", label: "Music Artist" },
+];
+
+const asOptions = (values: string[]): FilterOption[] =>
+  values.map((value) => ({ value, label: value }));
 
 function parseDateParam(value: string | null): Date | undefined {
   if (!value) return undefined;
@@ -103,12 +111,22 @@ export function HistoryFilters({
     setDatePickerOpen(false);
   };
 
-  const handleFilterChange = (key: string, value: string) => {
-    updateQueryParams({
-      [key]: value === "all" ? null : value,
-      page: "1",
-    });
-  };
+  const userOptions = React.useMemo(
+    () => users.map((user) => ({ value: user.id, label: user.name })),
+    [users],
+  );
+  const deviceOptions = React.useMemo(
+    () => asOptions(deviceNames),
+    [deviceNames],
+  );
+  const clientOptions = React.useMemo(
+    () => asOptions(clientNames),
+    [clientNames],
+  );
+  const methodOptions = React.useMemo(
+    () => asOptions(playMethods),
+    [playMethods],
+  );
 
   const hasFilters = React.useMemo(() => {
     return !!(
@@ -183,102 +201,51 @@ export function HistoryFilters({
       </Popover>
 
       {!hideUserFilter && (
-        <Select
-          value={searchParams.get("userId") || "all"}
-          onValueChange={(value) => handleFilterChange("userId", value)}
+        <MultiSelectFilter
+          param="userId"
+          noun="users"
+          options={userOptions}
+          className="w-[200px]"
           disabled={isLoading}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All users" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All users</SelectItem>
-            {users.map((user) => (
-              <SelectItem key={user.id} value={user.id}>
-                {user.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       )}
 
-      <Select
-        value={searchParams.get("itemType") || "all"}
-        onValueChange={(value) => handleFilterChange("itemType", value)}
+      <MultiSelectFilter
+        param="itemType"
+        noun="types"
+        options={ITEM_TYPE_OPTIONS}
+        className="w-[160px]"
         disabled={isLoading}
-      >
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="All types" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All types</SelectItem>
-          <SelectItem value="Movie">Movie</SelectItem>
-          <SelectItem value="Series">Series</SelectItem>
-          <SelectItem value="Episode">Episode</SelectItem>
-          <SelectItem value="Audio">Audio</SelectItem>
-          <SelectItem value="MusicAlbum">Music Album</SelectItem>
-          <SelectItem value="MusicArtist">Music Artist</SelectItem>
-        </SelectContent>
-      </Select>
+      />
 
       {deviceNames.length > 0 && (
-        <Select
-          value={searchParams.get("deviceName") || "all"}
-          onValueChange={(value) => handleFilterChange("deviceName", value)}
+        <MultiSelectFilter
+          param="deviceName"
+          noun="devices"
+          options={deviceOptions}
+          className="w-[180px]"
           disabled={isLoading}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="All devices" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All devices</SelectItem>
-            {deviceNames.map((device) => (
-              <SelectItem key={device} value={device}>
-                {device}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       )}
 
       {clientNames.length > 0 && (
-        <Select
-          value={searchParams.get("clientName") || "all"}
-          onValueChange={(value) => handleFilterChange("clientName", value)}
+        <MultiSelectFilter
+          param="clientName"
+          noun="clients"
+          options={clientOptions}
+          className="w-[180px]"
           disabled={isLoading}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="All clients" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All clients</SelectItem>
-            {clientNames.map((client) => (
-              <SelectItem key={client} value={client}>
-                {client}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       )}
 
       {playMethods.length > 0 && (
-        <Select
-          value={searchParams.get("playMethod") || "all"}
-          onValueChange={(value) => handleFilterChange("playMethod", value)}
+        <MultiSelectFilter
+          param="playMethod"
+          noun="methods"
+          options={methodOptions}
+          className="w-[180px]"
           disabled={isLoading}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="All methods" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All methods</SelectItem>
-            {playMethods.map((method) => (
-              <SelectItem key={method} value={method}>
-                {method}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       )}
 
       {hasFilters && (
