@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.22.1](https://github.com/fredrikburmester/streamystats/compare/v2.22.0...v2.22.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **auth:** tighten the bearer key check and validate tokens on the internal url ([#614](https://github.com/fredrikburmester/streamystats/issues/614)) ([c56ff6a](https://github.com/fredrikburmester/streamystats/commit/c56ff6a823d054071dfe35498fcb8037fb919f04))
+
 ## [2.22.0](https://github.com/fredrikburmester/streamystats/compare/v2.21.1...v2.22.0) (2026-11-10)
 
 
