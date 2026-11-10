@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.22.2](https://github.com/fredrikburmester/streamystats/compare/v2.22.1...v2.22.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* **exclusions:** keep items that are also in a library that is not excluded ([#616](https://github.com/fredrikburmester/streamystats/issues/616)) ([ac22289](https://github.com/fredrikburmester/streamystats/commit/ac222898ca4497b79b058c56fc1ea2d6336c4186))
+
 ## [2.22.1](https://github.com/fredrikburmester/streamystats/compare/v2.22.0...v2.22.1) (2026-11-10)
 
 
