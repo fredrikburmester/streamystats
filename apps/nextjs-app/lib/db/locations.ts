@@ -10,7 +10,19 @@ import {
   userFingerprints,
   users,
 } from "@streamystats/database";
-import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  countDistinct,
+  desc,
+  eq,
+  gte,
+  lte,
+  notInArray,
+  type SQL,
+  sql,
+} from "drizzle-orm";
+import { getExclusionSettings } from "./exclusions";
 
 export interface LocationPoint {
   latitude: number;
@@ -875,5 +887,75 @@ export async function getServerLocationStats(serverId: number): Promise<{
       anomaliesResult.map((a) => [a.severity, Number(a.count)]),
     ),
     isBackfillRunning,
+  };
+}
+
+export interface ItemCountryStat {
+  countryCode: string | null;
+  country: string | null;
+  playCount: number;
+  uniqueUsers: number;
+  lastWatched: string | null;
+}
+
+export interface ItemLocations {
+  itemId: string;
+  countries: ItemCountryStat[];
+  geolocatedPlayCount: number;
+  // Private/LAN IPs (no country); empty `countries` means "unknown", not "never watched".
+  localPlayCount: number;
+}
+
+// Per-item country aggregation from geolocated activity IPs, scoped to one
+// server and filtered by its user exclusions.
+export async function getItemLocations(args: {
+  itemId: string;
+  serverId: number;
+}): Promise<ItemLocations> {
+  const { itemId, serverId } = args;
+  const { excludedUserIds } = await getExclusionSettings(serverId);
+
+  const baseConditions: SQL[] = [
+    eq(activities.serverId, serverId),
+    eq(activities.itemId, itemId),
+  ];
+  if (excludedUserIds.length > 0) {
+    baseConditions.push(notInArray(activities.userId, excludedUserIds));
+  }
+
+  const [countryRows, localRow] = await Promise.all([
+    db
+      .select({
+        countryCode: activityLocations.countryCode,
+        country: activityLocations.country,
+        playCount: count(),
+        uniqueUsers: countDistinct(activities.userId),
+        lastWatched: sql<string | null>`MAX(${activities.date})`,
+      })
+      .from(activityLocations)
+      .innerJoin(activities, eq(activityLocations.activityId, activities.id))
+      .where(and(...baseConditions, eq(activityLocations.isPrivateIp, false)))
+      .groupBy(activityLocations.countryCode, activityLocations.country)
+      .orderBy(desc(count())),
+    db
+      .select({ playCount: count() })
+      .from(activityLocations)
+      .innerJoin(activities, eq(activityLocations.activityId, activities.id))
+      .where(and(...baseConditions, eq(activityLocations.isPrivateIp, true))),
+  ]);
+
+  const countries: ItemCountryStat[] = countryRows.map((r) => ({
+    countryCode: r.countryCode,
+    country: r.country,
+    playCount: Number(r.playCount),
+    uniqueUsers: Number(r.uniqueUsers),
+    lastWatched: r.lastWatched,
+  }));
+
+  return {
+    itemId,
+    countries,
+    geolocatedPlayCount: countries.reduce((sum, c) => sum + c.playCount, 0),
+    localPlayCount: Number(localRow[0]?.playCount ?? 0),
   };
 }
