@@ -19,3 +19,9 @@ test("a token is the admin API key identity only when it is one of the server's 
   expect(result.stderr.toString()).toBe("");
   expect(result.exitCode).toBe(0);
 });
+
+test("a Bearer key must be an API key or an administrator's token, and a named server is asked on its internal URL", () => {
+  const result = runScenarios("server-token-auth-scenarios.ts");
+  expect(result.stderr.toString()).toBe("");
+  expect(result.exitCode).toBe(0);
+});

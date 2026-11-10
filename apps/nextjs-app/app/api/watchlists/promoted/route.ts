@@ -1,8 +1,5 @@
 import type { NextRequest } from "next/server";
-import {
-  authenticateMediaBrowser,
-  validateJellyfinToken,
-} from "@/lib/api-auth";
+import { authenticateMediaBrowserForServer } from "@/lib/api-auth";
 import {
   hasServerIdentifier,
   parseServerIdentifier,
@@ -75,8 +72,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Authenticate via MediaBrowser token
-  const mediaBrowserAuth = await authenticateMediaBrowser(request);
-  if (!mediaBrowserAuth) {
+  if (!(await authenticateMediaBrowserForServer({ request, server }))) {
     return jsonResponse(
       {
         error: "Unauthorized",
@@ -85,34 +81,6 @@ export async function GET(request: NextRequest) {
       },
       401,
     );
-  }
-
-  // Verify the authenticated server matches the requested server
-  if (mediaBrowserAuth.server.id !== server.id) {
-    const authHeader = request.headers.get("authorization");
-    const tokenMatch = authHeader?.match(/Token="([^"]*)"/i);
-    const token = tokenMatch?.[1];
-
-    if (token) {
-      const userInfo = await validateJellyfinToken(server.url, token);
-      if (!userInfo) {
-        return jsonResponse(
-          {
-            error: "Unauthorized",
-            message: "Token is not valid for the requested server.",
-          },
-          401,
-        );
-      }
-    } else {
-      return jsonResponse(
-        {
-          error: "Unauthorized",
-          message: "Token is not valid for the requested server.",
-        },
-        401,
-      );
-    }
   }
 
   const format = searchParams.get("format") || "full";

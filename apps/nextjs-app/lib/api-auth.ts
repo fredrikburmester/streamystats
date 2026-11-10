@@ -116,6 +116,53 @@ async function validateAsApiKey(
   };
 }
 
+function getMediaBrowserToken(request: NextRequest): string | null {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader) {
+    return null;
+  }
+
+  return parseMediaBrowserHeader(authHeader)?.token || null;
+}
+
+/**
+ * Validates a token against one server and builds the session it stands for.
+ * Always goes through the server's internal URL: the public one may not be
+ * reachable from where Streamystats runs.
+ * Returns "merged" when the token is valid but its account was merged away.
+ */
+async function getSessionForToken({
+  server,
+  token,
+}: {
+  server: Server;
+  token: string;
+}): Promise<SessionUser | "merged" | null> {
+  const userInfo = await validateJellyfinToken(getInternalUrl(server), token);
+  if (!userInfo) {
+    return null;
+  }
+
+  if (
+    await getMergedUserTarget({
+      serverId: server.id,
+      userId: userInfo.userId,
+    })
+  )
+    return "merged";
+  // Check if this user exists in our database for this server
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, userInfo.userId),
+  });
+
+  return {
+    id: userInfo.userId,
+    name: userInfo.userName,
+    serverId: server.id,
+    isAdmin: userInfo.isAdmin || dbUser?.isAdministrator || false,
+  };
+}
+
 /**
  * Authenticate using MediaBrowser token header
  * Validates the token against all registered Jellyfin servers
@@ -124,13 +171,8 @@ async function validateAsApiKey(
 export async function authenticateMediaBrowser(
   request: NextRequest,
 ): Promise<{ session: SessionUser; server: Server } | null> {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader) {
-    return null;
-  }
-
-  const parsed = parseMediaBrowserHeader(authHeader);
-  if (!parsed?.token) {
+  const token = getMediaBrowserToken(request);
+  if (!token) {
     return null;
   }
 
@@ -138,41 +180,41 @@ export async function authenticateMediaBrowser(
   const allServers = await db.select().from(servers);
 
   for (const server of allServers) {
-    const userInfo = await validateJellyfinToken(
-      getInternalUrl(server),
-      parsed.token,
-    );
-    if (userInfo) {
-      if (
-        await getMergedUserTarget({
-          serverId: server.id,
-          userId: userInfo.userId,
-        })
-      )
-        return null;
-      // Check if this user exists in our database for this server
-      const dbUser = await db.query.users.findFirst({
-        where: eq(users.id, userInfo.userId),
-      });
-
-      return {
-        session: {
-          id: userInfo.userId,
-          name: userInfo.userName,
-          serverId: server.id,
-          isAdmin: userInfo.isAdmin || dbUser?.isAdministrator || false,
-        },
-        server,
-      };
-    }
+    const session = await getSessionForToken({ server, token });
+    if (session === "merged") return null;
+    if (session) return { session, server };
   }
 
   return null;
 }
 
 /**
+ * Authenticate using MediaBrowser token header against one server
+ * For routes that name their server in the request, so the token only
+ * has to be valid there
+ */
+export async function authenticateMediaBrowserForServer({
+  request,
+  server,
+}: {
+  request: NextRequest;
+  server: Server;
+}): Promise<SessionUser | null> {
+  const token = getMediaBrowserToken(request);
+  if (!token) {
+    return null;
+  }
+
+  const session = await getSessionForToken({ server, token });
+  return session === "merged" ? null : session;
+}
+
+/**
  * Validates API key from Authorization header against the actual Jellyfin server
  * Expected format: "Bearer <api-key>" or just "<api-key>"
+ *
+ * The routes behind this return every user's data, so the key must be one
+ * of the server's API keys or an administrator's access token.
  */
 export async function validateApiKey({
   request,
@@ -197,9 +239,10 @@ export async function validateApiKey({
 
   try {
     // Validate the API key by making a request to the Jellyfin server
-    // Use /Users/Me endpoint which requires valid authentication
+    // Use /Auth/Keys, which only answers API keys and administrators. An
+    // endpoint like /System/Info answers any signed-in user.
     try {
-      const response = await fetch(`${getInternalUrl(server)}/System/Info`, {
+      const response = await fetch(`${getInternalUrl(server)}/Auth/Keys`, {
         method: "GET",
         headers: jellyfinHeaders(apiKey),
         signal: AbortSignal.timeout(5000),
@@ -210,8 +253,8 @@ export async function validateApiKey({
         return true;
       }
 
-      // If we get 401, the API key is invalid
-      if (response.status === 401) {
+      // If we get 401 or 403, the API key is invalid or not an admin's
+      if (response.status === 401 || response.status === 403) {
         console.warn(
           `Invalid API key for server ${server.name} (${server.url})`,
         );
