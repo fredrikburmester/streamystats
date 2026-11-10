@@ -1,6 +1,7 @@
 import type { Job } from "pg-boss";
 import type { QueueStats } from "pg-boss";
 import { PgBoss } from "pg-boss";
+import { getDatabaseUrl } from "@streamystats/database";
 import {
   addServerJob,
   backfillJellyfinIdsJob,
@@ -61,10 +62,8 @@ export async function getJobQueue(): Promise<PgBoss> {
     return bossInstance;
   }
 
-  const connectionString = Bun.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error("DATABASE_URL environment variable is not set");
-  }
+  // Throws a descriptive error when no connection is configured
+  const connectionString = getDatabaseUrl();
 
   const postgres = await import("postgres");
   const sql = postgres.default(connectionString);

@@ -37,6 +37,33 @@ docker run -d \
 | `POSTGRES_USER` | `postgres` | PostgreSQL username |
 | `POSTGRES_PASSWORD` | `postgres` | PostgreSQL password |
 | `POSTGRES_DB` | `streamystats` | Database name |
+| `DATABASE_URL` | derived | Built from the `POSTGRES_*` values above when not set |
+
+### Secrets from files
+
+Every secret can be read from a file instead of the environment by appending `_FILE` to its name, for example with [Docker secrets](https://docs.docker.com/compose/how-tos/use-secrets/), Kubernetes secret volumes or a Vault/OpenBao agent. See [Secrets from files](README.md#secrets-from-files) for the full list.
+
+```yaml
+services:
+  streamystats:
+    image: ghcr.io/fredrikburmester/streamystats-aio:latest
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - SESSION_SECRET_FILE=/run/secrets/session_secret
+    secrets:
+      - postgres_password
+      - session_secret
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  session_secret:
+    file: ./secrets/session_secret
+```
+
+`DATABASE_URL` does not need to be set: it is derived from the `POSTGRES_*` values, so the password lives in a single place. Do not set both `POSTGRES_PASSWORD` and `POSTGRES_PASSWORD_FILE`, and make the file readable by the `postgres` user inside the container.
+
+`POSTGRES_PASSWORD` is only applied when the database is first created. To change it later, run `ALTER ROLE` inside the database, then update the secret and restart the container.
 
 ## Architecture
 

@@ -123,9 +123,10 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV JOB_SERVER_URL=http://localhost:3005
 ENV POSTGRES_USER=postgres
-ENV POSTGRES_PASSWORD=postgres
 ENV POSTGRES_DB=streamystats
-ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/streamystats
+# No baked-in POSTGRES_PASSWORD / DATABASE_URL so that their *_FILE variants can
+# be used: the entrypoint defaults the password to "postgres" when neither is
+# set, and the apps derive DATABASE_URL from POSTGRES_* when it is not set.
 ENV PGDATA=/var/lib/postgresql/data
 
 LABEL org.opencontainers.image.source="https://github.com/fredrikburmester/streamystats"

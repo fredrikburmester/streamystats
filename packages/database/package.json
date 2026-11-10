@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "test": "bun test",
     "dev": "tsc --watch",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -47,6 +48,14 @@
     "./connection": {
       "types": "./dist/connection.d.ts",
       "default": "./dist/connection.js"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./dist/env.js"
+    },
+    "./load-env": {
+      "types": "./dist/load-env.d.ts",
+      "default": "./dist/load-env.js"
     },
     "./job-defaults": {
       "types": "./dist/job-defaults.d.ts",

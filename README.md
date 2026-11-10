@@ -66,6 +66,20 @@ Streamystats uses only Jellyfin's current REST API with `Authorization: MediaBro
 
 First time load can take a while, depending on the size of your library.
 
+### Secrets from files
+
+The secrets below can also be read from a file by appending `_FILE` to their name (for example `SESSION_SECRET_FILE=/run/secrets/session_secret`). This works with [Docker secrets](https://docs.docker.com/compose/how-tos/use-secrets/), Kubernetes secret volumes or a Vault/OpenBao agent, in the AIO image as well as the separate `nextjs` and `job-server` images. It follows the official postgres image convention: setting both `VAR` and `VAR_FILE` is an error, and trailing newlines in the file are ignored.
+
+| Variable | Notes |
+|----------|-------|
+| `DATABASE_URL` | Optional. When not set, it is built from `POSTGRES_PASSWORD` and the `POSTGRES_*` settings below |
+| `POSTGRES_PASSWORD` | Database password, URL-encoded into the connection string |
+| `SESSION_SECRET` | Session signing secret |
+| `INTERNAL_API_KEY` | Job server to web app key, defaults to `SESSION_SECRET` |
+| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | Server actions encryption key |
+
+When `DATABASE_URL` is not set, the connection also uses `POSTGRES_USER` (default `postgres`), `POSTGRES_HOST` (default `localhost`, `vectorchord` in the provided `docker-compose.yml`), `POSTGRES_PORT` (default `5432`) and `POSTGRES_DB` (default `streamystats`). Keep `DATABASE_URL` unset when you use `POSTGRES_PASSWORD_FILE`, otherwise it takes precedence.
+
 ### Version Tags
 
 Version tags (e.g., `v1.2.3`) are automatically generated on release. These tags provide stable, tested reference points for production use. I recommend pinning to specific version tags for stability.

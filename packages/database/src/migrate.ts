@@ -2,15 +2,14 @@ import { migrate as drizzleMigrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as dotenv from "dotenv";
+import { MISSING_DATABASE_URL_MESSAGE, resolveDatabaseUrl } from "./env";
 
 dotenv.config({ quiet: true });
 
 const getConnectionString = () => {
-  const url = process.env.DATABASE_URL;
+  const url = resolveDatabaseUrl();
   if (!url) {
-    throw new Error(
-      'DATABASE_URL environment variable is missing. Set DATABASE_URL (e.g. "postgresql://postgres:postgres@host:5432/streamystats").',
-    );
+    throw new Error(MISSING_DATABASE_URL_MESSAGE);
   }
   return url;
 };

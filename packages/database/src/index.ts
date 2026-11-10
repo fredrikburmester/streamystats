@@ -9,6 +9,14 @@ export {
   getDb,
 } from "./connection";
 
+export {
+  buildDatabaseUrl,
+  FILE_ENV_VARS,
+  type FileEnvVar,
+  loadFileEnv,
+  resolveDatabaseUrl,
+} from "./env";
+
 // Export all schema tables and types
 export * from "./schema";
 export * from "./user-merge";

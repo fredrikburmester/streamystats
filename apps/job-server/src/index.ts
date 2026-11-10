@@ -1,3 +1,5 @@
+// Must stay first: resolves *_FILE secrets before other modules read them
+import "@streamystats/database/load-env";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";

@@ -1,3 +1,4 @@
+import { MISSING_DATABASE_URL_MESSAGE, resolveDatabaseUrl } from "./env";
 import { migrate } from "./migrate";
 import postgres from "postgres";
 
@@ -5,9 +6,9 @@ async function main() {
   console.log("=== Database Migration Runner ===");
   console.log(`Starting at: ${new Date().toISOString()}`);
 
-  const dbUrl = process.env.DATABASE_URL;
+  const dbUrl = resolveDatabaseUrl();
   if (!dbUrl) {
-    console.error("DATABASE_URL environment variable is missing");
+    console.error(MISSING_DATABASE_URL_MESSAGE);
     process.exit(1);
   }
 

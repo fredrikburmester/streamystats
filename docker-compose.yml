@@ -11,7 +11,12 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
+      - POSTGRES_HOST=vectorchord
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      # Or POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password: replace this line,
+      # never set both (in every service)
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-streamystats}
       - JOB_SERVER_URL=http://job-server:3005
       - HOSTNAME=0.0.0.0
       - SESSION_SECRET=${SESSION_SECRET}
@@ -32,7 +37,12 @@ services:
     image: ghcr.io/fredrikburmester/streamystats-job-server:${VERSION:-latest}
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
+      - POSTGRES_HOST=vectorchord
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      # Or POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password: replace this line,
+      # never set both (in every service)
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-streamystats}
       - PORT=3005
       - HOST=0.0.0.0
       - NEXTJS_URL=http://nextjs-app:3000
@@ -89,6 +99,8 @@ services:
     shm_size: 1g
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      # Or POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password: replace this line,
+      # never set both (in every service)
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-streamystats}
       - POSTGRES_HOST_AUTH_METHOD=scram-sha-256

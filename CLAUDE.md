@@ -112,7 +112,7 @@ packages/
 
 **Dev** (`docker-compose.dev.yml`): PostgreSQL only on `localhost:5432`. Run `bun run dev` locally.
 
-**Required env vars**: `SESSION_SECRET` (JWT signing), `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, `DATABASE_URL`, `JOB_SERVER_URL`. DB credentials default to `postgres`/`postgres`/`streamystats` in Docker.
+**Required env vars**: `SESSION_SECRET` (JWT signing), `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`, `JOB_SERVER_URL`, and either `DATABASE_URL` or `POSTGRES_PASSWORD` (with optional `POSTGRES_USER`/`POSTGRES_HOST`/`POSTGRES_PORT`/`POSTGRES_DB`, see `packages/database/src/env.ts`). Secrets also accept a `*_FILE` variant, resolved once at startup by `@streamystats/database/load-env`. DB credentials default to `postgres`/`postgres`/`streamystats` in Docker.
 
 ## Data Sync & Jobs
 
