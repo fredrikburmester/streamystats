@@ -71,7 +71,11 @@ async function mergeSinglePair(
       )
       .returning({ id: hiddenRecommendations.id });
 
-    await tx.delete(items).where(eq(items.id, pair.deletedItemId));
+    await tx
+      .delete(items)
+      .where(
+        and(eq(items.id, pair.deletedItemId), eq(items.serverId, serverId)),
+      );
 
     return {
       sessionsMigrated: migratedSessions.length,
@@ -83,7 +87,7 @@ async function mergeSinglePair(
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
+    const { error, session } = await requireAdmin();
     if (error) return error;
 
     const body = await request.json();
@@ -118,7 +122,12 @@ export async function POST(request: Request) {
         const deletedItem = await db
           .select()
           .from(items)
-          .where(eq(items.id, pair.deletedItemId))
+          .where(
+            and(
+              eq(items.id, pair.deletedItemId),
+              eq(items.serverId, session.serverId),
+            ),
+          )
           .limit(1);
 
         if (deletedItem.length === 0) {
@@ -134,7 +143,12 @@ export async function POST(request: Request) {
         const activeItem = await db
           .select()
           .from(items)
-          .where(eq(items.id, pair.activeItemId))
+          .where(
+            and(
+              eq(items.id, pair.activeItemId),
+              eq(items.serverId, session.serverId),
+            ),
+          )
           .limit(1);
 
         if (activeItem.length === 0) {
@@ -148,6 +162,13 @@ export async function POST(request: Request) {
         }
 
         const serverId = deletedItem[0].serverId;
+        if (session.serverId !== serverId) {
+          errors.push(
+            `Item ${pair.deletedItemId} does not belong to your server`,
+          );
+          continue;
+        }
+
         if (serverId !== activeItem[0].serverId) {
           errors.push(
             `Items ${pair.deletedItemId} and ${pair.activeItemId} are from different servers`,

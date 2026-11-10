@@ -1,5 +1,7 @@
 import type { Job } from "pg-boss";
+import type { QueueStats } from "pg-boss";
 import { PgBoss } from "pg-boss";
+import { getDatabaseUrl } from "@streamystats/database";
 import {
   addServerJob,
   backfillJellyfinIdsJob,
@@ -29,6 +31,8 @@ import {
   schedulerMaintenanceWorker,
   SCHEDULER_MAINTENANCE_JOB_NAME,
 } from "./scheduler-maintenance";
+import { formatError } from "../utils/format-error";
+import { shouldLog } from "../utils/log-throttle";
 
 let bossInstance: PgBoss | null = null;
 
@@ -37,6 +41,15 @@ const DEFAULT_QUEUE_OPTIONS = {
   retryLimit: 3,
   retryDelay: 30,
   retentionSeconds: 60 * 60 * 24, // 24 hours
+  deleteAfterSeconds: 60 * 60 * 24 * 2, // 2 days
+  notify: true,
+};
+
+// Keep prompt polling if the notification listener is unavailable.
+const DEFAULT_WORK_OPTIONS = {
+  batchSize: 1,
+  pollingIntervalSeconds: 2,
+  notifyPollingIntervalSeconds: 15,
 };
 
 // Helper to extract first job from batch and call handler with proper typing
@@ -49,10 +62,8 @@ export async function getJobQueue(): Promise<PgBoss> {
     return bossInstance;
   }
 
-  const connectionString = Bun.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error("DATABASE_URL environment variable is not set");
-  }
+  // Throws a descriptive error when no connection is configured
+  const connectionString = getDatabaseUrl();
 
   const postgres = await import("postgres");
   const sql = postgres.default(connectionString);
@@ -84,6 +95,13 @@ export async function getJobQueue(): Promise<PgBoss> {
 
   bossInstance = new PgBoss({
     connectionString,
+    useListenNotify: true,
+  });
+
+  bossInstance.on("error", (error) => {
+    if (shouldLog("pg-boss-instance-error", 30_000)) {
+      console.error("[pg-boss] error:", formatError(error));
+    }
   });
 
   await bossInstance.start();
@@ -118,6 +136,8 @@ async function createQueues(boss: PgBoss) {
 
   for (const name of queueNames) {
     await boss.createQueue(name, DEFAULT_QUEUE_OPTIONS);
+    // createQueue leaves existing queues unchanged during upgrades.
+    await boss.updateQueue(name, DEFAULT_QUEUE_OPTIONS);
   }
 
   console.log(`[pg-boss] Created ${queueNames.length} job queues`);
@@ -125,37 +145,37 @@ async function createQueues(boss: PgBoss) {
 
 async function registerJobHandlers(boss: PgBoss) {
   // Register media server job types
-  await boss.work("add-server", { batchSize: 1 }, firstJob(addServerJob));
+  await boss.work("add-server", DEFAULT_WORK_OPTIONS, firstJob(addServerJob));
 
   // Register item embeddings job
-  await boss.work("generate-item-embeddings", { batchSize: 1 }, firstJob(generateItemEmbeddingsJob));
+  await boss.work("generate-item-embeddings", DEFAULT_WORK_OPTIONS, firstJob(generateItemEmbeddingsJob));
 
   // Register Jellyfin sync workers
-  await boss.work(JELLYFIN_JOB_NAMES.FULL_SYNC, { batchSize: 1 }, firstJob(jellyfinFullSyncWorker));
-  await boss.work(JELLYFIN_JOB_NAMES.USERS_SYNC, { batchSize: 1 }, firstJob(jellyfinUsersSyncWorker));
-  await boss.work(JELLYFIN_JOB_NAMES.LIBRARIES_SYNC, { batchSize: 1 }, firstJob(jellyfinLibrariesSyncWorker));
-  await boss.work(JELLYFIN_JOB_NAMES.ITEMS_SYNC, { batchSize: 1 }, firstJob(jellyfinItemsSyncWorker));
-  await boss.work(JELLYFIN_JOB_NAMES.ACTIVITIES_SYNC, { batchSize: 1 }, firstJob(jellyfinActivitiesSyncWorker));
-  await boss.work(JELLYFIN_JOB_NAMES.RECENT_ITEMS_SYNC, { batchSize: 1 }, firstJob(jellyfinRecentItemsSyncWorker));
-  await boss.work(JELLYFIN_JOB_NAMES.RECENT_ACTIVITIES_SYNC, { batchSize: 1 }, firstJob(jellyfinRecentActivitiesSyncWorker));
-  await boss.work(JELLYFIN_JOB_NAMES.PEOPLE_SYNC, { batchSize: 1 }, firstJob(jellyfinPeopleSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.FULL_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinFullSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.USERS_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinUsersSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.LIBRARIES_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinLibrariesSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.ITEMS_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinItemsSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.ACTIVITIES_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinActivitiesSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.RECENT_ITEMS_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinRecentItemsSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.RECENT_ACTIVITIES_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinRecentActivitiesSyncWorker));
+  await boss.work(JELLYFIN_JOB_NAMES.PEOPLE_SYNC, DEFAULT_WORK_OPTIONS, firstJob(jellyfinPeopleSyncWorker));
 
   // Register geolocation jobs
-  await boss.work(GEOLOCATION_JOB_NAMES.GEOLOCATE_ACTIVITIES, { batchSize: 1 }, firstJob(geolocateActivitiesJob));
-  await boss.work(GEOLOCATION_JOB_NAMES.CALCULATE_FINGERPRINTS, { batchSize: 1 }, firstJob(calculateFingerprintsJob));
-  await boss.work(GEOLOCATION_JOB_NAMES.BACKFILL_LOCATIONS, { batchSize: 1 }, firstJob(backfillActivityLocationsJob));
+  await boss.work(GEOLOCATION_JOB_NAMES.GEOLOCATE_ACTIVITIES, DEFAULT_WORK_OPTIONS, firstJob(geolocateActivitiesJob));
+  await boss.work(GEOLOCATION_JOB_NAMES.CALCULATE_FINGERPRINTS, DEFAULT_WORK_OPTIONS, firstJob(calculateFingerprintsJob));
+  await boss.work(GEOLOCATION_JOB_NAMES.BACKFILL_LOCATIONS, DEFAULT_WORK_OPTIONS, firstJob(backfillActivityLocationsJob));
 
   // Register security sync job
-  await boss.work(SECURITY_SYNC_JOB_NAME, { batchSize: 1 }, firstJob(securityFullSyncJob));
+  await boss.work(SECURITY_SYNC_JOB_NAME, DEFAULT_WORK_OPTIONS, firstJob(securityFullSyncJob));
 
   // Register backfill jobs
-  await boss.work(BACKFILL_JOB_NAMES.BACKFILL_JELLYFIN_IDS, { batchSize: 1 }, firstJob(backfillJellyfinIdsJob));
+  await boss.work(BACKFILL_JOB_NAMES.BACKFILL_JELLYFIN_IDS, DEFAULT_WORK_OPTIONS, firstJob(backfillJellyfinIdsJob));
 
   // Register infer watchtime job
-  await boss.work(INFER_WATCHTIME_JOB_NAME, { batchSize: 1 }, firstJob(inferWatchtimeJob));
+  await boss.work(INFER_WATCHTIME_JOB_NAME, DEFAULT_WORK_OPTIONS, firstJob(inferWatchtimeJob));
 
   // Register scheduler maintenance job
-  await boss.work(SCHEDULER_MAINTENANCE_JOB_NAME, { batchSize: 1 }, firstJob(schedulerMaintenanceWorker));
+  await boss.work(SCHEDULER_MAINTENANCE_JOB_NAME, DEFAULT_WORK_OPTIONS, firstJob(schedulerMaintenanceWorker));
 
   console.log("[pg-boss] All job handlers registered successfully");
 }
@@ -172,3 +192,15 @@ export const JobTypes = {
   ADD_SERVER: "add-server",
   GENERATE_ITEM_EMBEDDINGS: "generate-item-embeddings",
 } as const;
+
+/**
+ * pg-boss 12.31+ returns a list of stat snapshots from getQueueStats (a history
+ * when persistQueueStats is enabled), so callers need the most recent one.
+ */
+export function latestQueueStats(stats: QueueStats[]): QueueStats | undefined {
+  return stats.reduce<QueueStats | undefined>(
+    (newest, current) =>
+      !newest || current.capturedOn > newest.capturedOn ? current : newest,
+    undefined,
+  );
+}

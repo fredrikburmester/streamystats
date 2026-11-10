@@ -21,9 +21,6 @@ export interface DangerousMatch {
 
 export async function GET(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const url = new URL(request.url);
     const serverId = url.searchParams.get("serverId");
     const page = Number.parseInt(url.searchParams.get("page") || "1", 10);
@@ -45,6 +42,9 @@ export async function GET(request: Request) {
         },
       );
     }
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     const serverIdNum = Number.parseInt(serverId, 10);
     if (Number.isNaN(serverIdNum)) {
@@ -131,7 +131,12 @@ export async function GET(request: Request) {
         const sessionCount = await db
           .select({ count: sql<number>`count(*)::int` })
           .from(sessions)
-          .where(eq(sessions.itemId, match.deletedId));
+          .where(
+            and(
+              eq(sessions.itemId, match.deletedId),
+              eq(sessions.serverId, serverIdNum),
+            ),
+          );
 
         return {
           deletedItem: {

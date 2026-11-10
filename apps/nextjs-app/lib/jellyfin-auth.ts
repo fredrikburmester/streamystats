@@ -1,3 +1,52 @@
+import { STREAMYSTATS_VERSION } from "@/lib/version";
+
+export type JellyfinDevice = { id: string; name: string };
+
+/**
+ * Build the standard Jellyfin Authorization header.
+ * Uses MediaBrowser format required by Jellyfin 10.12+ (non-legacy auth).
+ */
+export function jellyfinHeaders(
+  token: string,
+  device?: JellyfinDevice,
+): Record<string, string> {
+  return {
+    Authorization: `${mediaBrowserIdentity(device)}, Token="${token}"`,
+    "Content-Type": "application/json",
+  };
+}
+
+/**
+ * Authorization header for requests made before a token exists. Jellyfin
+ * rejects /Users/AuthenticateByName with HTTP 400 unless the client identifies
+ * itself with Client, Device, DeviceId and Version.
+ */
+export function jellyfinClientHeaders(
+  device: JellyfinDevice,
+): Record<string, string> {
+  return {
+    Authorization: mediaBrowserIdentity(device),
+    "Content-Type": "application/json",
+  };
+}
+
+function mediaBrowserIdentity(device?: JellyfinDevice): string {
+  const devicePart = device
+    ? `, Device="${device.name}", DeviceId="${device.id}"`
+    : "";
+  return `MediaBrowser Client="Streamystats"${devicePart}, Version="${STREAMYSTATS_VERSION}"`;
+}
+
+/**
+ * Stable device identity for password logins through the external API, so
+ * repeated calls reuse one Jellyfin device per user instead of creating a new
+ * device entry every time.
+ */
+export function apiLoginDevice(username: string): JellyfinDevice {
+  const slug = encodeURIComponent(username.trim().toLowerCase());
+  return { id: `streamystats-api-${slug}`, name: "Streamystats API" };
+}
+
 type JellyfinUserMeResponse = {
   Id?: string;
   Name?: string;
@@ -16,6 +65,10 @@ type JellyfinAuthenticateByNameResponse = {
       IsAdministrator?: boolean;
     };
   };
+};
+
+type JellyfinApiKeysResponse = {
+  Items?: Array<{ AccessToken?: string }>;
 };
 
 export type JellyfinAuthUser = {
@@ -42,21 +95,18 @@ export async function getUserFromEmbyToken(args: {
 > {
   const serverUrl = normalizeBaseUrl(args.serverUrl);
   const token = args.token.trim();
-  if (!token) return { ok: false, error: "Empty X-Emby-Token" };
+  if (!token) return { ok: false, error: "Empty Authorization header" };
 
   try {
     const res = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": token,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(token),
       signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) {
       if (res.status === 401) {
-        return { ok: false, error: "Invalid X-Emby-Token" };
+        return { ok: false, error: "Invalid Authorization header" };
       }
       return { ok: false, error: `Jellyfin returned ${res.status}` };
     }
@@ -76,40 +126,42 @@ export async function getUserFromEmbyToken(args: {
       return { ok: false, error: "Jellyfin request timed out" };
     }
 
-    // If /Users/Me failed, it might be an API Key.
-    // Try /System/Info to validate if it's a valid API Key.
-    try {
-      const sysRes = await fetch(
-        `${normalizeBaseUrl(args.serverUrl)}/System/Info`,
-        {
-          method: "GET",
-          headers: {
-            "X-Emby-Token": args.token.trim(),
-            "Content-Type": "application/json",
-          },
-          signal: AbortSignal.timeout(5000),
-        },
-      );
-
-      if (sysRes.ok) {
-        // It is a valid API Key (Admin)
-        return {
-          ok: true,
-          user: {
-            id: "system-api-key",
-            name: "System API Key",
-            isAdmin: true,
-          },
-        };
-      }
-    } catch {
-      // Ignore error from System/Info and return original error
-    }
-
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Jellyfin request failed",
     };
+  }
+}
+
+/**
+ * Whether the token is one of the server's own API keys rather than a user
+ * access token. A 200 from an authenticated endpoint like /System/Info can't
+ * tell the two apart, since Jellyfin answers it for any signed-in user.
+ * /Auth/Keys only answers administrators and API keys, and the token must be
+ * in the list it returns, so no user token passes: a regular user is refused
+ * and an administrator's token is not listed.
+ */
+export async function isServerApiKey(args: {
+  serverUrl: string;
+  token: string;
+}): Promise<boolean> {
+  if (!args.token) return false;
+
+  try {
+    const res = await fetch(`${normalizeBaseUrl(args.serverUrl)}/Auth/Keys`, {
+      method: "GET",
+      headers: jellyfinHeaders(args.token),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return false;
+
+    const json = (await res.json()) as JellyfinApiKeysResponse;
+    return (
+      Array.isArray(json.Items) &&
+      json.Items.some((key) => key.AccessToken === args.token)
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -132,7 +184,7 @@ export async function authenticateByName(args: {
   try {
     const res = await fetch(`${serverUrl}/Users/AuthenticateByName`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: jellyfinClientHeaders(apiLoginDevice(username)),
       body: JSON.stringify({ Username: username, Pw: password }),
       signal: AbortSignal.timeout(10_000),
     });

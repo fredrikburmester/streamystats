@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { Item } from "@streamystats/database";
 import { db, itemPeople, people } from "@streamystats/database";
 import { and, eq } from "drizzle-orm";

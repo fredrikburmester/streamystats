@@ -62,7 +62,10 @@ export interface TrackedSession {
   clientName?: string;
   deviceId?: string;
   deviceName?: string;
-  itemId: string;
+  /** Item the playback is stored against (the listed item for alternate versions, or null if unresolved). */
+  itemId: string | null;
+  /** Id Jellyfin reports as NowPlayingItem.Id; differs from itemId for alternate versions. */
+  jellyfinItemId?: string;
   itemName?: string;
   seriesId?: string;
   seriesName?: string;
@@ -114,7 +117,7 @@ export interface ActiveSessionResponse {
   clientName?: string;
   deviceId?: string;
   deviceName?: string;
-  itemId: string;
+  itemId: string | null;
   itemName?: string;
   seriesId?: string;
   seriesName?: string;

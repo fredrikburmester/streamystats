@@ -9,6 +9,7 @@ import {
 } from "@streamystats/database";
 import { JellyfinClient } from "../client";
 import { formatSyncLogLine } from "./sync-log";
+import { getInternalUrl } from "../../utils/server-url";
 
 export interface PeopleSyncJobData {
   serverId: number;
@@ -68,7 +69,7 @@ export async function syncPeopleForServer(
     const candidates = await db
       .select({ id: items.id })
       .from(items)
-      .innerJoin(libraries, eq(items.libraryId, libraries.id))
+      .innerJoin(libraries, and(eq(items.libraryId, libraries.id), eq(items.serverId, libraries.serverId)))
       .where(
         and(
           eq(items.serverId, serverId),
@@ -158,7 +159,7 @@ export async function syncPeopleForServer(
   const remainingCount = await db
     .select({ count: sql<number>`count(*)` })
     .from(items)
-    .innerJoin(libraries, eq(items.libraryId, libraries.id))
+    .innerJoin(libraries, and(eq(items.libraryId, libraries.id), eq(items.serverId, libraries.serverId)))
     .where(
       and(
         eq(items.serverId, serverId),
@@ -213,29 +214,36 @@ async function syncPeopleToTables(
     (p) => p.Id && p.Name && p.Id.trim() !== "" && p.Name.trim() !== ""
   );
 
-  // Upsert each person (type is stored per item-person relationship, not on person)
-  for (const person of validPeople) {
+  // Deduplicate by Id before bulk upsert — a person can appear multiple times in one
+  // item's people list (e.g. listed as both Actor and Director). The people table only
+  // needs one row per person; roles are stored in itemPeople.
+  const uniquePeopleById = new Map(
+    validPeople.map((p) => [p.Id, p])
+  );
+  const uniquePeople = Array.from(uniquePeopleById.values());
+
+  // Bulk upsert all people in one query
+  if (uniquePeople.length > 0) {
     const result = await db
       .insert(people)
-      .values({
-        id: person.Id,
-        serverId,
-        name: person.Name,
-        primaryImageTag: person.PrimaryImageTag ?? null,
-      })
+      .values(
+        uniquePeople.map((person) => ({
+          id: person.Id,
+          serverId,
+          name: person.Name,
+          primaryImageTag: person.PrimaryImageTag ?? null,
+        }))
+      )
       .onConflictDoUpdate({
         target: [people.id, people.serverId],
         set: {
-          name: person.Name,
-          primaryImageTag: person.PrimaryImageTag ?? null,
+          name: sql`excluded.name`,
+          primaryImageTag: sql`excluded.primary_image_tag`,
           updatedAt: new Date(),
         },
       })
       .returning({ id: people.id });
-
-    if (result.length > 0) {
-      insertedPeople += 1;
-    }
+    insertedPeople += result.length;
   }
 
   // Insert item_people junction records (type is stored here, per item-person relationship)
@@ -265,7 +273,12 @@ async function createClientForServerId(
   serverId: number
 ): Promise<{ client: JellyfinClient; serverName: string }> {
   const serverRows = await db
-    .select({ url: servers.url, apiKey: servers.apiKey, name: servers.name })
+    .select({
+      url: servers.url,
+      internalUrl: servers.internalUrl,
+      apiKey: servers.apiKey,
+      name: servers.name,
+    })
     .from(servers)
     .where(eq(servers.id, serverId))
     .limit(1);
@@ -277,7 +290,7 @@ async function createClientForServerId(
 
   return {
     client: new JellyfinClient({
-      baseURL: server.url,
+      baseURL: getInternalUrl(server),
       apiKey: server.apiKey,
     }),
     serverName: server.name,

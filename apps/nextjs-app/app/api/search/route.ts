@@ -316,6 +316,7 @@ export async function GET(request: NextRequest) {
     ? Math.min(100, Math.max(1, parseInt(limitParam, 10)))
     : 10;
 
+  const viewerUserId = session.isAdmin ? undefined : session.id;
   const results = await globalSearch(
     session.serverId,
     query.trim(),
@@ -328,6 +329,7 @@ export async function GET(request: NextRequest) {
       sessionLimit: limit,
       actorLimit: limit,
     },
+    viewerUserId,
   );
 
   // Apply type filter

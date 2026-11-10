@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, libraries, Server, NewLibrary } from "@streamystats/database";
 import { JellyfinClient, JellyfinLibrary } from "../client";
 import {
@@ -110,6 +110,27 @@ export async function syncLibraries(
       );
     }
 
+    // Remove libraries that no longer exist in Jellyfin
+    const jellyfinLibraryIds = jellyfinLibraries.map((lib) => lib.Id);
+    if (jellyfinLibraryIds.length > 0) {
+      const existingLibraries = await db
+        .select({ id: libraries.id })
+        .from(libraries)
+        .where(eq(libraries.serverId, server.id));
+
+      const staleLibraryIds = existingLibraries
+        .map((lib) => lib.id)
+        .filter((id) => !jellyfinLibraryIds.includes(id));
+
+      for (const staleId of staleLibraryIds) {
+        await db.delete(libraries).where(and(eq(libraries.id, staleId), eq(libraries.serverId, server.id)));
+        metrics.incrementDatabaseOperations();
+        console.info(
+          `[libraries-sync] server=${server.name} removed stale library=${staleId}`
+        );
+      }
+    }
+
     const finalMetrics = metrics.finish();
     const data: LibrarySyncData = {
       librariesProcessed: finalMetrics.librariesProcessed,
@@ -165,7 +186,7 @@ async function processLibrary(
   const existingLibrary = await db
     .select()
     .from(libraries)
-    .where(eq(libraries.id, jellyfinLibrary.Id))
+    .where(and(eq(libraries.id, jellyfinLibrary.Id), eq(libraries.serverId, serverId)))
     .limit(1);
 
   const libraryData: NewLibrary = {
@@ -183,7 +204,7 @@ async function processLibrary(
     .insert(libraries)
     .values(libraryData)
     .onConflictDoUpdate({
-      target: libraries.id,
+      target: [libraries.serverId, libraries.id],
       set: {
         ...libraryData,
         updatedAt: new Date(),

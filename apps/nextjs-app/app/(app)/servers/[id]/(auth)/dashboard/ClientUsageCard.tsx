@@ -38,7 +38,7 @@ export const ClientUsageCard = ({ data }: ClientUsageCardProps) => {
   const usageData = data
     .map((item) => ({
       name: item.clientName || "Unknown",
-      watchTime: Math.floor(item.totalWatchTime / 60), // Convert to minutes
+      watchTime: item.totalWatchTime,
     }))
     .filter((item) => item.watchTime > 0)
     .sort((a, b) => b.watchTime - a.watchTime)
@@ -46,7 +46,7 @@ export const ClientUsageCard = ({ data }: ClientUsageCardProps) => {
 
   const usageConfig = {
     watchTime: {
-      label: "Watch Time (minutes)",
+      label: "Watch Time",
       color: "hsl(var(--chart-2))",
     },
   } satisfies ChartConfig;
@@ -57,7 +57,7 @@ export const ClientUsageCard = ({ data }: ClientUsageCardProps) => {
     percent: total > 0 ? (item.watchTime / total) * 100 : 0,
     labelWithPercent: `${item.name} - ${formatDuration(
       item.watchTime,
-      "minutes",
+      "seconds",
     )}`,
   }));
 
@@ -147,7 +147,7 @@ export const ClientUsageCard = ({ data }: ClientUsageCardProps) => {
       <CardFooter className="text-sm text-muted-foreground">
         <div className="flex items-center gap-2">
           <InfoIcon className="h-4 w-4" />
-          Total: {formatDuration(total, "minutes")}
+          Total: {formatDuration(total, "seconds")}
         </div>
       </CardFooter>
     </Card>

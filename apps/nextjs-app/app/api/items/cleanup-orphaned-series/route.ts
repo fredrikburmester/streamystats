@@ -4,9 +4,6 @@ import { requireAdmin } from "@/lib/api-auth";
 
 export async function GET(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const url = new URL(request.url);
     const serverId = url.searchParams.get("serverId");
 
@@ -37,6 +34,9 @@ export async function GET(request: Request) {
       );
     }
 
+    const { error } = await requireAdmin(serverIdNum);
+    if (error) return error;
+
     // Find orphaned seasons: deleted seasons with no episodes
     const orphanedSeasons = await db
       .select({
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
           isNotNull(items.deletedAt),
           sql`NOT EXISTS (
             SELECT 1 FROM items e 
-            WHERE e.season_id = ${items.id}
+            WHERE e.server_id = ${items.serverId} AND e.season_id = ${items.id}
           )`,
         ),
       );
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
           isNotNull(items.deletedAt),
           sql`NOT EXISTS (
             SELECT 1 FROM items e 
-            WHERE e.series_id = ${items.id}
+            WHERE e.server_id = ${items.serverId} AND e.series_id = ${items.id}
           )`,
         ),
       );
@@ -122,9 +122,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const body = await request.json();
     const { serverId } = body as { serverId: number };
 
@@ -141,6 +138,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
+
     // Delete orphaned seasons first (they reference series)
     const deletedSeasons = await db
       .delete(items)
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
           isNotNull(items.deletedAt),
           sql`NOT EXISTS (
             SELECT 1 FROM items e 
-            WHERE e.season_id = ${items.id}
+            WHERE e.server_id = ${items.serverId} AND e.season_id = ${items.id}
           )`,
         ),
       )
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
           isNotNull(items.deletedAt),
           sql`NOT EXISTS (
             SELECT 1 FROM items e 
-            WHERE e.series_id = ${items.id}
+            WHERE e.server_id = ${items.serverId} AND e.series_id = ${items.id}
           )`,
         ),
       )

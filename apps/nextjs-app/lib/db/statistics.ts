@@ -1,5 +1,7 @@
 "use cache";
 
+import "server-only";
+
 import {
   db,
   type Item,
@@ -20,7 +22,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getStatisticsExclusions } from "./exclusions";
 
 interface ItemWithStats extends Item {
@@ -37,16 +39,21 @@ interface MostWatchedItems {
 export async function getMostWatchedItems({
   serverId,
   userId,
+  viewerUserId,
 }: {
   serverId: string | number;
   userId?: string | number;
+  viewerUserId?: string;
 }): Promise<MostWatchedItems> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   // First get the aggregated session data for Movies and Episodes
   const whereConditions: SQL[] = [
@@ -86,7 +93,10 @@ export async function getMostWatchedItems({
   // Batch fetch all items in a single query instead of N+1 queries
   // Also filter out items from excluded libraries
   const itemIds = sessionStats.map((stat) => stat.itemId);
-  const itemConditions: SQL[] = [inArray(items.id, itemIds)];
+  const itemConditions: SQL[] = [
+    eq(items.serverId, Number(serverId)),
+    inArray(items.id, itemIds),
+  ];
 
   if (itemLibraryExclusion) {
     itemConditions.push(itemLibraryExclusion);
@@ -169,6 +179,7 @@ export async function getMostWatchedItems({
       .from(items)
       .where(
         and(
+          eq(items.serverId, Number(serverId)),
           inArray(items.id, seriesIds),
           eq(items.type, "Series"),
           eq(items.serverId, Number(serverId)),
@@ -214,15 +225,20 @@ export async function getWatchTimePerType({
   startDate,
   endDate,
   userId,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
   userId?: string | number;
+  viewerUserId?: string;
 }): Promise<WatchTimePerType> {
+  cacheTag("user-analytics");
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -265,7 +281,10 @@ export async function getWatchTimePerType({
   const itemIds = [
     ...new Set(results.map((r) => r.itemId).filter((id) => id)),
   ] as string[];
-  const itemTypeConditions: SQL[] = [inArray(items.id, itemIds)];
+  const itemTypeConditions: SQL[] = [
+    eq(items.serverId, Number(serverId)),
+    inArray(items.id, itemIds),
+  ];
   if (itemLibraryExclusion) {
     itemTypeConditions.push(itemLibraryExclusion);
   }
@@ -351,14 +370,17 @@ export async function getWatchTimeByLibrary({
   serverId,
   startDate,
   endDate,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
+  viewerUserId?: string;
 }): Promise<LibraryWatchTime> {
+  cacheTag("user-analytics");
   // Get exclusion settings
   const { userExclusion, librariesTableExclusion } =
-    await getStatisticsExclusions(serverId);
+    await getStatisticsExclusions(serverId, viewerUserId);
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -384,11 +406,21 @@ export async function getWatchTimeByLibrary({
       totalWatchTime: sum(sessions.playDuration),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
-    .innerJoin(libraries, eq(items.libraryId, libraries.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
+    .innerJoin(
+      libraries,
+      and(
+        eq(items.libraryId, libraries.id),
+        eq(items.serverId, libraries.serverId),
+      ),
+    )
     .where(and(...whereConditions))
     .groupBy(
       sql`DATE(${sessions.startTime})`,
+      libraries.serverId,
       libraries.id,
       libraries.name,
       libraries.type,
@@ -424,15 +456,20 @@ export async function getMostWatchedDay({
   startDate,
   endDate,
   userId,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
   userId?: string | number;
+  viewerUserId?: string;
 }): Promise<MostWatchedDay | null> {
+  cacheTag("user-analytics");
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
-    await getStatisticsExclusions(serverId);
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),
@@ -460,7 +497,10 @@ export async function getMostWatchedDay({
       totalWatchTime: sum(sessions.playDuration).as("totalWatchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...whereConditions))
     .groupBy(sql`DATE(${sessions.startTime})`)
     .orderBy(desc(sum(sessions.playDuration)))
@@ -484,13 +524,19 @@ export async function getMostActiveUsersDay({
   serverId,
   startDate,
   endDate,
+  viewerUserId,
 }: {
   serverId: string | number;
   startDate: string;
   endDate: string;
+  viewerUserId?: string;
 }): Promise<MostActiveUsersDay | null> {
+  cacheTag("user-analytics");
   // Get exclusion settings
-  const { userExclusion } = await getStatisticsExclusions(serverId);
+  const { userExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
+  );
 
   const whereConditions: SQL[] = [
     eq(sessions.serverId, Number(serverId)),

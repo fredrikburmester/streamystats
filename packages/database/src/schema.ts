@@ -13,6 +13,7 @@ import {
   unique,
   customType,
   primaryKey,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 
 // Custom vector type that supports variable dimensions
@@ -112,6 +113,7 @@ export const servers = pgTable(
       .notNull()
       .default(0),
     localAddress: text("local_address"),
+    internalUrl: text("internal_url"),
     version: text("version"),
     productName: text("product_name"),
     operatingSystem: text("operating_system"),
@@ -132,8 +134,8 @@ export const servers = pgTable(
     embeddingDimensions: integer("embedding_dimensions").default(1536),
 
     // AI Chat configuration (separate from embedding AI)
-    // Supports OpenAI-compatible, Anthropic, Ollama, etc.
-    chatProvider: text("chat_provider"), // "openai-compatible" | "ollama" | "anthropic"
+    // Supports OpenAI-compatible, Anthropic, Ollama, and Google Gemini.
+    chatProvider: text("chat_provider"), // "openai-compatible" | "ollama" | "anthropic" | "gemini"
     chatBaseUrl: text("chat_base_url"),
     chatApiKey: text("chat_api_key"),
     chatModel: text("chat_model"),
@@ -168,16 +170,23 @@ export const servers = pgTable(
   (table) => [unique("servers_url_unique").on(table.url)]
 );
 
-export const libraries = pgTable("libraries", {
-  id: text("id").primaryKey(), // External library ID from server
-  name: text("name").notNull(),
-  type: text("type").notNull(), // Movie, TV, Music, etc.
-  serverId: integer("server_id")
-    .notNull()
-    .references(() => servers.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const libraries = pgTable(
+  "libraries",
+  {
+    id: text("id").notNull(), // External library ID from server
+    name: text("name").notNull(),
+    type: text("type").notNull(), // Movie, TV, Music, etc.
+    serverId: integer("server_id")
+      .notNull()
+      .references(() => servers.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.serverId, table.id] }),
+    index("libraries_server_id_idx").on(table.serverId),
+  ]
+);
 
 // Users table - users from various servers
 export const users = pgTable(
@@ -242,6 +251,7 @@ export const users = pgTable(
     enableAllDevices: boolean("enable_all_devices").notNull().default(true),
     enableAllChannels: boolean("enable_all_channels").notNull().default(true),
     enableAllFolders: boolean("enable_all_folders").notNull().default(true),
+    enabledFolders: text("enabled_folders").array().default([]),
     enablePublicSharing: boolean("enable_public_sharing")
       .notNull()
       .default(false),
@@ -281,11 +291,39 @@ export const users = pgTable(
   },
   (table) => [
     index("users_server_id_idx").on(table.serverId),
+    unique("users_server_id_id_unique").on(table.serverId, table.id),
     index("users_search_vector_idx").using("gin", table.searchVector),
   ]
 );
 
 // Activities table - user activities and server events
+// Retired external IDs remain mapped so sync/import cannot recreate an account.
+export const userMerges = pgTable("user_merges", {
+  serverId: integer("server_id").notNull().references(() => servers.id, { onDelete: "cascade" }),
+  sourceUserId: text("source_user_id").notNull(),
+  sourceName: text("source_name").notNull(),
+  targetUserId: text("target_user_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.serverId, table.sourceUserId] }),
+  foreignKey({ columns: [table.serverId, table.targetUserId], foreignColumns: [users.serverId, users.id], name: "user_merges_target_fk" }).onDelete("cascade"),
+]);
+
+export const userMergeAudit = pgTable("user_merge_audit", {
+  id: serial("id").primaryKey(),
+  serverId: integer("server_id").notNull().references(() => servers.id, { onDelete: "cascade" }),
+  operationId: text("operation_id").notNull(),
+  actorId: text("actor_id").notNull(),
+  actorName: text("actor_name").notNull(),
+  requestHash: text("request_hash").notNull(),
+  sourceUserId: text("source_user_id").notNull(),
+  sourceName: text("source_name").notNull(),
+  targetUserId: text("target_user_id").notNull(),
+  targetName: text("target_name").notNull(),
+  transferred: jsonb("transferred").$type<Record<string, number>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [unique("user_merge_audit_operation_unique").on(table.serverId, table.operationId)]);
+
 export const activities = pgTable(
   "activities",
   {
@@ -307,21 +345,30 @@ export const activities = pgTable(
   },
   (table) => [
     index("activities_server_id_idx").on(table.serverId),
+    index("activities_server_date_idx").on(table.serverId, table.date),
     index("activities_search_vector_idx").using("gin", table.searchVector),
   ]
 );
 
 // Job results table
-export const jobResults = pgTable("job_results", {
-  id: serial("id").primaryKey(),
-  jobId: varchar("job_id", { length: 255 }).notNull(),
-  jobName: varchar("job_name", { length: 255 }).notNull(),
-  status: varchar("status", { length: 50 }).notNull(), // 'completed', 'failed', 'processing'
-  result: jsonb("result"),
-  error: text("error"),
-  processingTime: integer("processing_time"), // in milliseconds (capped at 1 hour)
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const jobResults = pgTable(
+  "job_results",
+  {
+    id: serial("id").primaryKey(),
+    jobId: varchar("job_id", { length: 255 }).notNull(),
+    jobName: varchar("job_name", { length: 255 }).notNull(),
+    status: varchar("status", { length: 50 }).notNull(), // 'completed', 'failed', 'processing'
+    result: jsonb("result"),
+    error: text("error"),
+    processingTime: integer("processing_time"), // in milliseconds (capped at 1 hour)
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("job_results_job_id_idx").on(table.jobId),
+    index("job_results_job_name_idx").on(table.jobName),
+    index("job_results_created_at_idx").on(table.createdAt),
+  ]
+);
 
 // Server job configurations table - per-server cron job settings
 export const serverJobConfigurations = pgTable(
@@ -349,13 +396,11 @@ export const items = pgTable(
   "items",
   {
     // Primary key and relationships
-    id: text("id").primaryKey(),
+    id: text("id").notNull(),
     serverId: integer("server_id")
       .notNull()
       .references(() => servers.id, { onDelete: "cascade" }),
-    libraryId: text("library_id")
-      .notNull()
-      .references(() => libraries.id, { onDelete: "cascade" }),
+    libraryId: text("library_id").notNull(),
 
     // Core metadata fields
     name: text("name").notNull(),
@@ -452,8 +497,15 @@ export const items = pgTable(
   // CREATE INDEX items_embedding_idx ON items USING hnsw ((embedding::vector(N)) vector_cosine_ops)
   // WHERE vector_dims(embedding) = N;
   (table) => [
+    foreignKey({
+      name: "items_libraries_server_fk",
+      columns: [table.serverId, table.libraryId],
+      foreignColumns: [libraries.serverId, libraries.id],
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.serverId, table.id] }),
     index("items_server_type_idx").on(table.serverId, table.type),
     index("items_series_id_idx").on(table.seriesId),
+    index("items_library_id_idx").on(table.libraryId),
     index("items_search_vector_idx").using("gin", table.searchVector),
   ]
 );
@@ -462,10 +514,8 @@ export const items = pgTable(
 export const mediaSources = pgTable(
   "media_sources",
   {
-    id: text("id").primaryKey(), // MediaSource ID from Jellyfin
-    itemId: text("item_id")
-      .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+    id: text("id").notNull(), // MediaSource ID from Jellyfin
+    itemId: text("item_id").notNull(),
     serverId: integer("server_id")
       .notNull()
       .references(() => servers.id, { onDelete: "cascade" }),
@@ -486,6 +536,12 @@ export const mediaSources = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "media_sources_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
+    primaryKey({ columns: [table.serverId, table.id] }),
     index("media_sources_item_id_idx").on(table.itemId),
     index("media_sources_server_id_idx").on(table.serverId),
   ]
@@ -503,9 +559,7 @@ export const sessions = pgTable(
     userId: text("user_id").references(() => users.id, {
       onDelete: "set null",
     }),
-    itemId: text("item_id").references(() => items.id, {
-      onDelete: "set null",
-    }),
+    itemId: text("item_id"),
 
     // User information
     userName: text("user_name").notNull(),
@@ -594,9 +648,16 @@ export const sessions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    // Migration limits SET NULL to item_id, preserving the session server.
+    foreignKey({
+      name: "sessions_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("set null"),
     // Performance indexes for common query patterns
     index("sessions_server_user_idx").on(table.serverId, table.userId),
     index("sessions_server_item_idx").on(table.serverId, table.itemId),
+    index("sessions_item_id_idx").on(table.itemId),
     index("sessions_server_created_at_idx").on(table.serverId, table.createdAt),
     index("sessions_server_start_time_idx").on(table.serverId, table.startTime),
     index("sessions_user_start_time_idx").on(table.userId, table.startTime),
@@ -633,17 +694,26 @@ export const activityLogCursors = pgTable("activity_log_cursors", {
 });
 
 // Hidden recommendations table - stores user's hidden recommendations
-export const hiddenRecommendations = pgTable("hidden_recommendations", {
-  id: serial("id").primaryKey(),
-  serverId: integer("server_id")
-    .references(() => servers.id, { onDelete: "cascade" })
-    .notNull(),
-  userId: text("user_id").notNull(), // Jellyfin user ID
-  itemId: text("item_id")
-    .references(() => items.id, { onDelete: "cascade" })
-    .notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const hiddenRecommendations = pgTable(
+  "hidden_recommendations",
+  {
+    id: serial("id").primaryKey(),
+    serverId: integer("server_id")
+      .references(() => servers.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: text("user_id").notNull(), // Jellyfin user ID
+    itemId: text("item_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "hidden_recommendations_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
+    index("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
+  ]
+);
 
 // Activity locations table - geolocated IP data for activities
 export const activityLocations = pgTable(
@@ -838,9 +908,7 @@ export const itemPeople = pgTable(
   "item_people",
   {
     id: serial("id").primaryKey(),
-    itemId: text("item_id")
-      .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+    itemId: text("item_id").notNull(),
     personId: text("person_id").notNull(),
     serverId: integer("server_id")
       .notNull()
@@ -851,8 +919,13 @@ export const itemPeople = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "item_people_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
     // Unique per item+person+type (same person can be Actor AND Director in same item)
-    unique("item_people_unique").on(table.itemId, table.personId, table.type),
+    unique("item_people_unique").on(table.serverId, table.itemId, table.personId, table.type),
     index("item_people_person_idx").on(table.personId, table.serverId),
     index("item_people_item_idx").on(table.itemId),
     index("item_people_type_idx").on(table.serverId, table.type),
@@ -881,6 +954,7 @@ export const watchlists = pgTable(
     searchVector: tsvector("search_vector"),
   },
   (table) => [
+    unique("watchlists_server_id_id_unique").on(table.serverId, table.id),
     index("watchlists_server_user_idx").on(table.serverId, table.userId),
     index("watchlists_server_public_idx").on(table.serverId, table.isPublic),
     index("watchlists_server_promoted_idx").on(table.serverId, table.isPromoted),
@@ -893,16 +967,23 @@ export const watchlistItems = pgTable(
   "watchlist_items",
   {
     id: serial("id").primaryKey(),
-    watchlistId: integer("watchlist_id")
-      .notNull()
-      .references(() => watchlists.id, { onDelete: "cascade" }),
-    itemId: text("item_id")
-      .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+    serverId: integer("server_id").notNull(),
+    watchlistId: integer("watchlist_id").notNull(),
+    itemId: text("item_id").notNull(),
     position: integer("position").notNull().default(0), // For custom ordering
     addedAt: timestamp("added_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "watchlist_items_watchlist_server_fk",
+      columns: [table.serverId, table.watchlistId],
+      foreignColumns: [watchlists.serverId, watchlists.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "watchlist_items_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
     index("watchlist_items_watchlist_idx").on(table.watchlistId),
     index("watchlist_items_item_idx").on(table.itemId),
     unique("watchlist_items_unique").on(table.watchlistId, table.itemId),
@@ -973,12 +1054,12 @@ export const itemsRelations = relations(items, ({ one, many }) => ({
     references: [servers.id],
   }),
   library: one(libraries, {
-    fields: [items.libraryId],
-    references: [libraries.id],
+    fields: [items.serverId, items.libraryId],
+    references: [libraries.serverId, libraries.id],
   }),
   parent: one(items, {
-    fields: [items.parentId],
-    references: [items.id],
+    fields: [items.serverId, items.parentId],
+    references: [items.serverId, items.id],
   }),
   sessions: many(sessions),
   hiddenRecommendations: many(hiddenRecommendations),
@@ -996,8 +1077,8 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     references: [users.id],
   }),
   item: one(items, {
-    fields: [sessions.itemId],
-    references: [items.id],
+    fields: [sessions.serverId, sessions.itemId],
+    references: [items.serverId, items.id],
   }),
 }));
 
@@ -1048,8 +1129,8 @@ export const hiddenRecommendationsRelations = relations(
       references: [servers.id],
     }),
     item: one(items, {
-      fields: [hiddenRecommendations.itemId],
-      references: [items.id],
+      fields: [hiddenRecommendations.serverId, hiddenRecommendations.itemId],
+      references: [items.serverId, items.id],
     }),
   })
 );
@@ -1064,12 +1145,12 @@ export const watchlistsRelations = relations(watchlists, ({ one, many }) => ({
 
 export const watchlistItemsRelations = relations(watchlistItems, ({ one }) => ({
   watchlist: one(watchlists, {
-    fields: [watchlistItems.watchlistId],
-    references: [watchlists.id],
+    fields: [watchlistItems.serverId, watchlistItems.watchlistId],
+    references: [watchlists.serverId, watchlists.id],
   }),
   item: one(items, {
-    fields: [watchlistItems.itemId],
-    references: [items.id],
+    fields: [watchlistItems.serverId, watchlistItems.itemId],
+    references: [items.serverId, items.id],
   }),
 }));
 
@@ -1083,8 +1164,8 @@ export const peopleRelations = relations(people, ({ one, many }) => ({
 
 export const itemPeopleRelations = relations(itemPeople, ({ one }) => ({
   item: one(items, {
-    fields: [itemPeople.itemId],
-    references: [items.id],
+    fields: [itemPeople.serverId, itemPeople.itemId],
+    references: [items.serverId, items.id],
   }),
   person: one(people, {
     fields: [itemPeople.personId, itemPeople.serverId],

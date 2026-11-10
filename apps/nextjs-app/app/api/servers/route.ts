@@ -1,4 +1,6 @@
+import { requireAdmin } from "@/lib/api-auth";
 import { getServers } from "@/lib/db/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
 import { createServer } from "@/lib/server";
 
 export async function GET() {
@@ -36,10 +38,7 @@ async function validateJellyfinAdmin(
   try {
     const response = await fetch(`${url}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(apiKey),
       signal: AbortSignal.timeout(10000),
     });
 
@@ -76,6 +75,14 @@ async function validateJellyfinAdmin(
 
 export async function POST(request: Request) {
   try {
+    const existingServers = await getServers();
+    if (existingServers.length > 0) {
+      const { error } = await requireAdmin();
+      if (error) {
+        return error;
+      }
+    }
+
     const body = await request.json();
     const { name, url, apiKey, ...otherFields } = body;
 

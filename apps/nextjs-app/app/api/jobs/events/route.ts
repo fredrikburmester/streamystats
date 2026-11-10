@@ -1,4 +1,9 @@
+import { requireSession } from "@/lib/api-auth";
+
 export async function GET(request: Request) {
+  const auth = await requireSession();
+  if (auth.error) return auth.error;
+
   const jobServerUrl =
     process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
       ? process.env.JOB_SERVER_URL

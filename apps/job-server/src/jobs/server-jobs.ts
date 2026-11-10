@@ -3,7 +3,11 @@ import axios from "axios";
 import { eq, isNull } from "drizzle-orm";
 import { logJobResult } from "./job-logger";
 import { structuredLog as log } from "../utils/structured-log";
+import { getInternalUrl } from "../utils/server-url";
 import type { PgBossJob, AddServerJobData } from "../types/job-status";
+import { STREAMYSTATS_VERSION } from "../utils/version";
+
+export { STREAMYSTATS_VERSION };
 
 export const BACKFILL_JOB_NAMES = {
   BACKFILL_JELLYFIN_IDS: "backfill-jellyfin-ids",
@@ -20,7 +24,7 @@ export async function addServerJob(job: PgBossJob<AddServerJobData>) {
     // Test server connection
     const response = await axios.get(`${serverUrl}/System/Info`, {
       headers: {
-        "X-Emby-Token": apiKey,
+        "Authorization": `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${apiKey}"`,
         "Content-Type": "application/json",
       },
     });
@@ -84,6 +88,7 @@ export async function backfillJellyfinIdsJob(job: PgBossJob<Record<string, never
         id: servers.id,
         name: servers.name,
         url: servers.url,
+        internalUrl: servers.internalUrl,
         apiKey: servers.apiKey,
       })
       .from(servers)
@@ -99,9 +104,9 @@ export async function backfillJellyfinIdsJob(job: PgBossJob<Record<string, never
 
     for (const server of serversWithoutId) {
       try {
-        const response = await axios.get(`${server.url}/System/Info`, {
+        const response = await axios.get(`${getInternalUrl(server)}/System/Info`, {
           headers: {
-            "X-Emby-Token": server.apiKey,
+            "Authorization": `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${server.apiKey}"`,
             "Content-Type": "application/json",
           },
           timeout: 10000,

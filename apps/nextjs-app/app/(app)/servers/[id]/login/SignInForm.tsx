@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "nextjs-toploader/app";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { login } from "@/lib/auth";
+import { initiateQuickConnect, login, loginWithQuickConnect } from "@/lib/auth";
 import type { ServerPublic } from "@/lib/types";
 
 const FormSchema = z.object({
@@ -40,6 +40,10 @@ interface Props {
 
 export const SignInForm: React.FC<Props> = ({ server, servers }) => {
   const [loading, setLoading] = useState(false);
+  const [quickConnect, setQuickConnect] = useState<{
+    code: string;
+    secret: string;
+  } | null>(null);
   const router = useRouter();
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -49,14 +53,67 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
     },
   });
 
+  useEffect(() => {
+    if (!quickConnect) return;
+    // A slow poll must not overlap the next one, or both could see the
+    // approval and log in twice.
+    let polling = false;
+    const interval = setInterval(async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const result = await loginWithQuickConnect({
+          serverId: server.id,
+          secret: quickConnect.secret,
+        });
+        if (result === false) return;
+        clearInterval(interval);
+        if (result !== true) {
+          setQuickConnect(null);
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Logged in successfully");
+        router.push(`/servers/${server.id}/dashboard`);
+      } catch (error) {
+        clearInterval(interval);
+        setQuickConnect(null);
+        toast.error("Quick Connect failed");
+        console.error("Quick Connect failed:", error);
+      } finally {
+        polling = false;
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [quickConnect, server.id, router]);
+
+  async function startQuickConnect() {
+    try {
+      setQuickConnect(
+        await initiateQuickConnect({
+          serverId: server.id,
+          userAgent: navigator.userAgent,
+        }),
+      );
+    } catch (error) {
+      toast.error("Quick Connect is not enabled on this server");
+      console.error("Quick Connect failed:", error);
+    }
+  }
+
   async function onSubmit(data: z.infer<typeof FormSchema>) {
     setLoading(true);
     try {
-      await login({
+      const result = await login({
         serverId: server.id,
         username: data.username,
         password: data.password || "",
+        userAgent: navigator.userAgent,
       });
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
       toast.success("Logged in successfully");
       router.push(`/servers/${server.id}/dashboard`);
     } catch (error) {
@@ -128,6 +185,28 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
               <Button type="submit">{loading ? <Spinner /> : "Sign In"}</Button>
             </form>
           </Form>
+          <div className="mt-6 space-y-2">
+            {quickConnect ? (
+              <>
+                <p className="text-center font-mono text-3xl tracking-widest">
+                  {quickConnect.code}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Enter this code under Quick Connect in your Jellyfin user
+                  settings.
+                </p>
+              </>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={startQuickConnect}
+              >
+                Use Quick Connect
+              </Button>
+            )}
+          </div>
           {/* Only show this section if there are other servers available */}
           {servers.filter((s) => s.id !== server.id).length > 0 && (
             <div className="mt-6 space-y-4">

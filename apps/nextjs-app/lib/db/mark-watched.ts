@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import {
   db,
   items,
@@ -11,6 +13,8 @@ import {
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 import { getSession } from "@/lib/session";
 
 export interface MarkWatchedResult {
@@ -27,7 +31,18 @@ export async function getUserInferWatchtimePreference(
   userId: string,
   serverId: number | string,
 ): Promise<boolean | null> {
+  const session = await getSession();
+  if (!session) {
+    return null;
+  }
   const serverIdNum = Number(serverId);
+  if (
+    session.serverId !== serverIdNum ||
+    (session.id !== userId && !session.isAdmin)
+  ) {
+    return null;
+  }
+
   const user = await db.query.users.findFirst({
     where: and(eq(users.id, userId), eq(users.serverId, serverIdNum)),
   });
@@ -43,11 +58,11 @@ export async function setUserInferWatchtimePreference(
   preference: boolean,
 ): Promise<{ success: boolean }> {
   const session = await getSession();
-  if (!session || session.id !== userId) {
+  const serverIdNum = Number(serverId);
+  if (!session || session.serverId !== serverIdNum || session.id !== userId) {
     return { success: false };
   }
 
-  const serverIdNum = Number(serverId);
   await db
     .update(users)
     .set({ inferWatchtimeOnMarkWatched: preference })
@@ -64,11 +79,11 @@ export async function resetUserInferWatchtimePreference(
   serverId: number | string,
 ): Promise<{ success: boolean }> {
   const session = await getSession();
-  if (!session || session.id !== userId) {
+  const serverIdNum = Number(serverId);
+  if (!session || session.serverId !== serverIdNum || session.id !== userId) {
     return { success: false };
   }
 
-  const serverIdNum = Number(serverId);
   await db
     .update(users)
     .set({ inferWatchtimeOnMarkWatched: null })
@@ -114,13 +129,10 @@ export async function markItemWatched(
   try {
     const method = watched ? "POST" : "DELETE";
     const response = await fetch(
-      `${server.url}/Users/${session.id}/PlayedItems/${itemId}`,
+      `${getInternalUrl(server)}/UserPlayedItems/${itemId}?userId=${encodeURIComponent(session.id)}`,
       {
         method,
-        headers: {
-          "X-Emby-Token": token,
-          "Content-Type": "application/json",
-        },
+        headers: jellyfinHeaders(token),
         signal: AbortSignal.timeout(10000),
       },
     );
@@ -165,7 +177,18 @@ export async function deleteInferredSessionForItem(
   userId: string,
   itemId: string,
 ): Promise<number> {
+  const session = await getSession();
+  if (!session) {
+    return 0;
+  }
   const serverIdNum = Number(serverId);
+  if (
+    session.serverId !== serverIdNum ||
+    (session.id !== userId && !session.isAdmin)
+  ) {
+    return 0;
+  }
+
   const result = await db
     .delete(sessions)
     .where(
@@ -191,10 +214,10 @@ async function createInferredSessionForItem(
   itemId: string,
 ): Promise<void> {
   const item = await db.query.items.findFirst({
-    where: eq(items.id, itemId),
+    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
   });
 
-  if (!item || !item.runtimeTicks) return;
+  if (!item?.runtimeTicks) return;
 
   const now = new Date();
   const sessionId = `inferred:mark-watched:${serverId}:${userId}:${itemId}:${now.toISOString()}`;

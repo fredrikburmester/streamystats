@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { getUserActivityPerDay } from "@/lib/db/users";
+import { getUserActivityPerDay, getViewerUserId } from "@/lib/db/users";
 import type { ServerPublic } from "@/lib/types";
 import { UserActivityChart } from "./UserActivityChart";
 
@@ -14,10 +14,12 @@ export const UserActivityWrapper: React.FC<Props> = async ({
   startDate,
   endDate,
 }) => {
+  const viewerUserId = await getViewerUserId();
   const data = await getUserActivityPerDay({
     serverId: server.id,
     startDate,
     endDate,
+    viewerUserId,
   });
 
   return (

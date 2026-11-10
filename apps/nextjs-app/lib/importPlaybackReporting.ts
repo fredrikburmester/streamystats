@@ -1,6 +1,6 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { db } from "@streamystats/database";
 import {
   items,
@@ -8,7 +8,8 @@ import {
   sessions,
   users,
 } from "@streamystats/database/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { requireAdmin } from "./api-auth";
 import {
   parseDotNetTimestamp,
   parseEpisodeInfo,
@@ -262,6 +263,14 @@ export async function importFromPlaybackReporting(
       };
     }
 
+    const { error: authError } = await requireAdmin(serverIdNum);
+    if (authError) {
+      return {
+        type: "error",
+        message: "Admin privileges required",
+      };
+    }
+
     const text = await file.text();
     let data: PlaybackReportingData[];
 
@@ -400,7 +409,9 @@ async function importPlaybackReportingSession(
       const existingItem = await db
         .select({ id: items.id })
         .from(items)
-        .where(eq(items.id, playbackData.itemId))
+        .where(
+          and(eq(items.id, playbackData.itemId), eq(items.serverId, serverId)),
+        )
         .limit(1);
 
       if (existingItem.length === 0) {
@@ -453,7 +464,14 @@ async function importPlaybackReportingSession(
     seriesName = episodeInfo.seriesName;
   }
 
-  const sessionId = randomUUID();
+  // Deterministic ID from content fields so re-importing the same file
+  // produces the same IDs and onConflictDoNothing() prevents duplicates
+  const sessionId = createHash("sha256")
+    .update(
+      `${serverId}|${playbackData.userId ?? ""}|${playbackData.itemId ?? ""}|${playbackData.timestamp}|${durationSeconds}`,
+    )
+    .digest("hex")
+    .slice(0, 32);
   const runtimeTicks = durationSeconds * 10000000;
   const positionTicks = runtimeTicks;
 

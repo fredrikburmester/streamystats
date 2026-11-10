@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db, sessions } from "@streamystats/database";
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";

@@ -1,6 +1,8 @@
 import {
   db,
   activeSessions,
+  items,
+  mediaSources,
   servers,
   sessions,
   users,
@@ -18,13 +20,19 @@ import {
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { formatError } from "../utils/format-error";
 import { structuredLog as log } from "../utils/structured-log";
+import { shouldLog } from "../utils/log-throttle";
+import {
+  resolveSessionItemId,
+  type ResolvedSessionItem,
+  type SessionItemLookups,
+} from "./session-item-resolver";
 
 // ============================================================================
 // Configuration (hardcoded - no per-server customization for interval)
 // ============================================================================
 const POLL_INTERVAL_MS = 5000; // Hardcoded 5 seconds
-const JELLYFIN_TIMEOUT_MS = 60_000; // 60s timeout for slow Jellyfin servers
-const JELLYFIN_RETRIES = 3;
+const JELLYFIN_TIMEOUT_MS = 10_000; // 10s timeout per server
+const JELLYFIN_RETRIES = 1;
 const DB_STATEMENT_TIMEOUT_MS = 10_000;
 
 function setLocalStatementTimeoutSql(ms: number) {
@@ -46,11 +54,19 @@ interface SessionChanges {
 // ============================================================================
 class SessionPoller {
   private trackedSessions: Map<string, Map<string, TrackedSession>> = new Map();
-  private timerId: ReturnType<typeof setInterval> | null = null;
+  private timerId: ReturnType<typeof setTimeout> | null = null;
   private isRunning = false;
+  private isTicking = false;
+  private consecutiveDbErrors = 0;
+  private currentPollIntervalMs = POLL_INTERVAL_MS;
   private lastPollAt: number | null = null;
   private totalPollCount = 0;
   private totalSuccessCount = 0;
+  private lastPersistedSessionCounts: Map<number, number> = new Map();
+  private pollingEnabledCache: Map<
+    number,
+    { enabled: boolean; expiresAt: number }
+  > = new Map();
 
   // ============================================================================
   // Public API
@@ -75,12 +91,8 @@ class SessionPoller {
     // Initial tick
     await this.tick();
 
-    // Start interval
-    this.timerId = setInterval(() => {
-      void this.tick().catch((err) => {
-        log("session-poller", { action: "tick-error", error: formatError(err) });
-      });
-    }, POLL_INTERVAL_MS);
+    // Schedule subsequent ticks
+    this.scheduleNextTick();
 
     log("session-poller", { action: "started" });
   }
@@ -91,7 +103,7 @@ class SessionPoller {
     this.isRunning = false;
 
     if (this.timerId) {
-      clearInterval(this.timerId);
+      clearTimeout(this.timerId);
       this.timerId = null;
     }
 
@@ -99,12 +111,27 @@ class SessionPoller {
     log("session-poller", { action: "stopped" });
   }
 
+  private scheduleNextTick(delayMs: number = this.currentPollIntervalMs): void {
+    if (!this.isRunning) return;
+    if (this.timerId) {
+      clearTimeout(this.timerId);
+      this.timerId = null;
+    }
+    this.timerId = setTimeout(() => {
+      void this.tick().catch((err) => {
+        log("session-poller", { action: "tick-error", error: formatError(err) });
+      });
+    }, delayMs);
+  }
+
   getStatus() {
     const now = Date.now();
     return {
       enabled: true, // Always enabled (hardcoded)
       isRunning: this.isRunning,
-      intervalMs: POLL_INTERVAL_MS,
+      intervalMs: this.currentPollIntervalMs,
+      consecutiveDbErrors: this.consecutiveDbErrors,
+      isDbHealthy: this.consecutiveDbErrors === 0,
       trackedServers: this.trackedSessions.size,
       totalTrackedSessions: this.countTrackedSessions(),
       totalPollCount: this.totalPollCount,
@@ -114,7 +141,7 @@ class SessionPoller {
           ? Math.round((this.totalSuccessCount / this.totalPollCount) * 100)
           : 100,
       lastPollAgoMs: this.lastPollAt ? now - this.lastPollAt : null,
-      healthy: this.isRunning,
+      healthy: this.isRunning && this.consecutiveDbErrors < 3,
     };
   }
 
@@ -145,7 +172,7 @@ class SessionPoller {
   }
 
   async reloadServerConfig(serverId: number): Promise<void> {
-    // Only enable/disable is configurable now, no interval changes
+    this.pollingEnabledCache.delete(serverId);
     log("session-poller", { action: "config-reloaded", serverId });
   }
 
@@ -154,27 +181,66 @@ class SessionPoller {
   // ============================================================================
 
   private async tick(): Promise<void> {
+    if (this.isTicking) {
+      return;
+    }
+    this.isTicking = true;
     this.totalPollCount++;
     const tickStart = Date.now();
 
     try {
       const allServers = await this.listServers();
 
-      for (const server of allServers) {
-        if (!(await this.isServerPollingEnabled(server.id))) continue;
+      await Promise.allSettled(
+        allServers.map(async (server) => {
+          if (!this.isRunning) return;
+          if (!(await this.isServerPollingEnabled(server.id))) return;
 
-        try {
-          await this.pollServer(server);
-        } catch (err) {
-          log("session-poller", { action: "server-error", serverId: server.id, error: formatError(err) });
-          // Continue to next server - will retry in 5s
-        }
-      }
+          try {
+            await this.pollServer(server);
+          } catch (err) {
+            log("session-poller", {
+              action: "server-error",
+              serverId: server.id,
+              error: formatError(err),
+            });
+          }
+        })
+      );
 
       this.lastPollAt = Date.now();
       this.totalSuccessCount++;
+
+      if (this.consecutiveDbErrors > 0) {
+        log("session-poller", {
+          action: "db-recovered",
+          consecutiveErrors: this.consecutiveDbErrors,
+          restoredIntervalMs: POLL_INTERVAL_MS,
+        });
+      }
+      this.consecutiveDbErrors = 0;
+      this.currentPollIntervalMs = POLL_INTERVAL_MS;
     } catch (err) {
-      log("session-poller", { action: "tick-failed", error: formatError(err) });
+      this.consecutiveDbErrors++;
+      // Exponential backoff: 5s -> 10s -> 20s -> 40s -> 60s max
+      this.currentPollIntervalMs = Math.min(
+        60_000,
+        POLL_INTERVAL_MS * Math.pow(2, Math.min(this.consecutiveDbErrors, 4))
+      );
+
+      if (shouldLog("session-poller-tick-failed", 30_000)) {
+        log("session-poller", {
+          action: "tick-failed",
+          error: formatError(err),
+          consecutiveErrors: this.consecutiveDbErrors,
+          nextPollInMs: this.currentPollIntervalMs,
+        });
+      }
+    } finally {
+      this.isTicking = false;
+      if (this.isRunning) {
+        this.scheduleNextTick(this.currentPollIntervalMs);
+      }
     }
 
     const tickDuration = Date.now() - tickStart;
@@ -208,7 +274,7 @@ class SessionPoller {
     const changes = this.detectSessionChanges(filteredSessions, trackedSessions);
 
     // Handle new sessions
-    const newTracked = this.handleNewSessions(server, changes.newSessions);
+    const newTracked = await this.handleNewSessions(server, changes.newSessions);
     const mergedSessions = new Map([...trackedSessions, ...newTracked]);
 
     // Handle updated sessions
@@ -235,10 +301,10 @@ class SessionPoller {
     }
   }
 
-  private handleNewSessions(
+  private async handleNewSessions(
     server: Server,
     newSessions: JellyfinSession[]
-  ): Map<string, TrackedSession> {
+  ): Promise<Map<string, TrackedSession>> {
     const now = new Date();
     const tracked = new Map<string, TrackedSession>();
 
@@ -249,6 +315,7 @@ class SessionPoller {
       const playState = session.PlayState || {};
       const transcodingInfo = session.TranscodingInfo;
       const isPaused = playState.IsPaused || false;
+      const resolvedItem = await this.resolveNowPlayingItem(server, session);
 
       const record: TrackedSession = {
         sessionKey,
@@ -257,7 +324,8 @@ class SessionPoller {
         clientName: session.Client,
         deviceId: session.DeviceId,
         deviceName: session.DeviceName,
-        itemId: item.Id,
+        itemId: resolvedItem.itemId,
+        jellyfinItemId: item.Id,
         itemName: item.Name,
         seriesId: item.SeriesId,
         seriesName: item.SeriesName,
@@ -327,8 +395,9 @@ class SessionPoller {
       const currentItemId = item?.Id || "";
       const currentPosition = playState.PositionTicks || 0;
 
-      // Detect item change or position reset (new playback)
-      const itemChanged = currentItemId !== tracked.itemId;
+      // Detect item change or position reset (new playback). Compare against the id
+      // Jellyfin reports, which differs from the stored item for alternate versions.
+      const itemChanged = currentItemId !== (tracked.jellyfinItemId ?? tracked.itemId);
       const positionReset =
         tracked.positionTicks > 600_000_000 &&
         currentPosition < 100_000_000 &&
@@ -350,7 +419,7 @@ class SessionPoller {
         }
 
         // Start new tracking
-        const newTracked = this.createTrackedSession(session, now);
+        const newTracked = await this.createTrackedSession(server, session, now);
         if (!newTracked) continue;
         log("session", {
           action: "new",
@@ -460,11 +529,16 @@ class SessionPoller {
     return trackedSessions;
   }
 
-  private createTrackedSession(session: JellyfinSession, now: Date): TrackedSession | null {
+  private async createTrackedSession(
+    server: Server,
+    session: JellyfinSession,
+    now: Date
+  ): Promise<TrackedSession | null> {
     const item = session.NowPlayingItem;
     if (!item) return null; // Safety check
     const playState = session.PlayState || {};
     const transcodingInfo = session.TranscodingInfo;
+    const resolvedItem = await this.resolveNowPlayingItem(server, session);
 
     return {
       sessionKey: this.generateSessionKey(session),
@@ -473,7 +547,8 @@ class SessionPoller {
       clientName: session.Client,
       deviceId: session.DeviceId,
       deviceName: session.DeviceName,
-      itemId: item.Id,
+      itemId: resolvedItem.itemId,
+      jellyfinItemId: item.Id,
       itemName: item.Name,
       seriesId: item.SeriesId,
       seriesName: item.SeriesName,
@@ -513,6 +588,74 @@ class SessionPoller {
     };
   }
 
+  /**
+   * Alternate versions (movies on every Jellyfin release, episodes since 12)
+   * are hidden items whose ids never appear in library listings; map them to
+   * the listed item so the playback record satisfies the items foreign key.
+   */
+  private async resolveNowPlayingItem(
+    server: Server,
+    session: JellyfinSession
+  ): Promise<ResolvedSessionItem> {
+    const item = session.NowPlayingItem;
+    if (!item) return { itemId: "", resolvedVia: "unresolved" };
+
+    const lookups: SessionItemLookups = {
+      itemExists: async (itemId) => {
+        const rows = await db
+          .select({ id: items.id })
+          .from(items)
+          .where(and(eq(items.id, itemId), eq(items.serverId, server.id)))
+          .limit(1);
+        return rows.length > 0;
+      },
+      itemIdForMediaSource: async (mediaSourceId) => {
+        const rows = await db
+          .select({ itemId: mediaSources.itemId })
+          .from(mediaSources)
+          .where(
+            and(eq(mediaSources.id, mediaSourceId), eq(mediaSources.serverId, server.id))
+          )
+          .limit(1);
+        return rows[0]?.itemId ?? null;
+      },
+      fetchMediaSourceIds: async (itemId) => {
+        try {
+          const client = JellyfinClient.fromServer(server);
+          return await client.getItemMediaSourceIds(itemId, session.UserId);
+        } catch (err) {
+          log("session", {
+            action: "version-lookup-failed",
+            serverId: server.id,
+            itemId,
+            error: formatError(err),
+          });
+          return [];
+        }
+      },
+    };
+
+    const resolved = await resolveSessionItemId({
+      nowPlayingItemId: item.Id,
+      mediaSourceId: session.PlayState?.MediaSourceId,
+      lookups,
+    });
+
+    if (resolved.resolvedVia !== "item") {
+      log("session", {
+        action: resolved.resolvedVia === "unresolved" ? "item-unresolved" : "item-resolved",
+        serverId: server.id,
+        user: session.UserName,
+        content: item.Name,
+        nowPlayingItemId: item.Id,
+        itemId: resolved.itemId,
+        via: resolved.resolvedVia,
+      });
+    }
+
+    return resolved;
+  }
+
   // ============================================================================
   // Database Operations
   // ============================================================================
@@ -526,6 +669,9 @@ class SessionPoller {
   ): Promise<void> {
     try {
       await db.transaction(async (tx) => {
+        // A merge may outlast the save timeout. Wait for it before starting the
+        // timer, and keep the shared lock until this playback record commits.
+        await tx.execute(sql`SELECT pg_advisory_xact_lock_shared(582, ${server.id})`);
         await tx.execute(setLocalStatementTimeoutSql(DB_STATEMENT_TIMEOUT_MS));
 
         const user = await tx
@@ -533,6 +679,47 @@ class SessionPoller {
           .from(users)
           .where(eq(users.id, tracked.userJellyfinId))
           .limit(1);
+
+        const itemExists = async (itemId: string): Promise<boolean> => {
+          const rows = await tx
+            .select({ id: items.id })
+            .from(items)
+            .where(and(eq(items.id, itemId), eq(items.serverId, server.id)))
+            .limit(1);
+          return rows.length > 0;
+        };
+
+        let validItemId =
+          tracked.itemId && (await itemExists(tracked.itemId))
+            ? tracked.itemId
+            : null;
+        const originalItemId = tracked.jellyfinItemId ?? tracked.itemId;
+        if (!validItemId && originalItemId) {
+          // Sync may have added the item or its version mapping during playback.
+          // Use local lookups to avoid Jellyfin I/O inside the transaction.
+          const resolved = await resolveSessionItemId({
+            nowPlayingItemId: originalItemId,
+            mediaSourceId: tracked.mediaSourceId,
+            lookups: {
+              itemExists,
+              itemIdForMediaSource: async (mediaSourceId) => {
+                const rows = await tx
+                  .select({ itemId: mediaSources.itemId })
+                  .from(mediaSources)
+                  .where(
+                    and(
+                      eq(mediaSources.id, mediaSourceId),
+                      eq(mediaSources.serverId, server.id)
+                    )
+                  )
+                  .limit(1);
+                return rows[0]?.itemId ?? null;
+              },
+              fetchMediaSourceIds: async () => [],
+            },
+          });
+          validItemId = resolved.itemId;
+        }
 
         const stableId = tracked.sessionId
           ? `sid:${server.id}:${tracked.sessionId}:${tracked.startTime.toISOString()}`
@@ -542,7 +729,7 @@ class SessionPoller {
           id: stableId,
           serverId: server.id,
           userId: user.length > 0 ? user[0].id : null,
-          itemId: tracked.itemId,
+          itemId: validItemId,
           userName: tracked.userName,
           userServerId: tracked.userJellyfinId,
           deviceId: tracked.deviceId,
@@ -591,6 +778,7 @@ class SessionPoller {
           rawData: {
             sessionKey: tracked.sessionKey,
             transcodeReasons: tracked.transcodeReasons,
+            nowPlayingItemId: tracked.jellyfinItemId ?? tracked.itemId ?? null,
           },
         };
 
@@ -622,6 +810,12 @@ class SessionPoller {
     serverId: number,
     sessionsMap: Map<string, TrackedSession>
   ): Promise<void> {
+    const prevCount = this.lastPersistedSessionCounts.get(serverId) ?? -1;
+    if (sessionsMap.size === 0 && prevCount === 0) {
+      // Both previous and current active session counts are 0; skip DB transaction
+      return;
+    }
+
     const now = new Date();
     const rows: NewActiveSession[] = Array.from(sessionsMap.values()).map((s) => ({
       serverId,
@@ -659,6 +853,8 @@ class SessionPoller {
           );
       }
     });
+
+    this.lastPersistedSessionCounts.set(serverId, rows.length);
   }
 
   private async loadPersistedState(): Promise<void> {
@@ -673,6 +869,7 @@ class SessionPoller {
         const map = this.trackedSessions.get(serverKey) ?? new Map<string, TrackedSession>();
         const tracked = this.deserializeTrackedSession(row.payload);
         if (!tracked) continue;
+        tracked.lastUpdateTime = new Date();
         map.set(row.sessionKey, tracked);
         this.trackedSessions.set(serverKey, map);
       }
@@ -733,6 +930,12 @@ class SessionPoller {
   }
 
   private async isServerPollingEnabled(serverId: number): Promise<boolean> {
+    const cached = this.pollingEnabledCache.get(serverId);
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) {
+      return cached.enabled;
+    }
+
     const configs = await db
       .select({ enabled: serverJobConfigurations.enabled })
       .from(serverJobConfigurations)
@@ -745,7 +948,12 @@ class SessionPoller {
       .limit(1);
 
     // Default to enabled if no config exists
-    return configs.length === 0 || configs[0].enabled;
+    const enabled = configs.length === 0 || configs[0].enabled;
+    this.pollingEnabledCache.set(serverId, {
+      enabled,
+      expiresAt: now + 60_000,
+    });
+    return enabled;
   }
 
   // ============================================================================
@@ -808,27 +1016,42 @@ class SessionPoller {
     return { newSessions, updatedSessions, endedSessions };
   }
 
-  private calculateDuration(tracked: TrackedSession, currentPaused: boolean): number {
+  calculateDuration(tracked: TrackedSession, currentPaused: boolean): number {
     const wasPaused = tracked.isPaused;
     const now = Date.now();
     const elapsedSinceLastUpdate = Math.floor(
       (now - tracked.lastUpdateTime.getTime()) / 1000
     );
+    const maxGapSeconds = Math.max(
+      15,
+      Math.ceil((this.currentPollIntervalMs / 1000) * 2)
+    );
+    const clampedElapsed = Math.min(
+      Math.max(0, elapsedSinceLastUpdate),
+      maxGapSeconds
+    );
 
     // Was playing, now paused or still playing - add elapsed time
     if (!wasPaused) {
-      return tracked.playDuration + Math.max(0, elapsedSinceLastUpdate);
+      return tracked.playDuration + clampedElapsed;
     }
 
     // Was paused, now playing or still paused - no change
     return tracked.playDuration;
   }
 
-  private getFinalDuration(tracked: TrackedSession, now: Date): number {
+  getFinalDuration(tracked: TrackedSession, now: Date): number {
     let finalDuration = tracked.playDuration;
     if (!tracked.isPaused) {
-      const timeDiff = Math.floor((now.getTime() - tracked.lastUpdateTime.getTime()) / 1000);
-      finalDuration += timeDiff;
+      const timeDiff = Math.floor(
+        (now.getTime() - tracked.lastUpdateTime.getTime()) / 1000
+      );
+      const maxGapSeconds = Math.max(
+        15,
+        Math.ceil((this.currentPollIntervalMs / 1000) * 2)
+      );
+      const clampedTimeDiff = Math.min(Math.max(0, timeDiff), maxGapSeconds);
+      finalDuration += clampedTimeDiff;
     }
     return finalDuration;
   }

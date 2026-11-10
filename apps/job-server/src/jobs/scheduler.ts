@@ -185,6 +185,12 @@ class SyncScheduler {
 
     console.log(`[scheduler] syncing schedules for ${allServers.length} servers`);
 
+    // Before re-creating schedules with per-job keys, remove legacy schedules
+    // that used the shared `server-${serverId}` key. Without this, deploys from
+    // older versions leave orphaned schedule rows that keep firing alongside the
+    // new per-job schedules, causing duplicate job executions.
+    await this.cleanupLegacySchedules(allServers.map((s) => s.id));
+
     for (const server of allServers) {
       await this.syncSchedulesForServer(server.id, server.name);
     }
@@ -207,20 +213,23 @@ class SyncScheduler {
       const typedJobKey = jobKey as JobKey;
       if (!isCronJob(typedJobKey)) continue;
 
-      const scheduleKey = `server-${serverId}`;
+      const scheduleKey = `server-${serverId}-${jobKey}`;
       const cronExpression = this.getEffectiveCron(serverId, typedJobKey);
       const isEnabled = this.isJobEnabledForServer(serverId, typedJobKey);
 
       try {
         if (isEnabled) {
-          // Create or update the schedule
+          // Create or update the schedule. singletonKey prevents a new
+          // instance from being queued while the previous one is still active.
+          // Spread sendOptions first so key/singletonKey always take precedence.
           await boss.schedule(
             config.pgBossName,
             cronExpression,
             config.buildData(serverId),
             {
-              key: scheduleKey,
               ...config.sendOptions,
+              key: scheduleKey,
+              singletonKey: scheduleKey,
             }
           );
           console.log(
@@ -240,6 +249,37 @@ class SyncScheduler {
         );
       }
     }
+  }
+
+  /**
+   * Remove legacy per-server schedules that used the shared `server-${serverId}`
+   * key (one row per job name, all sharing the same key). These predate the
+   * per-job `server-${serverId}-${jobKey}` keys and would otherwise keep firing.
+   * unschedule is idempotent, so this is a safe no-op once the cleanup has run.
+   */
+  private async cleanupLegacySchedules(serverIds: number[]): Promise<void> {
+    const boss = await getJobQueue();
+    let removed = 0;
+
+    for (const serverId of serverIds) {
+      const legacyKey = `server-${serverId}`;
+      for (const config of Object.values(SCHEDULER_JOB_CONFIG)) {
+        if (!config) continue;
+        try {
+          await boss.unschedule(config.pgBossName, legacyKey);
+          removed++;
+        } catch (error) {
+          console.error(
+            `[scheduler] failed to remove legacy schedule name=${config.pgBossName} key=${legacyKey}`,
+            error
+          );
+        }
+      }
+    }
+
+    console.log(
+      `[scheduler] phase=legacy-schedule-cleanup attempted=${removed} servers=${serverIds.length}`
+    );
   }
 
   /**

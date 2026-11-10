@@ -1,8 +1,19 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
-import type { LanguageModel } from "ai";
+import "server-only";
 
-export type ChatProvider = "openai-compatible" | "ollama" | "anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
+import {
+  defaultSettingsMiddleware,
+  type LanguageModel,
+  wrapLanguageModel,
+} from "ai";
+
+export type ChatProvider =
+  | "openai-compatible"
+  | "ollama"
+  | "anthropic"
+  | "gemini";
 
 export interface ChatConfig {
   provider: ChatProvider | null;
@@ -26,6 +37,13 @@ export const CHAT_PROVIDER_PRESETS = {
     requiresApiKey: true,
     provider: "anthropic" as ChatProvider,
   },
+  gemini: {
+    name: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    defaultModel: "gemini-3.8-flash-high",
+    requiresApiKey: true,
+    provider: "gemini" as ChatProvider,
+  },
   "together-ai": {
     name: "Together AI",
     baseUrl: "https://api.together.xyz/v1",
@@ -44,6 +62,13 @@ export const CHAT_PROVIDER_PRESETS = {
     name: "Groq",
     baseUrl: "https://api.groq.com/openai/v1",
     defaultModel: "llama-3.3-70b-versatile",
+    requiresApiKey: true,
+    provider: "openai-compatible" as ChatProvider,
+  },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    defaultModel: "openai/gpt-4o-mini",
     requiresApiKey: true,
     provider: "openai-compatible" as ChatProvider,
   },
@@ -78,6 +103,30 @@ export function createChatModel(config: ChatConfig): LanguageModel | null {
   }
 
   switch (config.provider) {
+    case "gemini": {
+      if (!config.apiKey?.trim()) {
+        throw new Error("Google Gemini requires an API key");
+      }
+      const google = createGoogleGenerativeAI({
+        apiKey: config.apiKey.trim(),
+        baseURL: config.baseUrl?.replace(/\/+$/, "") || undefined,
+      });
+      // Google accepts thinking level separately from the model ID.
+      if (config.model === "gemini-3.8-flash-high") {
+        return wrapLanguageModel({
+          model: google("gemini-3.8-flash"),
+          middleware: defaultSettingsMiddleware({
+            settings: {
+              providerOptions: {
+                google: { thinkingConfig: { thinkingLevel: "high" } },
+              },
+            },
+          }),
+        });
+      }
+      return google(config.model);
+    }
+
     case "anthropic": {
       if (!config.apiKey) {
         throw new Error("Anthropic requires an API key");
@@ -111,6 +160,9 @@ export function createChatModel(config: ChatConfig): LanguageModel | null {
 }
 
 export function detectChatPreset(config: ChatConfig): ChatPresetKey {
+  if (config.provider === "gemini") {
+    return "gemini";
+  }
   const baseUrl = config.baseUrl || "";
   for (const [key, preset] of Object.entries(CHAT_PROVIDER_PRESETS)) {
     if (key !== "custom" && baseUrl === preset.baseUrl) {

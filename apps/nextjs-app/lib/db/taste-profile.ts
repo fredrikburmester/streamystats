@@ -1,8 +1,10 @@
 "use server";
 
+import "server-only";
+
 import { db, items, sessions } from "@streamystats/database";
 import { and, desc, eq, isNotNull, sql, sum } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { isBetterDisplayName, normalizeGenre } from "./genres";
 
 export interface TasteProfile {
@@ -107,6 +109,7 @@ export async function getUserTasteProfile(
   userName: string,
 ): Promise<TasteProfile> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   // Get total watch time from ALL sessions (not just ones with embeddings)
@@ -152,7 +155,10 @@ export async function getUserTasteProfile(
       watchTime: sum(sessions.playDuration).as("watchTime"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.serverId, serverId),
@@ -161,7 +167,7 @@ export async function getUserTasteProfile(
         isNotNull(sessions.playDuration),
       ),
     )
-    .groupBy(items.id)
+    .groupBy(items.serverId, items.id)
     .orderBy(desc(sum(sessions.playDuration)))
     .limit(100);
 

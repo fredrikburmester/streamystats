@@ -67,7 +67,9 @@ async function mergeSinglePair(
       )
       .returning({ id: hiddenRecommendations.id });
 
-    await tx.delete(items).where(eq(items.id, deletedItemId));
+    await tx
+      .delete(items)
+      .where(and(eq(items.id, deletedItemId), eq(items.serverId, serverId)));
 
     return {
       sessionsMigrated: migratedSessions.length,
@@ -79,9 +81,6 @@ async function mergeSinglePair(
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const body = await request.json();
     const { serverId } = body as { serverId: number };
 
@@ -97,6 +96,9 @@ export async function POST(request: Request) {
         },
       );
     }
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     const deletedItemsSub = db
       .select({

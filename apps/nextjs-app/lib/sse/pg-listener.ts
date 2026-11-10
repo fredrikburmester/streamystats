@@ -1,3 +1,5 @@
+import { resolveDatabaseUrl } from "@streamystats/database/env";
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const postgres = require("postgres");
 
@@ -51,9 +53,9 @@ class PgListener {
 
   private async doConnect(): Promise<void> {
     try {
-      const connectionString = process.env.DATABASE_URL;
+      const connectionString = resolveDatabaseUrl();
       if (!connectionString) {
-        console.error("[pg-listener] DATABASE_URL not set");
+        console.error("[pg-listener] database connection is not configured");
         return;
       }
 

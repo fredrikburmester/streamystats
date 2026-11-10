@@ -16,8 +16,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { deleteServer } from "@/lib/db/server";
 import type { ServerPublic } from "@/lib/types";
+import { deleteServerAction } from "./actions";
 
 interface Props {
   server: ServerPublic;
@@ -30,7 +30,7 @@ export const DeleteServer: React.FC<Props> = ({ server }) => {
   const handleDelete = async () => {
     setLoading(true);
     try {
-      const result = await deleteServer({ serverId: server.id });
+      const result = await deleteServerAction(server.id);
 
       if (result.success) {
         router.push("/setup");

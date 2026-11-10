@@ -9,7 +9,6 @@ export async function GET(_req: NextRequest) {
   );
 
   let latestVersion = currentVersion;
-  let latestSha = currentSha;
   let hasUpdate = false;
 
   try {
@@ -27,23 +26,11 @@ export async function GET(_req: NextRequest) {
       latestVersion = data.tag_name || latestVersion;
     }
 
-    // Fetch latest commit SHA if on latest
     if (currentVersion === "latest") {
-      const commitRes = await fetch(
-        "https://api.github.com/repos/fredrikburmester/streamystats/commits/main",
-        {
-          headers: { Accept: "application/vnd.github.v3+json" },
-          next: { revalidate: 60 },
-        },
-      );
-
-      if (commitRes.ok) {
-        const data = await commitRes.json();
-        latestSha = data.sha.substring(0, 7);
-        hasUpdate = currentSha !== latestSha;
-      }
+      // "latest" Docker tag auto-updates; don't notify on every commit
+      hasUpdate = false;
     } else if (latestVersion !== "latest") {
-      // Compare semantic versions if not on latest
+      // Compare semantic versions for tagged release builds
       hasUpdate = compareVersions(currentVersion, latestVersion) < 0;
     }
 
@@ -51,7 +38,7 @@ export async function GET(_req: NextRequest) {
       JSON.stringify({
         currentVersion:
           currentVersion === "latest" ? currentSha : currentVersion,
-        latestVersion: currentVersion === "latest" ? latestSha : latestVersion,
+        latestVersion,
         hasUpdate,
         buildTime,
       }),

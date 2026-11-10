@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ActorDetailsResponse } from "@/lib/db/actors";
+import { getInternalUrl } from "@/lib/server-url";
 import type { ServerPublic } from "@/lib/types";
 import { formatDuration } from "@/lib/utils";
 
@@ -38,7 +39,7 @@ export function ActorHeader({ actor, server }: ActorHeaderProps) {
   const [hasError, setHasError] = useState(false);
 
   const imageUrl = actor.primaryImageTag
-    ? `${server.url}/Items/${actor.id}/Images/Primary?fillHeight=400&fillWidth=300&quality=96&tag=${actor.primaryImageTag}`
+    ? `${getInternalUrl(server)}/Items/${actor.id}/Images/Primary?fillHeight=400&fillWidth=300&quality=96&tag=${actor.primaryImageTag}`
     : null;
 
   return (

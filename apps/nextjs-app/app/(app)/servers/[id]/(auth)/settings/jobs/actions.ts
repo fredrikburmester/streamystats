@@ -2,9 +2,18 @@
 
 import { JOB_DEFAULTS, type JobKey } from "@streamystats/database";
 import { revalidatePath } from "next/cache";
+import { z } from "zod/v4";
 import { isUserAdmin } from "@/lib/db/users";
 
 const JOB_SERVER_URL = process.env.JOB_SERVER_URL || "http://localhost:3005";
+
+const serverIdSchema = z.number().int().positive();
+const jobKeySchema = z.string().min(1).max(200);
+const updateJobConfigSchema = z.object({
+  cronExpression: z.string().max(200).nullish(),
+  intervalSeconds: z.number().int().positive().max(86400).nullish(),
+  enabled: z.boolean().optional(),
+});
 
 export interface JobConfigItem {
   jobKey: string;
@@ -36,13 +45,18 @@ export async function getJobConfigs(
   serverId: number,
 ): Promise<GetJobConfigsResponse> {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, error: "Admin privileges required" };
     }
 
+    const parsedId = serverIdSchema.safeParse(serverId);
+    if (!parsedId.success) {
+      return { success: false, error: "Invalid server ID" };
+    }
+
     const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/servers/${serverId}/config`,
+      `${JOB_SERVER_URL}/api/jobs/servers/${parsedId.data}/config`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -101,17 +115,24 @@ export async function updateJobConfig(
   config: UpdateJobConfigParams,
 ): Promise<UpdateJobConfigResponse> {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, error: "Admin privileges required" };
     }
 
+    const parsedId = serverIdSchema.safeParse(serverId);
+    const parsedKey = jobKeySchema.safeParse(jobKey);
+    const parsedConfig = updateJobConfigSchema.safeParse(config);
+    if (!parsedId.success || !parsedKey.success || !parsedConfig.success) {
+      return { success: false, error: "Invalid input" };
+    }
+
     const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/servers/${serverId}/config/${jobKey}`,
+      `${JOB_SERVER_URL}/api/jobs/servers/${parsedId.data}/config/${parsedKey.data}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
+        body: JSON.stringify(parsedConfig.data),
       },
     );
 
@@ -163,13 +184,19 @@ export async function resetJobConfig(
   jobKey: JobKey,
 ): Promise<ResetJobConfigResponse> {
   try {
-    const isAdmin = await isUserAdmin();
+    const isAdmin = await isUserAdmin(serverId);
     if (!isAdmin) {
       return { success: false, error: "Admin privileges required" };
     }
 
+    const parsedId = serverIdSchema.safeParse(serverId);
+    const parsedKey = jobKeySchema.safeParse(jobKey);
+    if (!parsedId.success || !parsedKey.success) {
+      return { success: false, error: "Invalid input" };
+    }
+
     const response = await fetch(
-      `${JOB_SERVER_URL}/api/jobs/servers/${serverId}/config/${jobKey}`,
+      `${JOB_SERVER_URL}/api/jobs/servers/${parsedId.data}/config/${parsedKey.data}`,
       {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },

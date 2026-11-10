@@ -7,7 +7,7 @@ import {
 import { type ChatConfig, createChatModel } from "@/lib/ai/providers";
 import { createChatTools } from "@/lib/ai/tools";
 import { getServerWithSecrets } from "@/lib/db/server";
-import { getMe } from "@/lib/db/users";
+import { getSession } from "@/lib/session";
 
 export const maxDuration = 60;
 
@@ -74,9 +74,9 @@ export async function POST(req: Request) {
       });
     }
 
-    const [server, me] = await Promise.all([
+    const [server, session] = await Promise.all([
       getServerWithSecrets({ serverId }),
-      getMe(),
+      getSession(),
     ]);
 
     if (!server) {
@@ -86,11 +86,24 @@ export async function POST(req: Request) {
       });
     }
 
-    if (!me) {
+    if (!session) {
       return new Response(JSON.stringify({ error: "Not authenticated" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (session.serverId !== server.id) {
+      return new Response(
+        JSON.stringify({
+          error: "Forbidden",
+          message: "Access denied for this server.",
+        }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     const chatConfig: ChatConfig = {
@@ -112,7 +125,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const tools = createChatTools(server.id, me.id);
+    const tools = createChatTools(server.id, session.id, session.isAdmin);
     const convertedMessages = convertToModelMessages(messages);
 
     const result = streamText({
@@ -120,8 +133,8 @@ export async function POST(req: Request) {
       system: `${BASE_SYSTEM_PROMPT}
       
 Current user context:
-- Name: ${me.name}
-- ID: ${me.id}
+- Name: ${session.name}
+- ID: ${session.id}
 `,
       messages: convertedMessages,
       tools,

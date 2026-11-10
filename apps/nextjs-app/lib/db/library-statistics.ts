@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   db,
   type Item,
@@ -59,8 +61,10 @@ export interface ItemWatchStatsResponse {
  */
 export const getAggregatedLibraryStatistics = async ({
   serverId,
+  userId,
 }: {
   serverId: number;
+  userId?: string;
 }): Promise<AggregatedLibraryStatistics> => {
   // Get exclusion settings
   const {
@@ -68,7 +72,7 @@ export const getAggregatedLibraryStatistics = async ({
     usersTableExclusion,
     librariesTableExclusion,
     userExclusion,
-  } = await getStatisticsExclusions(serverId);
+  } = await getStatisticsExclusions(serverId, userId);
 
   // Build item conditions (excluding soft-deleted items and excluded libraries)
   const itemConditions: SQL[] = [
@@ -165,6 +169,7 @@ export const getAggregatedLibraryStatistics = async ({
  */
 export const getLibraryItemsWithStats = async ({
   serverId,
+  userId,
   page,
   sortOrder,
   sortBy,
@@ -173,6 +178,7 @@ export const getLibraryItemsWithStats = async ({
   libraryIds,
 }: {
   serverId: number;
+  userId?: string;
   page?: string;
   sortOrder?: string;
   sortBy?: string;
@@ -181,7 +187,10 @@ export const getLibraryItemsWithStats = async ({
   libraryIds?: string;
 }): Promise<ItemWatchStatsResponse> => {
   // Get exclusion settings
-  const { itemLibraryExclusion } = await getStatisticsExclusions(serverId);
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    userId,
+  );
 
   const currentPage = Math.max(1, Number(page) || 1);
   const perPage = 20;
@@ -232,9 +241,12 @@ export const getLibraryItemsWithStats = async ({
       lastWatched: sql<string>`MAX(${sessions.startTime})`.as("last_watched"),
     })
     .from(items)
-    .leftJoin(sessions, eq(items.id, sessions.itemId))
+    .leftJoin(
+      sessions,
+      and(eq(items.id, sessions.itemId), eq(items.serverId, sessions.serverId)),
+    )
     .where(and(...conditions))
-    .groupBy(items.id);
+    .groupBy(items.serverId, items.id);
 
   // Apply sorting
   let orderClause: SQL | undefined;
@@ -276,7 +288,10 @@ export const getLibraryItemsWithStats = async ({
   const totalCountQuery = db
     .select({ count: sql<number>`COUNT(DISTINCT ${items.id})` })
     .from(items)
-    .leftJoin(sessions, eq(items.id, sessions.itemId))
+    .leftJoin(
+      sessions,
+      and(eq(items.id, sessions.itemId), eq(items.serverId, sessions.serverId)),
+    )
     .where(and(...conditions));
 
   const totalCount = await totalCountQuery.then(
@@ -348,12 +363,14 @@ export interface PerLibraryStatistics {
  */
 export const getPerLibraryStatistics = async ({
   serverId,
+  userId,
 }: {
   serverId: number;
+  userId?: string;
 }): Promise<PerLibraryStatistics[]> => {
   // Get exclusion settings
   const { librariesTableExclusion, itemLibraryExclusion, userExclusion } =
-    await getStatisticsExclusions(serverId);
+    await getStatisticsExclusions(serverId, userId);
 
   // Build library conditions
   const libraryConditions: SQL[] = [eq(libraries.serverId, serverId)];
@@ -407,7 +424,13 @@ export const getPerLibraryStatistics = async ({
       totalSize: sum(mediaSources.size),
     })
     .from(mediaSources)
-    .innerJoin(items, eq(mediaSources.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(mediaSources.itemId, items.id),
+        eq(mediaSources.serverId, items.serverId),
+      ),
+    )
     .where(and(...itemConditions))
     .groupBy(items.libraryId);
 
@@ -432,7 +455,10 @@ export const getPerLibraryStatistics = async ({
       lastActivity: max(sessions.startTime),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...sessionConditions, isNull(items.deletedAt)))
     .groupBy(items.libraryId);
 
@@ -447,7 +473,10 @@ export const getPerLibraryStatistics = async ({
       startTime: sessions.startTime,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(and(...sessionConditions, isNull(items.deletedAt)))
     .orderBy(items.libraryId, desc(sessions.startTime));
 

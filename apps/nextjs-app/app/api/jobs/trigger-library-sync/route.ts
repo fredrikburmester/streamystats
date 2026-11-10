@@ -2,9 +2,6 @@ import { requireAdmin } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const body = await request.json();
     const { serverId, libraryId } = body;
 
@@ -21,6 +18,9 @@ export async function POST(request: Request) {
         },
       );
     }
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     if (!libraryId) {
       return new Response(

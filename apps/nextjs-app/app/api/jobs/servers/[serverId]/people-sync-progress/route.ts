@@ -12,10 +12,10 @@ const LIBRARY_TYPES_WITH_PEOPLE = ["movies", "tvshows", "music"] as const;
 
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     const { serverId } = await params;
+
+    const { error } = await requireAdmin(serverId);
+    if (error) return error;
 
     if (!serverId) {
       return new Response(
@@ -50,7 +50,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const totalResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(items)
-      .innerJoin(libraries, eq(items.libraryId, libraries.id))
+      .innerJoin(
+        libraries,
+        and(
+          eq(items.libraryId, libraries.id),
+          eq(items.serverId, libraries.serverId),
+        ),
+      )
       .where(
         and(
           eq(items.serverId, serverIdNum),
@@ -64,7 +70,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const remainingResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(items)
-      .innerJoin(libraries, eq(items.libraryId, libraries.id))
+      .innerJoin(
+        libraries,
+        and(
+          eq(items.libraryId, libraries.id),
+          eq(items.serverId, libraries.serverId),
+        ),
+      )
       .where(
         and(
           eq(items.serverId, serverIdNum),

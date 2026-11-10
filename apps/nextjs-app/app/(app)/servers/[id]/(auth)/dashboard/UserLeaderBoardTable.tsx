@@ -99,7 +99,7 @@ export const UserLeaderboardTable = ({
                     >
                       <JellyfinAvatar
                         user={user}
-                        serverUrl={server.url}
+                        server={server}
                         className="h-6 w-6 transition-transform duration-200"
                       />
                       <span className="transition-colors duration-200 group-hover:text-primary">

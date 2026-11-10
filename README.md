@@ -6,7 +6,7 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 ## Features
 
-- Dashboard with overview statistics, live sessions, recomendations, and more
+- Dashboard with overview statistics, live sessions, recommendations, and more
 - User-specific watch history and statistics
 - Library statistics
 - Watch time graphs with advanced filtering
@@ -47,12 +47,17 @@ Recommendations use vector similarity (cosine distance) to find content similar 
 
 ## Getting started
 
+### Supported Jellyfin versions
+
+Streamystats uses only Jellyfin's current REST API with `Authorization: MediaBrowser` headers, so it keeps working on servers that have legacy authorization disabled. It is tested against Jellyfin 12.0 and 10.11; 10.10.7, the oldest release Jellyfin supports upgrading from, should work as well.
+
+
 > Playback reporting plugin is no longer needed and Streamystats solely relies on the Jellyfin API for statistics.
 
 ### Docker
 
 1. Install Docker and Docker Compose if you haven't already.
-2. Copy the `docker-compose.yml` file to your desired location. Use tag `:latest` (read more below in [Version Tags](#version-tags).
+2. Copy the `docker-compose.yml` file to your desired location. Use tag `:latest` (read more below in [Version Tags](#version-tags)).
 3. Change any ports if needed. Default web port is `3000`.
 4. Change the `SESSION_SECRET` in the `docker-compose.yml` file to a random string. You can generate one with `openssl rand -hex 64`.
 5. Start the application with `docker-compose up -d`
@@ -61,11 +66,35 @@ Recommendations use vector similarity (cosine distance) to find content similar 
 
 First time load can take a while, depending on the size of your library.
 
+### Secrets from files
+
+The secrets below can also be read from a file by appending `_FILE` to their name (for example `SESSION_SECRET_FILE=/run/secrets/session_secret`). This works with [Docker secrets](https://docs.docker.com/compose/how-tos/use-secrets/), Kubernetes secret volumes or a Vault/OpenBao agent, in the AIO image as well as the separate `nextjs` and `job-server` images. It follows the official postgres image convention: setting both `VAR` and `VAR_FILE` is an error, and trailing newlines in the file are ignored.
+
+| Variable | Notes |
+|----------|-------|
+| `DATABASE_URL` | Optional. When not set, it is built from `POSTGRES_PASSWORD` and the `POSTGRES_*` settings below |
+| `POSTGRES_PASSWORD` | Database password, URL-encoded into the connection string |
+| `SESSION_SECRET` | Session signing secret |
+| `INTERNAL_API_KEY` | Job server to web app key, defaults to `SESSION_SECRET` |
+| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | Server actions encryption key |
+
+When `DATABASE_URL` is not set, the connection also uses `POSTGRES_USER` (default `postgres`), `POSTGRES_HOST` (default `localhost`, `vectorchord` in the provided `docker-compose.yml`), `POSTGRES_PORT` (default `5432`) and `POSTGRES_DB` (default `streamystats`). Keep `DATABASE_URL` unset when you use `POSTGRES_PASSWORD_FILE`, otherwise it takes precedence.
+
 ### Version Tags
 
 Version tags (e.g., `v1.2.3`) are automatically generated on release. These tags provide stable, tested reference points for production use. I recommend pinning to specific version tags for stability.
 
-The `:latest` tag always points to the latest commit on the main branch. It contains the most recent features and fixes. While typically stable, it may occasionally contain breaking changes
+The `:latest` tag always points to the latest commit on the main branch. It contains the most recent features and fixes. While typically stable, it may occasionally contain breaking changes.
+
+### Rollbacks / Downgrades (Docker)
+
+Database migrations are automated and handled by the **job-server container** (it runs migrations on startup before becoming healthy).
+
+Streamystats does **not** perform automatic rollbacks/downgrades of the database schema for Docker users.
+
+- **No Automatic Downgrade**: If you downgrade the Docker image version (for example changing the tag from `v1.95.0` back to `v1.94.0`), the database remains migrated to the newer version. The older application version will likely fail to start or behave incorrectly because it does not understand the newer schema.
+- **Recommended Strategy**: The official and only supported method to “rollback” a deployment is to **restore a database backup**.
+- **Important**: Always take a **database backup before updating** to a newer image version.
 
 ### Dockerless
 

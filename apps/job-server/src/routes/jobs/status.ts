@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getJobQueue, JobTypes } from "../../jobs/queue";
+import { getJobQueue, JobTypes, latestQueueStats } from "../../jobs/queue";
 import { JELLYFIN_JOB_NAMES } from "../../jellyfin/workers";
 import {
   db,
@@ -298,7 +298,7 @@ app.get("/server-status", async (c) => {
       boss.getQueueStats(JobTypes.ADD_SERVER),
       boss.getQueueStats(JobTypes.GENERATE_ITEM_EMBEDDINGS),
     ]);
-    const queueSizes = queueStats.map((s) => s.queuedCount);
+    const queueSizes = queueStats.map((s) => latestQueueStats(s)?.queuedCount ?? 0);
 
     const jellyfinQueueStats = await Promise.all([
       boss.getQueueStats(JELLYFIN_JOB_NAMES.FULL_SYNC),
@@ -310,7 +310,9 @@ app.get("/server-status", async (c) => {
       boss.getQueueStats(JELLYFIN_JOB_NAMES.RECENT_ACTIVITIES_SYNC),
       boss.getQueueStats(JELLYFIN_JOB_NAMES.PEOPLE_SYNC),
     ]);
-    const jellyfinQueueSizes = jellyfinQueueStats.map((s) => s.queuedCount);
+    const jellyfinQueueSizes = jellyfinQueueStats.map(
+      (s) => latestQueueStats(s)?.queuedCount ?? 0,
+    );
 
     const allServers = await db
       .select({

@@ -42,7 +42,7 @@ export default async function WatchlistsPage({
       <WatchlistsTable
         watchlists={watchlists}
         serverId={server.id}
-        serverUrl={server.url}
+        server={{ url: server.url, internalUrl: server.internalUrl }}
         currentUserId={me.id}
       />
     </Container>

@@ -9,7 +9,7 @@ import { requireAdmin } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
+    const { error, session } = await requireAdmin();
     if (error) return error;
 
     const body = await request.json();
@@ -49,12 +49,24 @@ export async function POST(request: Request) {
       db
         .select()
         .from(items)
-        .where(and(eq(items.id, leftId), isNull(items.deletedAt)))
+        .where(
+          and(
+            eq(items.id, leftId),
+            eq(items.serverId, session.serverId),
+            isNull(items.deletedAt),
+          ),
+        )
         .limit(1),
       db
         .select()
         .from(items)
-        .where(and(eq(items.id, rightId), isNull(items.deletedAt)))
+        .where(
+          and(
+            eq(items.id, rightId),
+            eq(items.serverId, session.serverId),
+            isNull(items.deletedAt),
+          ),
+        )
         .limit(1),
     ]);
 
@@ -89,6 +101,21 @@ export async function POST(request: Request) {
     }
 
     const serverId = leftItem[0].serverId;
+
+    if (session.serverId !== serverId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Forbidden: Admin privileges required for this server",
+        }),
+        {
+          status: 403,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
 
     if (serverId !== rightItem[0].serverId) {
       return new Response(
@@ -151,7 +178,9 @@ export async function POST(request: Request) {
         )
         .returning({ id: hiddenRecommendations.id });
 
-      await tx.delete(items).where(eq(items.id, leftId));
+      await tx
+        .delete(items)
+        .where(and(eq(items.id, leftId), eq(items.serverId, session.serverId)));
 
       return {
         sessionsMigrated: migratedSessions.length,

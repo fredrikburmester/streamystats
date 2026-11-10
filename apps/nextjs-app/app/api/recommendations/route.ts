@@ -1,4 +1,4 @@
-import type { Server } from "@streamystats/database";
+import { getMergedUserTarget, type Server } from "@streamystats/database";
 import type { NextRequest } from "next/server";
 import {
   authenticateMediaBrowser,
@@ -283,20 +283,23 @@ async function buildRecommendationsResponse(args: {
   let seriesResults: SeriesRecommendationItem[] = [];
 
   if (params.type === "Movie" || params.type === "all") {
-    movieResults = await getSimilarStatistics(
-      server.id,
-      user.id,
-      fetchLimit,
-      0,
-      {
+    movieResults = await getSimilarStatistics({
+      serverId: server.id,
+      userId: user.id,
+      limit: fetchLimit,
+      timeWindow: {
         start: timeWindow.start,
         end: timeWindow.end,
       },
-    );
+    });
   }
 
   if (params.type === "Series" || params.type === "all") {
-    seriesResults = await getSimilarSeries(server.id, user.id, fetchLimit, 0);
+    seriesResults = await getSimilarSeries({
+      serverId: server.id,
+      userId: user.id,
+      limit: fetchLimit,
+    });
   }
 
   // Combine and sort by similarity (both types have compatible structure)
@@ -401,6 +404,13 @@ export async function GET(request: NextRequest) {
     if (token) {
       const userInfo = await validateJellyfinToken(server.url, token);
       if (userInfo) {
+        if (
+          await getMergedUserTarget({
+            serverId: server.id,
+            userId: userInfo.userId,
+          })
+        )
+          return jsonResponse({ error: "Account permanently merged" }, 401);
         let targetUser: ApiUser = {
           id: userInfo.userId,
           name: userInfo.userName,
@@ -494,6 +504,12 @@ export async function POST(request: NextRequest) {
   });
   if (!auth.ok) {
     return jsonResponse({ error: "Unauthorized", message: auth.error }, 401);
+  }
+
+  if (
+    await getMergedUserTarget({ serverId: server.id, userId: auth.user.id })
+  ) {
+    return jsonResponse({ error: "Account permanently merged" }, 401);
   }
 
   const payload = await buildRecommendationsResponse({

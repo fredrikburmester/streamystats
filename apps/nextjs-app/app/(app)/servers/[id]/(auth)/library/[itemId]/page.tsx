@@ -13,7 +13,9 @@ import {
   getSimilarItemsForItem,
   type RecommendationItem,
 } from "@/lib/db/similar-statistics";
-import { getMe, isUserAdmin } from "@/lib/db/users";
+import { getMe, getViewerUserId, isUserAdmin } from "@/lib/db/users";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 import { getToken } from "@/lib/token";
 import { CastSection } from "./CastSection";
 import { ItemHeader } from "./ItemHeader";
@@ -29,9 +31,9 @@ async function getItemPlayedStatus(
 ): Promise<boolean> {
   try {
     const response = await fetch(
-      `${serverUrl}/Users/${userId}/Items/${itemId}`,
+      `${serverUrl}/Items/${itemId}?userId=${encodeURIComponent(userId)}`,
       {
-        headers: { "X-Emby-Token": token },
+        headers: jellyfinHeaders(token),
         signal: AbortSignal.timeout(5000),
         next: { revalidate: 60 },
       },
@@ -56,19 +58,21 @@ export default async function ItemDetailsPage({
     redirect("/not-found");
   }
 
-  const [me, isAdmin, token] = await Promise.all([
+  const [me, isAdmin, token, viewerUserId] = await Promise.all([
     getMe(),
     isUserAdmin(),
     getToken(),
+    getViewerUserId(),
   ]);
 
   if (!me) {
     redirect("/login");
   }
-
   const itemDetails = await getItemDetails({
+    serverId: server.id,
     itemId,
     userId: isAdmin ? undefined : me.id,
+    viewerUserId,
   });
 
   if (!itemDetails) {
@@ -76,10 +80,9 @@ export default async function ItemDetailsPage({
   }
 
   // Fetch played status from Jellyfin
-  const isPlayed =
-    token && server.url
-      ? await getItemPlayedStatus(server.url, token, me.id, itemId)
-      : false;
+  const isPlayed = token
+    ? await getItemPlayedStatus(getInternalUrl(server), token, me.id, itemId)
+    : false;
 
   // Get similar items based on the specific item (not user-based)
   let similarItems: Array<RecommendationItem | SeriesRecommendationItem> = [];
@@ -93,7 +96,7 @@ export default async function ItemDetailsPage({
   // Get seasons and episodes for series
   const seasons =
     itemDetails.item.type === "Series"
-      ? await getSeasonsAndEpisodes({ seriesId: itemId })
+      ? await getSeasonsAndEpisodes({ serverId: server.id, seriesId: itemId })
       : [];
 
   // Get cast and crew for movies and series

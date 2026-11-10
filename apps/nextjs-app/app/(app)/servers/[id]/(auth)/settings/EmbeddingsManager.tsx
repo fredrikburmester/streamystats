@@ -34,17 +34,17 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import type { ServerPublic } from "@/lib/types";
 import {
-  clearEmbeddings,
+  clearEmbeddingsAction,
   type EmbeddingProgress,
   type EmbeddingProvider,
-  getEmbeddingProgress,
-  saveEmbeddingConfig,
-  startEmbedding,
-  stopEmbedding,
-  toggleAutoEmbeddings,
-} from "@/lib/db/server";
-import type { ServerPublic } from "@/lib/types";
+  getEmbeddingProgressAction,
+  saveEmbeddingConfigAction,
+  startEmbeddingAction,
+  stopEmbeddingAction,
+  toggleAutoEmbeddingsAction,
+} from "./embedding-actions";
 
 // Presets for common embedding providers
 const PROVIDER_PRESETS = {
@@ -78,6 +78,14 @@ const PROVIDER_PRESETS = {
     defaultModel: "voyage-2",
     defaultDimensions: 1024,
     requiresApiKey: true,
+    provider: "voyage" as EmbeddingProvider,
+  },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    defaultModel: "openai/text-embedding-3-small",
+    defaultDimensions: 1536,
+    requiresApiKey: true,
     provider: "openai-compatible" as EmbeddingProvider,
   },
   ollama: {
@@ -104,6 +112,14 @@ const PROVIDER_PRESETS = {
     requiresApiKey: false,
     provider: "openai-compatible" as EmbeddingProvider,
   },
+  gemini: {
+    name: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    defaultModel: "gemini-embedding-001",
+    defaultDimensions: 1536, // Native is 3072, but 1536 is recommended for performance
+    requiresApiKey: true,
+    provider: "gemini" as EmbeddingProvider,
+  },
   custom: {
     name: "Custom",
     baseUrl: "",
@@ -118,6 +134,11 @@ type PresetKey = keyof typeof PROVIDER_PRESETS;
 
 // Detect preset from server config
 function detectPreset(server: ServerPublic): PresetKey {
+  // Not openai-compatible providers should be detected first regarless of url
+  if (server.embeddingProvider === "ollama") {
+    return "ollama";
+  }
+
   const baseUrl = server.embeddingBaseUrl || "";
   for (const [key, preset] of Object.entries(PROVIDER_PRESETS)) {
     if (key !== "custom" && baseUrl === preset.baseUrl) {
@@ -168,7 +189,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
     refetch,
   } = useQuery<EmbeddingProgress>({
     queryKey: ["embedding-progress", server.id],
-    queryFn: async () => await getEmbeddingProgress({ serverId: server.id }),
+    queryFn: async () => await getEmbeddingProgressAction(server.id),
     refetchInterval: 2000,
     retry: 3,
     retryDelay: 1000,
@@ -191,15 +212,12 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
   const handleSaveConfig = async () => {
     setIsSaving(true);
     try {
-      await saveEmbeddingConfig({
-        serverId: server.id,
-        config: {
-          provider,
-          baseUrl,
-          apiKey: apiKey || undefined,
-          model,
-          dimensions,
-        },
+      await saveEmbeddingConfigAction(server.id, {
+        provider,
+        baseUrl,
+        apiKey: apiKey || undefined,
+        model,
+        dimensions,
       });
       toast.success("Embedding configuration saved");
       refetch();
@@ -231,7 +249,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
   const handleStartEmbedding = async () => {
     setIsStarting(true);
     try {
-      await startEmbedding({ serverId: server.id });
+      await startEmbeddingAction(server.id);
       toast.success("Embedding process started");
       refetch();
     } catch (err) {
@@ -248,7 +266,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
   const handleStopEmbedding = async () => {
     setIsStopping(true);
     try {
-      await stopEmbedding({ serverId: server.id });
+      await stopEmbeddingAction(server.id);
       toast.success("Embedding process stopped");
       refetch();
     } catch (err) {
@@ -300,11 +318,11 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
     try {
       // Stop any running embedding jobs first
       try {
-        await stopEmbedding({ serverId: server.id });
+        await stopEmbeddingAction(server.id);
       } catch {
         // Ignore errors - job might not be running
       }
-      await clearEmbeddings({ serverId: server.id });
+      await clearEmbeddingsAction(server.id);
       toast.success("Embeddings and vector index cleared");
       refetch();
     } catch (err) {
@@ -320,7 +338,7 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
   const handleToggleAutoEmbeddings = async (checked: boolean) => {
     setIsUpdatingAutoEmbed(true);
     try {
-      await toggleAutoEmbeddings({ serverId: server.id, enabled: checked });
+      await toggleAutoEmbeddingsAction(server.id, checked);
       setAutoEmbeddings(checked);
       toast.success(
         `Auto-generate embeddings ${checked ? "enabled" : "disabled"}`,
@@ -384,9 +402,11 @@ export function EmbeddingsManager({ server }: { server: ServerPublic }) {
                   <SelectItem value="together-ai">Together AI</SelectItem>
                   <SelectItem value="fireworks">Fireworks AI</SelectItem>
                   <SelectItem value="voyage">Voyage AI</SelectItem>
+                  <SelectItem value="openrouter">OpenRouter</SelectItem>
                   <SelectItem value="ollama">Ollama (Local)</SelectItem>
                   <SelectItem value="lm-studio">LM Studio (Local)</SelectItem>
                   <SelectItem value="localai">LocalAI (Local)</SelectItem>
+                  <SelectItem value="gemini">Google Gemini</SelectItem>
                   <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>

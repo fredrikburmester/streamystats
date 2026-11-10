@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { getJobQueue, JobTypes } from "../../jobs/queue";
 import { JELLYFIN_JOB_NAMES } from "../../jellyfin/workers";
-import { BACKFILL_JOB_NAMES } from "../../jobs/server-jobs";
+import { BACKFILL_JOB_NAMES, STREAMYSTATS_VERSION } from "../../jobs/server-jobs";
 import {
   db,
   servers,
@@ -198,10 +198,14 @@ app.post("/create-server", async (c) => {
       return c.json({ error: "Name, URL, and API key are required" }, 400);
     }
 
+    // Server-to-server requests use the internal URL when configured (falling back
+    // to the external URL), so test connectivity against that effective URL.
+    const effectiveUrl = otherFields.internalUrl || url;
+
     try {
-      const testResponse = await fetch(`${url}/System/Info`, {
+      const testResponse = await fetch(`${effectiveUrl}/System/Info`, {
         headers: {
-          "X-Emby-Token": apiKey,
+          "Authorization": `MediaBrowser Client="Streamystats", Version="${STREAMYSTATS_VERSION}", Token="${apiKey}"`,
           "Content-Type": "application/json",
         },
       });
@@ -378,4 +382,3 @@ app.post("/backfill-jellyfin-ids", async (c) => {
 });
 
 export default app;
-

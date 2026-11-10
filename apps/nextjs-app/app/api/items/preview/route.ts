@@ -1,10 +1,10 @@
 import { db, items } from "@streamystats/database";
-import { and, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { requireAdmin } from "@/lib/api-auth";
 
 export async function POST(request: Request) {
   try {
-    const { error } = await requireAdmin();
+    const { error, session } = await requireAdmin();
     if (error) return error;
 
     const body = await request.json();
@@ -28,7 +28,13 @@ export async function POST(request: Request) {
     const foundItems = await db
       .select()
       .from(items)
-      .where(and(inArray(items.id, itemIds), isNull(items.deletedAt)));
+      .where(
+        and(
+          inArray(items.id, itemIds),
+          eq(items.serverId, session.serverId),
+          isNull(items.deletedAt),
+        ),
+      );
 
     const itemsMap = new Map(foundItems.map((item) => [item.id, item]));
 

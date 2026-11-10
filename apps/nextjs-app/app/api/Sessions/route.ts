@@ -1,8 +1,16 @@
-import { db, items, users } from "@streamystats/database";
-import { eq } from "drizzle-orm";
+import {
+  db,
+  getMergedUserTarget,
+  items,
+  mediaSources,
+  users,
+} from "@streamystats/database";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
 import type { ActiveSession } from "@/lib/db/active-sessions";
 import { getServerWithSecrets } from "@/lib/db/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET(request: Request) {
   // Require valid session to view active sessions
@@ -43,12 +51,9 @@ export async function GET(request: Request) {
 
   let jellyfinSessions: JellyfinSession[];
   try {
-    const response = await fetch(`${server.url}/Sessions`, {
+    const response = await fetch(`${getInternalUrl(server)}/Sessions`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": server.apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(server.apiKey),
     });
 
     // Pass through the actual status code from Jellyfin for better error handling on the client
@@ -125,7 +130,11 @@ export async function GET(request: Request) {
 
   try {
     const activeSessions = (
-      await Promise.all(jellyfinSessions.map(mapJellyfinSessionToActiveSession))
+      await Promise.all(
+        jellyfinSessions.map((entry) =>
+          mapJellyfinSessionToActiveSession(entry, server.id),
+        ),
+      )
     ).filter((session): session is ActiveSession => Boolean(session));
 
     return new Response(JSON.stringify(activeSessions), {
@@ -157,28 +166,73 @@ export async function GET(request: Request) {
 }
 
 /**
+ * Alternate versions (movies always, episodes since Jellyfin 12) are hidden
+ * items whose ids only exist as media source ids on the listed item, so a
+ * session playing one is mapped back through media_sources.
+ */
+async function findItemForPlayback({
+  serverId,
+  nowPlayingItemId,
+  mediaSourceId,
+}: {
+  serverId: number;
+  nowPlayingItemId: string;
+  mediaSourceId?: string;
+}) {
+  const direct = await db.query.items.findFirst({
+    where: and(eq(items.id, nowPlayingItemId), eq(items.serverId, serverId)),
+  });
+  if (direct) return direct;
+
+  const candidates = [nowPlayingItemId, mediaSourceId].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+  const source = await db
+    .select({ itemId: mediaSources.itemId })
+    .from(mediaSources)
+    .where(
+      and(
+        inArray(mediaSources.id, candidates),
+        eq(mediaSources.serverId, serverId),
+      ),
+    )
+    .limit(1);
+  if (source.length === 0) return null;
+
+  return (
+    (await db.query.items.findFirst({
+      where: and(eq(items.id, source[0].itemId), eq(items.serverId, serverId)),
+    })) ?? null
+  );
+}
+
+/**
  * Maps a JellyfinSession to an ActiveSession
  */
 async function mapJellyfinSessionToActiveSession(
   session: JellyfinSession,
+  serverId: number,
 ): Promise<ActiveSession | null> {
   // Skip sessions without NowPlayingItem
   if (!session.NowPlayingItem) {
     return null;
   }
 
-  const id = session.NowPlayingItem.Id;
-
-  const item = await db.query.items.findFirst({
-    where: eq(items.id, id),
+  const item = await findItemForPlayback({
+    serverId,
+    nowPlayingItemId: session.NowPlayingItem.Id,
+    mediaSourceId: session.PlayState?.MediaSourceId,
   });
 
   if (!item) {
     return null;
   }
 
+  const userId =
+    (await getMergedUserTarget({ serverId, userId: session.UserId })) ??
+    session.UserId;
   const user = await db.query.users.findFirst({
-    where: eq(users.id, session.UserId),
+    where: and(eq(users.id, userId), eq(users.serverId, serverId)),
   });
 
   const positionTicks = session.PlayState.PositionTicks;

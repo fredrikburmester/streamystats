@@ -5,37 +5,27 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
-  migrate:
-    image: docker.io/fredrikburmester/streamystats-v2-migrate:${VERSION:-latest}
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-streamystats}
-      - PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
-    depends_on:
-      vectorchord:
-        condition: service_healthy
-    restart: "no"
-    logging: *default-logging
-    networks:
-      - app-network
-
   nextjs-app:
-    image: docker.io/fredrikburmester/streamystats-v2-nextjs:${VERSION:-latest}
+    image: ghcr.io/fredrikburmester/streamystats-nextjs:${VERSION:-latest}
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
+      - POSTGRES_HOST=vectorchord
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      # Or POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password: replace this line,
+      # never set both (in every service)
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-streamystats}
       - JOB_SERVER_URL=http://job-server:3005
       - HOSTNAME=0.0.0.0
       - SESSION_SECRET=${SESSION_SECRET}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-${SESSION_SECRET}}
+      # Stable encryption key for server action closures (prevents session breakage on redeploy)
+      - NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
     depends_on:
       vectorchord:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
       job-server:
         condition: service_healthy
     restart: unless-stopped
@@ -44,12 +34,19 @@ services:
       - app-network
 
   job-server:
-    image: docker.io/fredrikburmester/streamystats-v2-job-server:${VERSION:-latest}
+    image: ghcr.io/fredrikburmester/streamystats-job-server:${VERSION:-latest}
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
+      - POSTGRES_HOST=vectorchord
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      # Or POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password: replace this line,
+      # never set both (in every service)
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-streamystats}
       - PORT=3005
       - HOST=0.0.0.0
+      - NEXTJS_URL=http://nextjs-app:3000
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-${SESSION_SECRET}}
       # Session polling interval in milliseconds (default: 5000)
       - SESSION_POLL_INTERVAL_MS=${SESSION_POLL_INTERVAL_MS:-5000}
       # Cron schedules (standard cron syntax)
@@ -69,24 +66,53 @@ services:
     depends_on:
       vectorchord:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     restart: unless-stopped
     logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     networks:
       - app-network
 
   vectorchord:
-    image: tensorchord/vchord-postgres:pg17-v0.4.1
-    command: ["postgres", "-c", "log_checkpoints=off"]
+    image: tensorchord/vchord-postgres:pg17-v1.1.1
+    command:
+      [
+        "postgres",
+        "-c",
+        "log_checkpoints=off",
+        "-c",
+        "shared_buffers=512MB",
+        "-c",
+        "work_mem=16MB",
+        "-c",
+        "maintenance_work_mem=256MB",
+        "-c",
+        "effective_cache_size=1536MB",
+        "-c",
+        "random_page_cost=1.1",
+        "-c",
+        "effective_io_concurrency=200",
+      ]
+    stop_signal: SIGINT
+    shm_size: 1g
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      # Or POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password: replace this line,
+      # never set both (in every service)
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-streamystats}
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     volumes:
       - vectorchord_data:/var/lib/postgresql/data
     restart: unless-stopped
     logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     healthcheck:
       test:
         [

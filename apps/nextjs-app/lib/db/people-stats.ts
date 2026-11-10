@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   db,
   itemPeople,
@@ -15,7 +17,7 @@ import {
   type SQL,
   sum,
 } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getStatisticsExclusions } from "./exclusions";
 
 export interface PersonStats {
@@ -61,6 +63,7 @@ export async function getTopPeopleByLibraryPresence(
   limit = 20,
 ): Promise<PersonLibraryStats[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   const serverIdNum = Number(serverId);
@@ -89,7 +92,13 @@ export async function getTopPeopleByLibraryPresence(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(items)
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -133,7 +142,13 @@ export async function getTopPeopleByLibraryPresence(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(items)
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -190,6 +205,7 @@ export async function getTopPeopleByWatchTime(
   limit = 20,
 ): Promise<PersonStats[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
   const serverIdNum = Number(serverId);
 
@@ -224,8 +240,20 @@ export async function getTopPeopleByWatchTime(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -279,8 +307,20 @@ export async function getTopPeopleByWatchTime(
         itemCount: countDistinct(items.seriesId).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.seriesId, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.seriesId, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -332,15 +372,19 @@ export async function getTopPeopleByWatchTime(
 }
 
 /**
- * Get top people (actors or directors) by play count.
+ * Get top people (actors or directors) by play count or title count.
  */
+export type PlayCountSortBy = "playCount" | "titleCount";
+
 export async function getTopPeopleByPlayCount(
   serverId: string | number,
   personType: "Actor" | "Director",
   mediaType: MediaTypeFilter,
   limit = 20,
+  sortBy: PlayCountSortBy = "titleCount",
 ): Promise<PersonStats[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   const serverIdNum = Number(serverId);
@@ -376,8 +420,20 @@ export async function getTopPeopleByPlayCount(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.id, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.id, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -387,7 +443,11 @@ export async function getTopPeopleByPlayCount(
       )
       .where(and(...movieConditions))
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
-      .orderBy(desc(count(sessions.id)))
+      .orderBy(
+        ...(sortBy === "titleCount"
+          ? [desc(countDistinct(items.id)), desc(count(sessions.id))]
+          : [desc(count(sessions.id))]),
+      )
       .limit(limit);
 
     for (const stat of movieStats) {
@@ -430,8 +490,20 @@ export async function getTopPeopleByPlayCount(
         itemCount: countDistinct(items.seriesId).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
-      .innerJoin(itemPeople, eq(items.seriesId, itemPeople.itemId))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
+      .innerJoin(
+        itemPeople,
+        and(
+          eq(items.seriesId, itemPeople.itemId),
+          eq(items.serverId, itemPeople.serverId),
+        ),
+      )
       .innerJoin(
         people,
         and(
@@ -441,7 +513,11 @@ export async function getTopPeopleByPlayCount(
       )
       .where(and(...seriesConditions))
       .groupBy(people.id, people.name, people.primaryImageTag, people.serverId)
-      .orderBy(desc(count(sessions.id)))
+      .orderBy(
+        ...(sortBy === "titleCount"
+          ? [desc(countDistinct(items.seriesId)), desc(count(sessions.id))]
+          : [desc(count(sessions.id))]),
+      )
       .limit(limit);
 
     for (const stat of seriesStats) {
@@ -476,8 +552,12 @@ export async function getTopPeopleByPlayCount(
     }
   }
 
-  // Sort by play count and limit
-  results.sort((a, b) => b.totalPlayCount - a.totalPlayCount);
+  // Sort by the selected field and limit
+  if (sortBy === "titleCount") {
+    results.sort((a, b) => b.itemCount - a.itemCount);
+  } else {
+    results.sort((a, b) => b.totalPlayCount - a.totalPlayCount);
+  }
   return results.slice(0, limit);
 }
 
@@ -491,6 +571,7 @@ export async function getTopDirectorActorCombinations(
   limit = 15,
 ): Promise<DirectorActorCombination[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
 
   const serverIdNum = Number(serverId);
@@ -576,7 +657,13 @@ export async function getTopDirectorActorCombinations(
         itemCount: countDistinct(items.id).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
       .innerJoin(directors, eq(items.id, directors.itemId))
       .innerJoin(actors, eq(items.id, actors.itemId))
       .innerJoin(directorPeople, eq(directors.personId, directorPeople.id))
@@ -663,7 +750,13 @@ export async function getTopDirectorActorCombinations(
         itemCount: countDistinct(items.seriesId).as("itemCount"),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
       .innerJoin(seriesDirectors, eq(items.seriesId, seriesDirectors.itemId))
       .innerJoin(seriesActors, eq(items.seriesId, seriesActors.itemId))
       .innerJoin(

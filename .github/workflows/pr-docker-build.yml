@@ -5,9 +5,16 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main]
 
+permissions:
+  packages: write
+  pull-requests: write
+  issues: write
+
 env:
-  REGISTRY: docker.io
-  IMAGE_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ghcr.io/${{ github.repository_owner }}
+  # Fork PRs get a read-only token (can't push to GHCR or comment) → same-repo only.
+  IS_SAME_REPO_PR: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
 
 jobs:
   lint:
@@ -15,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -31,9 +38,25 @@ jobs:
   test:
     name: Test (bun test)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: tensorchord/vchord-postgres:pg17-v1.1.1
+        env:
+          # Disposable CI database, reachable only from this runner.
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: streamystats_item_replacement_test
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d streamystats_item_replacement_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      STREAMYSTATS_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/streamystats_item_replacement_test
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -43,6 +66,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build database package
+        run: bun run build:database
+
       - name: Run tests
         run: bun test
 
@@ -51,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -76,43 +102,39 @@ jobs:
       fail-fast: false
       matrix:
         part:
-          - streamystats-v2-nextjs
-          - streamystats-v2-job-server
-          - streamystats-v2-migrate
+          - streamystats-nextjs
+          - streamystats-job-server
         include:
-          - part: streamystats-v2-nextjs
+          - part: streamystats-nextjs
             folder: .
             dockerfile: apps/nextjs-app/Dockerfile
-          - part: streamystats-v2-job-server
+          - part: streamystats-job-server
             folder: .
             dockerfile: apps/job-server/Dockerfile
-          - part: streamystats-v2-migrate
-            folder: .
-            dockerfile: migration.Dockerfile
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract PR number
         id: pr
         run: echo "number=${{ github.event.number }}" >> $GITHUB_OUTPUT
 
       - name: Build and push ${{ matrix.part }}
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.folder }}
           file: ${{ matrix.dockerfile }}
@@ -123,9 +145,19 @@ jobs:
             VERSION=pr-${{ steps.pr.outputs.number }}
             COMMIT_SHA=${{ github.sha }}
             BUILD_TIME=${{ github.event.pull_request.updated_at }}
-          push: true
+          push: ${{ env.IS_SAME_REPO_PR == 'true' }}
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ steps.pr.outputs.number }}
+
+      - name: Run Trivy vulnerability scanner
+        if: ${{ env.IS_SAME_REPO_PR == 'true' }}
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:pr-${{ steps.pr.outputs.number }}
+          format: table
+          exit-code: "0"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
 
   summary:
     runs-on: ubuntu-latest
@@ -144,9 +176,8 @@ jobs:
           echo "**Commit SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Built Images:" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-nextjs:pr-${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-job-server:pr-${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-v2-migrate:pr-${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-nextjs:pr-${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.IMAGE_NAMESPACE }}/streamystats-job-server:pr-${{ github.event.number }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Usage:" >> $GITHUB_STEP_SUMMARY
           echo "To test this PR, update your \`docker-compose.yml\` with:" >> $GITHUB_STEP_SUMMARY
@@ -156,7 +187,8 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Add PR comment
-        uses: actions/github-script@v7
+        if: ${{ env.IS_SAME_REPO_PR == 'true' }}
+        uses: actions/github-script@v9
         with:
           script: |
             const prNumber = context.payload.number;
@@ -164,12 +196,11 @@ jobs:
 
             const comment = `## 🐳 PR Docker Images Built
 
-            Your PR has been built and pushed to Docker Hub with the tag \`pr-${prNumber}\`.
+            Your PR has been built and pushed to GHCR with the tag \`pr-${prNumber}\`.
 
             ### Available Images:
-            - \`${namespace}/streamystats-v2-nextjs:pr-${prNumber}\`
-            - \`${namespace}/streamystats-v2-job-server:pr-${prNumber}\`
-            - \`${namespace}/streamystats-v2-migrate:pr-${prNumber}\`
+            - \`${namespace}/streamystats-nextjs:pr-${prNumber}\`
+            - \`${namespace}/streamystats-job-server:pr-${prNumber}\`
 
             ### Usage:
             \`\`\`bash

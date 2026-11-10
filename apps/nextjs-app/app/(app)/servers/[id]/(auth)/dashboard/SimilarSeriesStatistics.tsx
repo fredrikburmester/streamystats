@@ -16,7 +16,7 @@ interface Props {
 
 export const SimilarSeriesStatistics = ({ data, server }: Props) => {
   const fetchNextPage = async (offset: number) => {
-    return getSimilarSeries(server.id, undefined, 20, offset);
+    return getSimilarSeries({ serverId: server.id, offset });
   };
 
   return (

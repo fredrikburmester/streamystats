@@ -1,8 +1,14 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { getServersWithSecrets } from "@/lib/db/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 export async function GET() {
+  const { error } = await requireSession();
+  if (error) return error;
+
   // The middleware will set this header if there's a server connectivity issue
   const headersList = await headers();
   const connectivityError = headersList.get("x-server-connectivity-error");
@@ -19,21 +25,25 @@ export async function GET() {
   try {
     const servers = await getServersWithSecrets();
     let hasConnectivityIssue = false;
-    const serverErrors = [];
+    const serverErrors: {
+      serverId: number;
+      name: string;
+      status?: number;
+      error: string;
+    }[] = [];
 
     // Check each server for connectivity issues
     for (const server of servers) {
       try {
         // Quick health check to Jellyfin server
-        const healthCheck = await fetch(`${server.url}/System/Ping`, {
-          method: "GET",
-          headers: {
-            "X-Emby-Token": server.apiKey,
-            "Content-Type": "application/json",
+        const healthCheck = await fetch(
+          `${getInternalUrl(server)}/System/Ping`,
+          {
+            method: "GET",
+            headers: jellyfinHeaders(server.apiKey),
+            signal: AbortSignal.timeout(3000),
           },
-          // Short timeout to avoid hanging requests
-          signal: AbortSignal.timeout(3000),
-        });
+        );
 
         if (!healthCheck.ok) {
           hasConnectivityIssue = true;

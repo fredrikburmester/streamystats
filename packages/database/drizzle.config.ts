@@ -1,10 +1,10 @@
 import type { Config } from "drizzle-kit";
-const databaseUrl = process.env.DATABASE_URL;
+import { MISSING_DATABASE_URL_MESSAGE, resolveDatabaseUrl } from "./src/env";
+
+const databaseUrl = resolveDatabaseUrl();
 const isGenerate = process.argv.some((arg) => arg === "generate" || arg.endsWith("generate"));
 if (!databaseUrl && !isGenerate) {
-  throw new Error(
-    'DATABASE_URL environment variable is missing. Set DATABASE_URL (e.g. "postgresql://postgres:postgres@host:5432/streamystats").'
-  );
+  throw new Error(MISSING_DATABASE_URL_MESSAGE);
 }
 if (!databaseUrl && isGenerate) {
   // `drizzle-kit generate` does not require a live DB connection, but drizzle-kit still

@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   db,
   items,
@@ -10,7 +12,7 @@ import type { Item } from "@streamystats/database/schema";
 import { tool } from "ai";
 import {
   and,
-  cosineDistance,
+  asc,
   desc,
   eq,
   ilike,
@@ -19,7 +21,12 @@ import {
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
+import { getItemEmbeddingComparison } from "@/lib/db/embedding-comparison";
 import { getHistoryByFilters } from "@/lib/db/history";
+import {
+  findItemsByCharacter,
+  findItemsByPerson,
+} from "@/lib/db/item-people-search";
 import {
   getSimilarItemsForItem,
   getSimilarStatistics,
@@ -30,6 +37,8 @@ import {
   getUsers,
   getUserWatchStats,
 } from "@/lib/db/users";
+
+type EmbeddingProvider = "openai-compatible" | "ollama" | "gemini";
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -83,8 +92,6 @@ function formatItem(
   return base;
 }
 
-type EmbeddingProvider = "openai-compatible" | "ollama";
-
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
@@ -120,10 +127,10 @@ async function embedTextForServer({
 
   try {
     if (provider === "ollama") {
-      const res = await fetch(`${normalizeBaseUrl(baseUrl)}/api/embeddings`, {
+      const res = await fetch(`${normalizeBaseUrl(baseUrl)}/api/embed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt: text }),
+        body: JSON.stringify({ model, input: text }),
       });
 
       if (!res.ok) {
@@ -135,10 +142,52 @@ async function embedTextForServer({
       }
 
       const json = (await res.json()) as {
-        embedding?: number[];
-        embeddings?: number[];
+        embeddings?: number[][];
       };
-      const embedding = json.embedding ?? json.embeddings;
+      const embedding = json.embeddings?.[0];
+      if (!Array.isArray(embedding) || embedding.length === 0) {
+        return {
+          ok: false,
+          reason: "request_failed",
+          error: "Embedding request returned no embedding vector",
+        };
+      }
+      return { ok: true, embedding };
+    }
+
+    if (provider === "gemini") {
+      const normalized = normalizeBaseUrl(baseUrl);
+      const geminiModel = model.startsWith("models/")
+        ? model
+        : `models/${model}`;
+      const res = await fetch(`${normalized}/${geminiModel}:embedContent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey ? { "x-goog-api-key": apiKey } : {}),
+        },
+        body: JSON.stringify({
+          model: geminiModel,
+          content: { parts: [{ text }] },
+          taskType: "SEMANTIC_SIMILARITY",
+          ...(dimensions && dimensions > 0
+            ? { outputDimensionality: dimensions }
+            : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        return {
+          ok: false,
+          reason: "request_failed",
+          error: `Embedding request failed (status ${res.status})`,
+        };
+      }
+
+      const json = (await res.json()) as {
+        embedding?: { values?: number[] };
+      };
+      const embedding = json.embedding?.values;
       if (!Array.isArray(embedding) || embedding.length === 0) {
         return {
           ok: false,
@@ -161,7 +210,11 @@ async function embedTextForServer({
       body.dimensions = dimensions;
     }
 
-    const res = await fetch(`${normalizeBaseUrl(baseUrl)}/v1/embeddings`, {
+    const normalized = normalizeBaseUrl(baseUrl);
+    const embeddingsUrl = normalized.endsWith("/v1")
+      ? `${normalized}/embeddings`
+      : `${normalized}/v1/embeddings`;
+    const res = await fetch(embeddingsUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -253,7 +306,11 @@ const limitTypeSchema = z.object({
     .describe("Filter by item type"),
 });
 
-export function createChatTools(serverId: number, userId: string) {
+export function createChatTools(
+  serverId: number,
+  userId: string,
+  isAdmin: boolean = false,
+) {
   return {
     getUserMostWatchedMovies: tool({
       description:
@@ -304,11 +361,11 @@ export function createChatTools(serverId: number, userId: string) {
         "Get personalized movie and series recommendations based on user's watch history using AI embeddings. Each recommendation includes a 'reason' field (e.g. 'Because you watched X and Y') and a 'basedOn' array with the watched items that led to this recommendation. Always use this data when presenting recommendations to explain what they're based on.",
       inputSchema: limitTypeSchema,
       execute: async ({ limit, type }: z.infer<typeof limitTypeSchema>) => {
-        const recommendations = await getSimilarStatistics(
+        const recommendations = await getSimilarStatistics({
           serverId,
           userId,
-          limit * 2,
-        );
+          limit: limit * 2,
+        });
 
         const filtered =
           type === "all"
@@ -463,6 +520,106 @@ export function createChatTools(serverId: number, userId: string) {
       },
     }),
 
+    findItemsByPerson: tool({
+      description:
+        "Find movies or TV series connected to one or more people, such as actors, directors, writers, or producers. Every requested person must be connected to each returned item. Use this for questions like 'movies with Ana de Armas', 'movies with Ana de Armas and Chris Evans', 'what is Pedro Pascal in?', or 'films directed by Christopher Nolan'. Actor credits are searched by default.",
+      inputSchema: z.object({
+        personNames: z
+          .array(z.string())
+          .min(1)
+          .max(10)
+          .describe(
+            "Names or partial names of the people to search for. Returned items must match every person.",
+          ),
+        creditType: z
+          .enum(["Actor", "Director", "Writer", "Producer", "all"])
+          .optional()
+          .default("Actor")
+          .describe(
+            "Credit type to search. Use Actor for starring/with questions, a specific crew type when requested, or all for any connection.",
+          ),
+        type: z
+          .enum(["Movie", "Series", "all"])
+          .optional()
+          .default("all")
+          .describe("Filter by media type"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .default(20)
+          .describe("Number of items to return"),
+      }),
+      execute: async ({ personNames, creditType, type, limit }) => {
+        const results = await findItemsByPerson({
+          serverId,
+          personNames,
+          creditType,
+          type,
+          limit,
+        });
+
+        return {
+          items: results.map(({ item, credits }) => ({
+            ...formatItem(item),
+            matchedCredits: credits,
+          })),
+          personNames,
+          message:
+            results.length > 0
+              ? `Found ${results.length} items connected to ${personNames.join(
+                  " and ",
+                )}`
+              : `No items found connected to ${personNames.join(" and ")}`,
+        };
+      },
+    }),
+
+    findItemsByCharacter: tool({
+      description:
+        "Find the movie or TV series a fictional character appears in. Use this for questions like 'which TV show is Walter White from?', 'what movie has Tony Stark?', or 'where does Eleven appear?'. Returns the matching character roles and the actors who played them.",
+      inputSchema: z.object({
+        characterName: z
+          .string()
+          .describe("Name or partial name of the character to search for"),
+        type: z
+          .enum(["Movie", "Series", "all"])
+          .optional()
+          .default("all")
+          .describe("Filter by media type"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .default(20)
+          .describe("Number of items to return"),
+      }),
+      execute: async ({ characterName, type, limit }) => {
+        const results = await findItemsByCharacter({
+          serverId,
+          characterName,
+          type,
+          limit,
+        });
+
+        return {
+          items: results.map(({ item, credits }) => ({
+            ...formatItem(item),
+            matchedCredits: credits,
+          })),
+          characterName,
+          message:
+            results.length > 0
+              ? `Found ${results.length} items featuring character "${characterName}"`
+              : `No items found featuring character "${characterName}"`,
+        };
+      },
+    }),
+
     getUserWatchStatistics: tool({
       description:
         "Get overall watch statistics for the user including total watch time and streaks",
@@ -499,12 +656,18 @@ export function createChatTools(serverId: number, userId: string) {
           .default("all")
           .describe("Filter by item type. Defaults to 'all'."),
       }),
-      execute: async ({ startDate, endDate, userId, itemType }) => {
+      execute: async ({
+        startDate,
+        endDate,
+        userId: inputUserId,
+        itemType,
+      }) => {
+        const effectiveUserId = isAdmin ? inputUserId : userId;
         const results = await getUserStatsSummaryForServer({
           serverId,
           startDate,
           endDate,
-          userId,
+          userId: effectiveUserId,
           itemType: itemType || "all",
         });
 
@@ -557,10 +720,17 @@ export function createChatTools(serverId: number, userId: string) {
             "Maximum number of history items to return. Defaults to 50.",
           ),
       }),
-      execute: async ({ userId, itemType, startDate, endDate, limit }) => {
+      execute: async ({
+        userId: inputUserId,
+        itemType,
+        startDate,
+        endDate,
+        limit,
+      }) => {
+        const effectiveUserId = isAdmin ? inputUserId : userId;
         const history = await getHistoryByFilters({
           serverId,
-          userId,
+          userId: effectiveUserId,
           itemType: itemType || "all",
           startDate,
           endDate,
@@ -628,11 +798,16 @@ export function createChatTools(serverId: number, userId: string) {
       inputSchema: z.object({}),
       execute: async () => {
         const allUsers = await getUsers({ serverId });
+        const visibleUsers = isAdmin
+          ? allUsers.filter((u) => !u.isHidden && !u.isDisabled)
+          : allUsers.filter(
+              (u) => u.id === userId && !u.isHidden && !u.isDisabled,
+            );
         return {
-          users: allUsers
-            .filter((u) => !u.isHidden && !u.isDisabled)
-            .map((u) => ({ id: u.id, name: u.name })),
-          message: `Found ${allUsers.length} users`,
+          users: visibleUsers.map((u) => ({ id: u.id, name: u.name })),
+          message: `Found ${visibleUsers.length} user${
+            visibleUsers.length === 1 ? "" : "s"
+          }`,
         };
       },
     }),
@@ -674,8 +849,12 @@ export function createChatTools(serverId: number, userId: string) {
         }
 
         const [currentUserRecs, otherUserRecs] = await Promise.all([
-          getSimilarStatistics(serverId, userId, 50),
-          getSimilarStatistics(serverId, otherUser.id, 50),
+          getSimilarStatistics({ serverId, userId, limit: 50 }),
+          getSimilarStatistics({
+            serverId,
+            userId: otherUser.id,
+            limit: 50,
+          }),
         ]);
 
         const currentUserRecIds = new Set(
@@ -717,7 +896,12 @@ export function createChatTools(serverId: number, userId: string) {
             const sharedGenres = await db
               .select({ genres: items.genres })
               .from(items)
-              .where(inArray(items.id, bothWatched.slice(0, 20)));
+              .where(
+                and(
+                  inArray(items.id, bothWatched.slice(0, 20)),
+                  eq(items.serverId, serverId),
+                ),
+              );
 
             const genreCounts = new Map<string, number>();
             for (const item of sharedGenres) {
@@ -1069,14 +1253,15 @@ export function createChatTools(serverId: number, userId: string) {
           };
         }
 
-        const similarity = sql<number>`1 - (${cosineDistance(
-          items.embedding,
+        const { distance, dimensionFilter } = getItemEmbeddingComparison(
           embed.embedding,
-        )})`;
+        );
+        const similarity = sql<number>`1 - (${distance})`;
 
         const conditions = [
           eq(items.serverId, serverId),
           isNotNull(items.embedding),
+          dimensionFilter,
         ];
         if (type !== "all") {
           conditions.push(eq(items.type, type));
@@ -1091,7 +1276,7 @@ export function createChatTools(serverId: number, userId: string) {
           })
           .from(items)
           .where(and(...conditions))
-          .orderBy(desc(similarity), desc(items.communityRating))
+          .orderBy(asc(distance), desc(items.communityRating))
           .limit(Math.max(limit * 12, 50));
 
         const ranked = candidates

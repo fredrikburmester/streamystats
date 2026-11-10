@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getJobQueue, JobTypes } from "../../jobs/queue";
+import { getJobQueue, JobTypes, latestQueueStats } from "../../jobs/queue";
 import { JELLYFIN_JOB_NAMES } from "../../jellyfin/workers";
 import { GEOLOCATION_JOB_NAMES } from "../../jobs/geolocation-jobs";
 import { SECURITY_SYNC_JOB_NAME } from "../../jobs/security-sync-job";
@@ -187,7 +187,7 @@ app.get("/queue/stats", async (c) => {
       boss.getQueueStats(JobTypes.GENERATE_ITEM_EMBEDDINGS),
     ]);
 
-    const queuedCounts = stats.map((s) => s.queuedCount);
+    const queuedCounts = stats.map((s) => latestQueueStats(s)?.queuedCount ?? 0);
 
     return c.json({
       success: true,

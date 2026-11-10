@@ -40,6 +40,7 @@ export const TIMEZONE_OPTIONS = [
   { value: "Asia/Seoul", label: "Korea Standard Time (Seoul)" },
   { value: "Asia/Dubai", label: "Gulf Standard Time (Dubai)" },
   { value: "Asia/Kolkata", label: "India Standard Time (Kolkata)" },
+  { value: "Asia/Dhaka", label: "Bangladesh Standard Time (Dhaka)" },
   { value: "Asia/Bangkok", label: "Indochina Time (Bangkok)" },
   { value: "Asia/Jakarta", label: "Western Indonesia Time (Jakarta)" },
   { value: "Asia/Manila", label: "Philippine Time (Manila)" },
@@ -48,6 +49,7 @@ export const TIMEZONE_OPTIONS = [
   { value: "Asia/Ho_Chi_Minh", label: "Indochina Time (Ho Chi Minh)" },
   { value: "Asia/Jerusalem", label: "Israel Time (Jerusalem)" },
   { value: "Asia/Riyadh", label: "Arabia Standard Time (Riyadh)" },
+  { value: "Asia/Karachi", label: "Pakistan Standard Time (Karachi)" },
   // Australia & Oceania
   { value: "Australia/Sydney", label: "Australian Eastern Time (Sydney)" },
   {

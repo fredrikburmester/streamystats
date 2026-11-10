@@ -1,5 +1,7 @@
 "use server";
 
+import "server-only";
+
 import { db } from "@streamystats/database";
 import {
   hiddenRecommendations,
@@ -9,7 +11,7 @@ import {
 } from "@streamystats/database/schema";
 import {
   and,
-  cosineDistance,
+  asc,
   desc,
   eq,
   gte,
@@ -19,8 +21,10 @@ import {
   notInArray,
   sql,
 } from "drizzle-orm";
-import { revalidateTag } from "next/cache";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
+import { getItemEmbeddingComparison } from "./embedding-comparison";
+import { getStatisticsExclusions } from "./exclusions";
 import { getMe } from "./users";
 
 const debugLog = (..._args: unknown[]) => {};
@@ -125,7 +129,16 @@ async function getRecommendations(
   userId: string,
   poolSize: number,
   timeWindow?: RecommendationTimeWindow,
+  viewerUserId?: string,
 ): Promise<RecommendationItem[]> {
+  "use cache";
+  cacheTag("user-analytics");
+  cacheLife("hours");
+  cacheTag(
+    `recommendations-${serverIdNum}`,
+    `recommendations-${serverIdNum}-${userId}`,
+  );
+
   try {
     debugLog(
       `\n🚀 Starting recommendation process for server ${serverIdNum}, user ${userId}, pool size ${poolSize}`,
@@ -137,6 +150,7 @@ async function getRecommendations(
       userId,
       poolSize,
       timeWindow,
+      viewerUserId,
     );
     debugLog(`✅ Got ${recommendations.length} user-specific recommendations`);
 
@@ -150,13 +164,21 @@ async function getRecommendations(
   }
 }
 
-export async function getSimilarStatistics(
-  serverId: string | number,
-  userId?: string,
+export async function getSimilarStatistics({
+  serverId,
+  userId,
   limit = 20,
   offset = 0,
-  timeWindow?: RecommendationTimeWindow,
-): Promise<RecommendationItem[]> {
+  timeWindow,
+  viewerUserId,
+}: {
+  serverId: string | number;
+  userId?: string;
+  limit?: number;
+  offset?: number;
+  timeWindow?: RecommendationTimeWindow;
+  viewerUserId?: string;
+}): Promise<RecommendationItem[]> {
   const serverIdNum = Number(serverId);
 
   let targetUserId = userId;
@@ -176,6 +198,7 @@ export async function getSimilarStatistics(
     targetUserId,
     RECOMMENDATION_POOL_SIZE,
     timeWindow,
+    viewerUserId,
   );
 
   return allRecommendations.slice(offset, offset + limit);
@@ -196,9 +219,15 @@ async function getUserSpecificRecommendations(
   userId: string,
   limit: number,
   timeWindow?: RecommendationTimeWindow,
+  viewerUserId?: string,
 ): Promise<RecommendationItem[]> {
   debugLog(
     `\n🎯 Starting user-specific recommendations for user ${userId}, server ${serverId}, limit ${limit}`,
+  );
+
+  const { itemLibraryExclusion } = await getStatisticsExclusions(
+    serverId,
+    viewerUserId,
   );
 
   const sessionTimeConditions = [
@@ -221,7 +250,10 @@ async function getUserSpecificRecommendations(
       ),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.serverId, serverId),
@@ -232,7 +264,7 @@ async function getUserSpecificRecommendations(
         ...sessionTimeConditions,
       ),
     )
-    .groupBy(sessions.itemId, items.id)
+    .groupBy(sessions.itemId, items.serverId, items.id)
     .having(sql`MAX(${sessions.percentComplete}) > 50`)
     .orderBy(sql`MAX(${sessions.endTime}) DESC`);
 
@@ -297,7 +329,10 @@ async function getUserSpecificRecommendations(
       ),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .innerJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
     .where(
       and(
         eq(sessions.serverId, serverId),
@@ -308,7 +343,7 @@ async function getUserSpecificRecommendations(
         ...sessionTimeConditions,
       ),
     )
-    .groupBy(sessions.itemId, items.id)
+    .groupBy(sessions.itemId, items.serverId, items.id)
     .having(sql`MAX(${sessions.percentComplete}) > 50`)
     .orderBy(desc(sql<number>`SUM(${sessions.playDuration})`))
     .limit(10);
@@ -361,13 +396,13 @@ async function getUserSpecificRecommendations(
 
     debugLog(`\n🔍 Finding items similar to "${watchedItem.name}"`);
 
-    // Calculate cosine similarity with other items
-    const similarity = sql<number>`1 - (${cosineDistance(
-      items.embedding,
+    // Calculate cosine similarity with other items using indexed expression
+    const { distance, dimensionFilter } = getItemEmbeddingComparison(
       watchedItem.embedding,
-    )})`;
+    );
+    const similarity = sql<number>`1 - (${distance})`;
 
-    // Get a large pool of similar items with low threshold, sorted by similarity
+    // Get a large pool of similar items with low threshold, sorted by distance ascending (nearest first)
     const allSimilarItems = await db
       .select({
         item: itemCardSelect,
@@ -380,13 +415,15 @@ async function getUserSpecificRecommendations(
           isNull(items.deletedAt),
           eq(items.type, "Movie"),
           isNotNull(items.embedding),
+          dimensionFilter,
           notInArray(items.id, watchedItemIds), // Exclude already watched items
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
             : sql`true`, // Exclude hidden items
+          itemLibraryExclusion ?? sql`true`,
         ),
       )
-      .orderBy(desc(similarity))
+      .orderBy(asc(distance))
       .limit(200); // Get a large pool for each base movie
 
     debugLog("  📊 Similarity score distribution (top 10):");
@@ -551,6 +588,11 @@ export const getSimilarItemsForItem = async (
   itemId: string,
   limit = 10,
 ): Promise<RecommendationItem[]> => {
+  "use cache";
+  cacheTag("user-analytics");
+  cacheLife("hours");
+  cacheTag(`recommendations-${serverId}`, `recommendations-item-${itemId}`);
+
   try {
     debugLog(
       `\n🎯 Getting items similar to specific item ${itemId} in server ${serverId}, limit ${limit}`,
@@ -575,11 +617,11 @@ export const getSimilarItemsForItem = async (
 
     debugLog(`🎬 Target item: "${targetItem.name}" (${targetItem.type})`);
 
-    // Calculate cosine similarity with other items of the same type
-    const similarity = sql<number>`1 - (${cosineDistance(
-      items.embedding,
+    // Calculate cosine similarity with other items of the same type using indexed expression
+    const { distance, dimensionFilter } = getItemEmbeddingComparison(
       targetItem.embedding,
-    )})`;
+    );
+    const similarity = sql<number>`1 - (${distance})`;
 
     const similarItems = await db
       .select({
@@ -593,10 +635,11 @@ export const getSimilarItemsForItem = async (
           isNull(items.deletedAt),
           eq(items.type, targetItem.type), // Same type (Movie, Series, etc.)
           isNotNull(items.embedding),
+          dimensionFilter,
           sql`${items.id} != ${itemId}`, // Exclude the target item itself
         ),
       )
-      .orderBy(desc(similarity))
+      .orderBy(asc(distance))
       .limit(limit * 2); // Get more to filter for quality
 
     debugLog(`📊 Found ${similarItems.length} potential similar items`);

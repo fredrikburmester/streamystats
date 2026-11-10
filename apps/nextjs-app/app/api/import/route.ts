@@ -1,4 +1,9 @@
-import { db } from "@streamystats/database";
+import {
+  db,
+  getRetiredUserIds,
+  restoreUserMerges,
+  UserMergeError,
+} from "@streamystats/database";
 import {
   hiddenRecommendations,
   items,
@@ -8,9 +13,13 @@ import {
   users,
 } from "@streamystats/database/schema";
 import { eq } from "drizzle-orm";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { requireAdmin } from "@/lib/api-auth";
 import { getServerWithSecrets } from "@/lib/db/server";
+import { jellyfinHeaders } from "@/lib/jellyfin-auth";
+import { getInternalUrl } from "@/lib/server-url";
 
 type JellyfinSystemInfo = { Id?: string };
 
@@ -28,10 +37,7 @@ async function tryFetchJellyfinSystemId({
   try {
     const res = await fetch(`${normalizeUrl(url)}/System/Info`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": apiKey,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(apiKey),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -124,6 +130,7 @@ interface ImportHiddenRecommendation {
 interface ImportData {
   exportInfo: ExportInfo;
   sessions: ImportSession[];
+  userMerges?: unknown;
   hiddenRecommendations?: ImportHiddenRecommendation[];
   server: {
     id: number;
@@ -152,10 +159,6 @@ interface ImportData {
 
 export async function POST(req: NextRequest) {
   try {
-    // Require admin for data import
-    const { error } = await requireAdmin();
-    if (error) return error;
-
     // Parse form data
     const formData = await req.formData();
     const file = formData.get("file") as File;
@@ -173,6 +176,10 @@ export async function POST(req: NextRequest) {
     if (Number.isNaN(serverIdNum)) {
       return NextResponse.json({ error: "Invalid server ID" }, { status: 400 });
     }
+
+    // Require admin for data import on this server
+    const { error, session } = await requireAdmin(serverIdNum);
+    if (error) return error;
 
     // Verify the target server exists
     const targetServer = await getServerWithSecrets({ serverId: serverIdNum });
@@ -244,7 +251,7 @@ export async function POST(req: NextRequest) {
     const forceDifferentServer = formData.get("force") === "true";
     const sourceJellyfinSystemId = importData.server?.jellyfinSystemId ?? null;
     const targetJellyfinSystemId = await tryFetchJellyfinSystemId({
-      url: targetServer.url,
+      url: getInternalUrl(targetServer),
       apiKey: targetServer.apiKey,
     });
 
@@ -267,6 +274,48 @@ export async function POST(req: NextRequest) {
       warnings.push(
         "Could not verify Jellyfin server identity (missing System/Info Id). Import proceeded without identity validation.",
       );
+    }
+
+    if (importData.userMerges !== undefined) {
+      const parsed = z
+        .object({
+          retiredUsers: z.array(
+            z.object({
+              sourceUserId: z.string().min(1),
+              sourceName: z.string().min(1),
+              targetUserId: z.string().min(1),
+            }),
+          ),
+          accounts: z.array(
+            z.object({ id: z.string().min(1), name: z.string().min(1) }),
+          ),
+        })
+        .safeParse(importData.userMerges);
+      if (!parsed.success)
+        return NextResponse.json(
+          { error: "Invalid permanent merge metadata." },
+          { status: 400 },
+        );
+      if (
+        parsed.data.retiredUsers.length &&
+        (!sourceJellyfinSystemId ||
+          !targetJellyfinSystemId ||
+          sourceJellyfinSystemId !== targetJellyfinSystemId)
+      )
+        return NextResponse.json(
+          {
+            error:
+              "Restoring permanent merges requires a verified matching Jellyfin server.",
+          },
+          { status: 409 },
+        );
+      await restoreUserMerges({
+        serverId: serverIdNum,
+        backup: parsed.data,
+        actor: session,
+      });
+      revalidateTag("user-analytics", { expire: 0 });
+      revalidatePath(`/servers/${serverIdNum}`, "layout");
     }
 
     // Restore server settings from the backup (never overwrite connection secrets)
@@ -330,6 +379,8 @@ export async function POST(req: NextRequest) {
       columns: { id: true },
     });
     const existingUserIds = new Set(existingUsers.map((u) => u.id));
+    for (const userId of await getRetiredUserIds({ serverId: serverIdNum }))
+      existingUserIds.add(userId);
 
     const existingItems = await db.query.items.findMany({
       where: eq(items.serverId, serverIdNum),
@@ -563,6 +614,11 @@ export async function POST(req: NextRequest) {
       export_timestamp: importData.exportInfo.timestamp,
     });
   } catch (error) {
+    if (error instanceof UserMergeError)
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     console.error("Import error:", error);
     return NextResponse.json(
       {

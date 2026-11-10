@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import * as fs from "fs";
 import * as path from "path";
+import { MISSING_DATABASE_URL_MESSAGE, resolveDatabaseUrl } from "../src/env";
 
 interface MigrationRecord {
   id: number;
@@ -9,10 +10,10 @@ interface MigrationRecord {
 }
 
 async function checkMigrationStatus(): Promise<void> {
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = resolveDatabaseUrl();
 
   if (!databaseUrl) {
-    console.error("❌ DATABASE_URL environment variable is not set");
+    console.error(`❌ ${MISSING_DATABASE_URL_MESSAGE}`);
     process.exit(1);
   }
 

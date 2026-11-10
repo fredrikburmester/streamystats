@@ -1,8 +1,10 @@
 "use cache";
 
+import "server-only";
+
 import { db, items, sessions, type User } from "@streamystats/database";
 import { and, desc, eq, gte, inArray, isNotNull, lte, sum } from "drizzle-orm";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { getExclusionSettings } from "./exclusions";
 import { getUsers } from "./users";
 
@@ -59,6 +61,7 @@ async function getUserTopItemsWithEmbeddings(
   endDate?: Date,
 ): Promise<UserTopItemsResult> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   const whereConditions = [
@@ -85,7 +88,13 @@ async function getUserTopItemsWithEmbeddings(
           duration: sum(sessions.playDuration),
         })
         .from(sessions)
-        .innerJoin(items, eq(sessions.itemId, items.id))
+        .innerJoin(
+          items,
+          and(
+            eq(sessions.itemId, items.id),
+            eq(sessions.serverId, items.serverId),
+          ),
+        )
         .where(and(...whereConditions, isNotNull(sessions.seriesId)))
         .groupBy(sessions.seriesId)
         .orderBy(desc(sum(sessions.playDuration)))
@@ -106,7 +115,13 @@ async function getUserTopItemsWithEmbeddings(
           genres: items.genres,
         })
         .from(items)
-        .where(and(inArray(items.id, seriesIds), isNotNull(items.embedding)));
+        .where(
+          and(
+            eq(items.serverId, serverId),
+            inArray(items.id, seriesIds),
+            isNotNull(items.embedding),
+          ),
+        );
 
       return seriesItems;
     }
@@ -117,7 +132,13 @@ async function getUserTopItemsWithEmbeddings(
         duration: sum(sessions.playDuration),
       })
       .from(sessions)
-      .innerJoin(items, eq(sessions.itemId, items.id))
+      .innerJoin(
+        items,
+        and(
+          eq(sessions.itemId, items.id),
+          eq(sessions.serverId, items.serverId),
+        ),
+      )
       .where(and(...whereConditions, eq(items.type, "Movie")))
       .groupBy(sessions.itemId)
       .orderBy(desc(sum(sessions.playDuration)))
@@ -138,7 +159,13 @@ async function getUserTopItemsWithEmbeddings(
         genres: items.genres,
       })
       .from(items)
-      .where(and(inArray(items.id, movieIds), isNotNull(items.embedding)));
+      .where(
+        and(
+          eq(items.serverId, serverId),
+          inArray(items.id, movieIds),
+          isNotNull(items.embedding),
+        ),
+      );
 
     return movieItems;
   };
@@ -234,6 +261,7 @@ export async function getSimilarUsers(
   targetUserId: string,
 ): Promise<UserSimilarityResult> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("days");
 
   const serverIdNum = Number(serverId);

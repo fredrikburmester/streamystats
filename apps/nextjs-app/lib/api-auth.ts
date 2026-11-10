@@ -1,10 +1,24 @@
-"use server";
+import "server-only";
 
 import type { Server } from "@streamystats/database";
-import { db, servers, users } from "@streamystats/database";
+import {
+  db,
+  getMergedUserTarget,
+  servers,
+  users,
+} from "@streamystats/database";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { isServerApiKey, jellyfinHeaders } from "./jellyfin-auth";
+import { getInternalUrl } from "./server-url";
 import { getSession, type SessionUser } from "./session";
+
+/**
+ * Identity surfaced when a request authenticates with a Jellyfin server
+ * API key rather than a user access token.
+ */
+const SYSTEM_API_KEY_USER_ID = "system-api-key";
+const SYSTEM_API_KEY_USER_NAME = "System API Key";
 
 /**
  * Parse MediaBrowser authorization header
@@ -43,6 +57,18 @@ function parseMediaBrowserHeader(authHeader: string): {
 /**
  * Validates a Jellyfin session token and returns user info
  * Returns the user ID and admin status if valid
+ *
+ * Accepts both Jellyfin user access tokens (returned by
+ * `/Users/AuthenticateByName`) and Jellyfin server API keys. User
+ * tokens are validated via `/Users/Me`. A server API key has no user
+ * context, so `/Users/Me` rejects it (the exact status varies by
+ * Jellyfin version); any non-OK response therefore falls back to
+ * `isServerApiKey` and, when the token is one of the server's API keys,
+ * surfaces the caller as the admin "system-api-key" pseudo-user.
+ *
+ * `/Users/Me` can fail for a real user too, outside their parental
+ * access schedule or on a server error, so the fallback must only ever
+ * accept an API key: a user token that got through it would be an admin.
  */
 export async function validateJellyfinToken(
   serverUrl: string,
@@ -51,26 +77,43 @@ export async function validateJellyfinToken(
   try {
     const response = await fetch(`${serverUrl}/Users/Me`, {
       method: "GET",
-      headers: {
-        "X-Emby-Token": token,
-        "Content-Type": "application/json",
-      },
+      headers: jellyfinHeaders(token),
       signal: AbortSignal.timeout(5000),
     });
 
-    if (!response.ok) {
-      return null;
+    if (response.ok) {
+      const user = await response.json();
+      return {
+        userId: user.Id,
+        userName: user.Name,
+        isAdmin: user.Policy?.IsAdministrator ?? false,
+      };
     }
 
-    const user = await response.json();
-    return {
-      userId: user.Id,
-      userName: user.Name,
-      isAdmin: user.Policy?.IsAdministrator ?? false,
-    };
-  } catch {
-    return null;
+    // Any non-OK response means this is not a usable user access token.
+    // It may be a server API key (no user context) — validate it as one.
+    return await validateAsApiKey(serverUrl, token);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return null;
+    }
+    // A network error on /Users/Me may still leave /Auth/Keys
+    // reachable for a valid API key; try the fallback before failing.
+    return await validateAsApiKey(serverUrl, token);
   }
+}
+
+async function validateAsApiKey(
+  serverUrl: string,
+  token: string,
+): Promise<{ userId: string; userName: string; isAdmin: boolean } | null> {
+  if (!(await isServerApiKey({ serverUrl, token }))) return null;
+
+  return {
+    userId: SYSTEM_API_KEY_USER_ID,
+    userName: SYSTEM_API_KEY_USER_NAME,
+    isAdmin: true,
+  };
 }
 
 /**
@@ -95,8 +138,18 @@ export async function authenticateMediaBrowser(
   const allServers = await db.select().from(servers);
 
   for (const server of allServers) {
-    const userInfo = await validateJellyfinToken(server.url, parsed.token);
+    const userInfo = await validateJellyfinToken(
+      getInternalUrl(server),
+      parsed.token,
+    );
     if (userInfo) {
+      if (
+        await getMergedUserTarget({
+          serverId: server.id,
+          userId: userInfo.userId,
+        })
+      )
+        return null;
       // Check if this user exists in our database for this server
       const dbUser = await db.query.users.findFirst({
         where: eq(users.id, userInfo.userId),
@@ -146,13 +199,9 @@ export async function validateApiKey({
     // Validate the API key by making a request to the Jellyfin server
     // Use /Users/Me endpoint which requires valid authentication
     try {
-      const response = await fetch(`${server.url}/System/Info`, {
+      const response = await fetch(`${getInternalUrl(server)}/System/Info`, {
         method: "GET",
-        headers: {
-          "X-Emby-Token": apiKey,
-          "Content-Type": "application/json",
-        },
-        // Short timeout to avoid hanging requests
+        headers: jellyfinHeaders(apiKey),
         signal: AbortSignal.timeout(5000),
       });
 
@@ -233,11 +282,41 @@ export async function requireApiKey({
   return null;
 }
 
+function getServerAccessError({
+  sessionServerId,
+  expectedServerId,
+}: {
+  sessionServerId: number;
+  expectedServerId?: number | string;
+}): Response | null {
+  if (expectedServerId === undefined) return null;
+
+  // Accept only decimal IDs so Number() and downstream parseInt() agree.
+  const isDecimalId =
+    typeof expectedServerId === "number" ||
+    (typeof expectedServerId === "string" && /^\d+$/.test(expectedServerId));
+  const expectedId = isDecimalId ? Number(expectedServerId) : NaN;
+  if (
+    Number.isSafeInteger(expectedId) &&
+    expectedId > 0 &&
+    sessionServerId === expectedId
+  ) {
+    return null;
+  }
+
+  return Response.json(
+    { error: "Forbidden", message: "Access denied for this server." },
+    { status: 403 },
+  );
+}
+
 /**
  * Requires a valid signed session cookie for API routes.
  * Returns null if valid, Response object with 401 if invalid.
  */
-export async function requireSession(): Promise<
+export async function requireSession(
+  expectedServerId?: number | string,
+): Promise<
   | {
       error: Response;
       session: null;
@@ -267,6 +346,12 @@ export async function requireSession(): Promise<
     };
   }
 
+  const error = getServerAccessError({
+    sessionServerId: session.serverId,
+    expectedServerId,
+  });
+  if (error) return { error, session: null };
+
   return { error: null, session };
 }
 
@@ -277,7 +362,10 @@ export async function requireSession(): Promise<
  *
  * Use this for API endpoints that should support external access.
  */
-export async function requireAuth(request: NextRequest): Promise<
+export async function requireAuth(
+  request: NextRequest,
+  expectedServerId?: number | string,
+): Promise<
   | {
       error: Response;
       session: null;
@@ -287,42 +375,53 @@ export async function requireAuth(request: NextRequest): Promise<
       session: SessionUser;
     }
 > {
+  let sessionUser: SessionUser | null = null;
+
   // Try session cookie first (web app)
   const session = await getSession();
   if (session) {
-    return { error: null, session };
+    sessionUser = session;
+  } else {
+    // Try MediaBrowser token (external API clients)
+    const mediaBrowserAuth = await authenticateMediaBrowser(request);
+    if (mediaBrowserAuth) {
+      sessionUser = mediaBrowserAuth.session;
+    }
   }
 
-  // Try MediaBrowser token (external API clients)
-  const mediaBrowserAuth = await authenticateMediaBrowser(request);
-  if (mediaBrowserAuth) {
-    return { error: null, session: mediaBrowserAuth.session };
-  }
-
-  // No valid authentication found
-  return {
-    error: new Response(
-      JSON.stringify({
-        error: "Unauthorized",
-        message:
-          'Valid authentication required. Use session cookie or Authorization: MediaBrowser Token="..." header.',
-      }),
-      {
-        status: 401,
-        headers: {
-          "Content-Type": "application/json",
+  if (!sessionUser) {
+    return {
+      error: new Response(
+        JSON.stringify({
+          error: "Unauthorized",
+          message:
+            'Valid authentication required. Use session cookie or Authorization: MediaBrowser Token="..." header.',
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      },
-    ),
-    session: null,
-  };
+      ),
+      session: null,
+    };
+  }
+
+  const error = getServerAccessError({
+    sessionServerId: sessionUser.serverId,
+    expectedServerId,
+  });
+  if (error) return { error, session: null };
+
+  return { error: null, session: sessionUser };
 }
 
 /**
  * Requires the user to be an admin based on the signed session.
  * Returns null if valid admin, Response object if unauthorized.
  */
-export async function requireAdmin(): Promise<
+export async function requireAdmin(expectedServerId?: number | string): Promise<
   | {
       error: Response;
       session: null;
@@ -332,7 +431,7 @@ export async function requireAdmin(): Promise<
       session: SessionUser;
     }
 > {
-  const result = await requireSession();
+  const result = await requireSession(expectedServerId);
 
   if (result.error) {
     return result;

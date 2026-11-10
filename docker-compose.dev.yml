@@ -6,14 +6,34 @@ x-logging: &default-logging
 
 services:
   vectorchord:
-    image: tensorchord/vchord-postgres:pg17-v0.4.1
-    command: ["postgres", "-c", "log_checkpoints=off"]
+    image: tensorchord/vchord-postgres:pg17-v1.1.1
+    command:
+      [
+        "postgres",
+        "-c",
+        "log_checkpoints=off",
+        "-c",
+        "shared_buffers=512MB",
+        "-c",
+        "work_mem=16MB",
+        "-c",
+        "maintenance_work_mem=256MB",
+        "-c",
+        "effective_cache_size=1536MB",
+        "-c",
+        "random_page_cost=1.1",
+        "-c",
+        "effective_io_concurrency=200",
+      ]
+    stop_signal: SIGINT
+    shm_size: 1g
     ports:
-      - "5432:5432"
+      - "${DEV_POSTGRES_PORT:-5432}:5432"
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-streamystats}
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     volumes:
       - vectorchord_data:/var/lib/postgresql/data
@@ -29,9 +49,35 @@ services:
       timeout: 5s
       retries: 5
 
+  # Ephemeral Jellyfin for end-to-end testing, opt-in via `--profile jellyfin`.
+  # Config and cache live in named volumes so `down -v` yields a factory-fresh
+  # server. Media comes from docker/dev/jellyfin/generate-media.sh (gitignored),
+  # and docker/dev/jellyfin/bootstrap.sh completes the setup wizard via the API.
+  jellyfin:
+    image: jellyfin/jellyfin:${JELLYFIN_IMAGE_TAG:-12.0}
+    profiles: ["jellyfin"]
+    ports:
+      - "${DEV_JELLYFIN_PORT:-8096}:8096"
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://localhost:${DEV_JELLYFIN_PORT:-8096}
+    volumes:
+      - jellyfin_config:/config
+      - jellyfin_cache:/cache
+      - ./docker/dev/jellyfin/media:/media:ro
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8096/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
 volumes:
   vectorchord_data:
     driver: local
+  jellyfin_config:
+  jellyfin_cache:
 
 networks:
   app-network:
