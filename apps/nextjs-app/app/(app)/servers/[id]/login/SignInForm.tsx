@@ -55,14 +55,24 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
 
   useEffect(() => {
     if (!quickConnect) return;
+    // A slow poll must not overlap the next one, or both could see the
+    // approval and log in twice.
+    let polling = false;
     const interval = setInterval(async () => {
+      if (polling) return;
+      polling = true;
       try {
-        const done = await loginWithQuickConnect({
+        const result = await loginWithQuickConnect({
           serverId: server.id,
           secret: quickConnect.secret,
         });
-        if (!done) return;
+        if (result === false) return;
         clearInterval(interval);
+        if (result !== true) {
+          setQuickConnect(null);
+          toast.error(result.error);
+          return;
+        }
         toast.success("Logged in successfully");
         router.push(`/servers/${server.id}/dashboard`);
       } catch (error) {
@@ -70,6 +80,8 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
         setQuickConnect(null);
         toast.error("Quick Connect failed");
         console.error("Quick Connect failed:", error);
+      } finally {
+        polling = false;
       }
     }, 3000);
     return () => clearInterval(interval);

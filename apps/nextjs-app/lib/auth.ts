@@ -49,7 +49,7 @@ export const login = async ({
     throw new Error("Failed to login");
   }
 
-  await startSession(serverId, await res.json());
+  return startSession(serverId, await res.json());
 };
 
 export const initiateQuickConnect = async ({
@@ -85,7 +85,8 @@ export const initiateQuickConnect = async ({
 
 /**
  * Logs in once the user has approved the Quick Connect code in Jellyfin.
- * Returns false while the request is still pending.
+ * Returns false while the request is still pending, and an error when the
+ * approved account is not allowed to sign in.
  */
 export const loginWithQuickConnect = async ({
   serverId,
@@ -93,7 +94,7 @@ export const loginWithQuickConnect = async ({
 }: {
   serverId: number;
   secret: string;
-}): Promise<boolean> => {
+}): Promise<boolean | { error: string }> => {
   const server = await getServerWithSecrets({ serverId: serverId.toString() });
 
   if (!server) {
@@ -123,8 +124,7 @@ export const loginWithQuickConnect = async ({
     throw new Error("Failed to login");
   }
 
-  await startSession(serverId, await res.json());
-  return true;
+  return (await startSession(serverId, await res.json())) ?? true;
 };
 
 const startSession = async (
@@ -133,7 +133,7 @@ const startSession = async (
     AccessToken: string;
     User: { Id: string; Name: string; Policy: { IsAdministrator: boolean } };
   },
-): Promise<void> => {
+): Promise<{ error: string } | undefined> => {
   const accessToken = data.AccessToken;
   const user = data.User;
   if (await getMergedUserTarget({ serverId, userId: user.Id })) {
