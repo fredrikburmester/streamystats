@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.21.1](https://github.com/fredrikburmester/streamystats/compare/v2.21.0...v2.21.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **auth:** only treat a token as a server api key when jellyfin lists it ([#611](https://github.com/fredrikburmester/streamystats/issues/611)) ([b1c894b](https://github.com/fredrikburmester/streamystats/commit/b1c894ba28e7a2e674c0d76c6998726e80014764))
+
 ## [2.21.0](https://github.com/fredrikburmester/streamystats/compare/v2.20.0...v2.21.0) (2026-11-10)
 
 
