@@ -990,6 +990,32 @@ export const watchlistItems = pgTable(
   ]
 );
 
+// Item libraries junction table - every library the sync has seen an item in.
+// Jellyfin lists an item under one ID in each library that has its folder,
+// while items.library_id only has room for one of them.
+export const itemLibraries = pgTable(
+  "item_libraries",
+  {
+    serverId: integer("server_id").notNull(),
+    itemId: text("item_id").notNull(),
+    libraryId: text("library_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.serverId, table.itemId, table.libraryId] }),
+    foreignKey({
+      name: "item_libraries_items_server_fk",
+      columns: [table.serverId, table.itemId],
+      foreignColumns: [items.serverId, items.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "item_libraries_libraries_server_fk",
+      columns: [table.serverId, table.libraryId],
+      foreignColumns: [libraries.serverId, libraries.id],
+    }).onDelete("cascade"),
+    index("item_libraries_library_idx").on(table.serverId, table.libraryId),
+  ]
+);
+
 // Define relationships
 export const serversRelations = relations(servers, ({ many }) => ({
   libraries: many(libraries),

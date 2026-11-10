@@ -107,15 +107,24 @@ export const getItemDetails = async ({
 
   // Check library access for restricted users (respects both server and user exclusions)
   if (viewerUserId && item.libraryId) {
-    const { allowedLibraryIds } = await getStatisticsExclusions(
-      item.serverId,
-      viewerUserId,
-    );
-    if (
-      allowedLibraryIds !== null &&
-      !allowedLibraryIds.includes(item.libraryId)
-    ) {
-      return null;
+    const { allowedLibraryIds, itemLibraryExclusion } =
+      await getStatisticsExclusions(item.serverId, viewerUserId);
+    if (allowedLibraryIds !== null) {
+      // The item may also be in a library other than the one it is stored under
+      const [accessibleItem] = await db
+        .select({ id: items.id })
+        .from(items)
+        .where(
+          and(
+            eq(items.serverId, serverId),
+            eq(items.id, itemId),
+            itemLibraryExclusion,
+          ),
+        )
+        .limit(1);
+      if (!accessibleItem) {
+        return null;
+      }
     }
   }
 
