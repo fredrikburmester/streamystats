@@ -52,8 +52,15 @@ export default async function TranscodingPage({
   const effectiveEndDate =
     isAllTime || !endDate ? undefined : setEndDateToEndOfDay(endDate);
 
-  const isAdmin = await isUserAdmin();
-  const users = await getUsers({ serverId: server.id });
+  const [isAdmin, me] = await Promise.all([isUserAdmin(), getMe()]);
+
+  if (!me) {
+    redirect("/not-found");
+  }
+
+  // Only admins can filter by user, everyone else sees their own sessions
+  const users = isAdmin ? await getUsers({ serverId: server.id }) : [];
+  const scopedUserId = isAdmin ? userId : me.id;
 
   return (
     <Container className="flex flex-col">
@@ -67,8 +74,7 @@ export default async function TranscodingPage({
           server={server}
           startDate={effectiveStartDate}
           endDate={effectiveEndDate}
-          userId={userId}
-          isAdmin={isAdmin}
+          userId={scopedUserId}
         />
       </Suspense>
     </Container>
@@ -80,25 +86,15 @@ async function TranscodingStats({
   startDate,
   endDate,
   userId,
-  isAdmin,
 }: {
   server: ServerPublic;
   startDate?: string;
   endDate?: string;
   userId?: string;
-  isAdmin: boolean;
 }) {
-  const me = await getMe();
-  const effectiveUserId = userId ? userId : isAdmin ? undefined : me?.id;
-
   const [ts, history] = await Promise.all([
-    getTranscodingStatistics(server.id, startDate, endDate, effectiveUserId),
-    getTranscodingStatisticsOverTime(
-      server.id,
-      startDate,
-      endDate,
-      effectiveUserId,
-    ),
+    getTranscodingStatistics(server.id, startDate, endDate, userId),
+    getTranscodingStatisticsOverTime(server.id, startDate, endDate, userId),
   ]);
 
   return (
