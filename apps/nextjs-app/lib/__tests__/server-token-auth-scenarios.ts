@@ -5,9 +5,10 @@ import { NextRequest } from "next/server";
 
 // What the fake Jellyfin answers per path; a path left out fails to connect.
 // It only listens on the internal URL: the public one can't be reached from
-// where Streamystats runs.
+// where Streamystats runs. A request that doesn't carry the token gets 401.
 let jellyfin: Record<string, () => Response> = {};
 let merged = false;
+const token = "test-only";
 
 mock.module("server-only", () => ({}));
 mock.module("../session", () => ({ getSession: async () => null }));
@@ -28,12 +29,17 @@ mock.module("@streamystats/database", () => ({
     query: { users: { findFirst: async () => undefined } },
   },
 }));
-globalThis.fetch = mock(async (input: string | URL | Request) => {
-  const url = new URL(String(input));
-  const answer = url.host === "jellyfin.invalid" && jellyfin[url.pathname];
-  if (!answer) throw new TypeError("fetch failed");
-  return answer();
-});
+globalThis.fetch = mock(
+  async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input));
+    const answer = url.host === "jellyfin.invalid" && jellyfin[url.pathname];
+    if (!answer) throw new TypeError("fetch failed");
+    const sent = new Headers(init?.headers).get("authorization") ?? "";
+    if (!sent.includes(`Token="${token}"`))
+      return new Response(null, { status: 401 });
+    return answer();
+  },
+);
 // The key check logs every refusal; stderr is kept for real failures.
 console.warn = () => {};
 console.error = () => {};
@@ -46,7 +52,6 @@ const { db, servers } = await import("@streamystats/database");
 const [server] = await db.select().from(servers);
 assert.ok(server);
 
-const token = "test-only";
 const tokenRequest = new NextRequest("http://localhost/api/recommendations", {
   headers: { Authorization: `MediaBrowser Token="${token}"` },
 });
