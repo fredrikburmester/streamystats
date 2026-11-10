@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   apiLoginDevice,
   authenticateByName,
+  getUserFromEmbyToken,
+  isServerApiKey,
   jellyfinClientHeaders,
   jellyfinHeaders,
 } from "./jellyfin-auth";
@@ -114,5 +116,101 @@ describe("authenticateByName", () => {
       ok: false,
       error: "Invalid username or password",
     });
+  });
+});
+
+describe("getUserFromEmbyToken", () => {
+  test("does not turn a failed /Users/Me into the admin API key identity", async () => {
+    const paths: string[] = [];
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const path = new URL(String(input)).pathname;
+      paths.push(path);
+      if (path === "/Users/Me") throw new TypeError("fetch failed");
+      return Response.json({ Id: "jellyfin-server" });
+    }) as typeof fetch;
+
+    const result = await getUserFromEmbyToken({
+      serverUrl: "http://jellyfin.local",
+      token: "user-token",
+    });
+
+    expect(result).toEqual({ ok: false, error: "fetch failed" });
+    expect(paths).toEqual(["/Users/Me"]);
+  });
+});
+
+describe("isServerApiKey", () => {
+  const apiKeys = (...accessTokens: string[]) =>
+    Response.json({
+      Items: accessTokens.map((AccessToken) => ({ AccessToken })),
+      TotalRecordCount: accessTokens.length,
+    });
+
+  test("accepts a token the server lists among its API keys", async () => {
+    let captured: { url: string; init?: RequestInit } | null = null;
+    globalThis.fetch = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      captured = { url: String(input), init };
+      return apiKeys("another-key", "key-1");
+    }) as typeof fetch;
+
+    const result = await isServerApiKey({
+      serverUrl: "http://jellyfin.local/",
+      token: "key-1",
+    });
+
+    expect(result).toBe(true);
+    const request = captured as { url: string; init?: RequestInit } | null;
+    expect(request?.url).toBe("http://jellyfin.local/Auth/Keys");
+    const headers = request?.init?.headers as Record<string, string>;
+    expect(parseMediaBrowser(headers.Authorization).Token).toBe("key-1");
+  });
+
+  test("rejects an administrator's token, which Jellyfin answers but does not list", async () => {
+    globalThis.fetch = (async () => apiKeys("key-1")) as typeof fetch;
+
+    const result = await isServerApiKey({
+      serverUrl: "http://jellyfin.local",
+      token: "admin-user-token",
+    });
+
+    expect(result).toBe(false);
+  });
+
+  test("rejects a token Jellyfin won't show the key list", async () => {
+    for (const status of [401, 403]) {
+      globalThis.fetch = (async () =>
+        new Response("", { status })) as typeof fetch;
+
+      const result = await isServerApiKey({
+        serverUrl: "http://jellyfin.local",
+        token: "user-token",
+      });
+
+      expect(result).toBe(false);
+    }
+  });
+
+  test("rejects when the key list can't be read", async () => {
+    const answers: Array<() => Response> = [
+      () => {
+        throw new TypeError("fetch failed");
+      },
+      () => new Response("not json"),
+      () => Response.json({ Items: null }),
+      () => Response.json(null),
+    ];
+    for (const answer of answers) {
+      globalThis.fetch = (async () => answer()) as typeof fetch;
+
+      const result = await isServerApiKey({
+        serverUrl: "http://jellyfin.local",
+        token: "key-1",
+      });
+
+      expect(result).toBe(false);
+    }
   });
 });

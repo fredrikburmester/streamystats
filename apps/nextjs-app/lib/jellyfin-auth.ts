@@ -67,6 +67,10 @@ type JellyfinAuthenticateByNameResponse = {
   };
 };
 
+type JellyfinApiKeysResponse = {
+  Items?: Array<{ AccessToken?: string }>;
+};
+
 export type JellyfinAuthUser = {
   id: string;
   name: string | null;
@@ -122,37 +126,42 @@ export async function getUserFromEmbyToken(args: {
       return { ok: false, error: "Jellyfin request timed out" };
     }
 
-    // If /Users/Me failed, it might be an API Key.
-    // Try /System/Info to validate if it's a valid API Key.
-    try {
-      const sysRes = await fetch(
-        `${normalizeBaseUrl(args.serverUrl)}/System/Info`,
-        {
-          method: "GET",
-          headers: jellyfinHeaders(args.token.trim()),
-          signal: AbortSignal.timeout(5000),
-        },
-      );
-
-      if (sysRes.ok) {
-        // It is a valid API Key (Admin)
-        return {
-          ok: true,
-          user: {
-            id: "system-api-key",
-            name: "System API Key",
-            isAdmin: true,
-          },
-        };
-      }
-    } catch {
-      // Ignore error from System/Info and return original error
-    }
-
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Jellyfin request failed",
     };
+  }
+}
+
+/**
+ * Whether the token is one of the server's own API keys rather than a user
+ * access token. A 200 from an authenticated endpoint like /System/Info can't
+ * tell the two apart, since Jellyfin answers it for any signed-in user.
+ * /Auth/Keys only answers administrators and API keys, and the token must be
+ * in the list it returns, so no user token passes: a regular user is refused
+ * and an administrator's token is not listed.
+ */
+export async function isServerApiKey(args: {
+  serverUrl: string;
+  token: string;
+}): Promise<boolean> {
+  if (!args.token) return false;
+
+  try {
+    const res = await fetch(`${normalizeBaseUrl(args.serverUrl)}/Auth/Keys`, {
+      method: "GET",
+      headers: jellyfinHeaders(args.token),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return false;
+
+    const json = (await res.json()) as JellyfinApiKeysResponse;
+    return (
+      Array.isArray(json.Items) &&
+      json.Items.some((key) => key.AccessToken === args.token)
+    );
+  } catch {
+    return false;
   }
 }
 
