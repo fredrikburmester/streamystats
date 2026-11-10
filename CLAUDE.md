@@ -146,7 +146,7 @@ Sync status tracked on `servers` table: `syncStatus` (pending/syncing/completed/
 
 **Analytics tables**: `activities` (server events), `activityLocations` (geolocated IPs), `userFingerprints` (behavioral patterns), `anomalyEvents` (suspicious activity flags with severity/resolution).
 
-**Feature tables**: `watchlists` + `watchlistItems` (user-created media lists), `hiddenRecommendations`, `people` + `itemPeople` (cast/crew relationships).
+**Feature tables**: `watchlists` + `watchlistItems` (user-created media lists), `hiddenRecommendations`, `people` + `itemPeople` (cast/crew relationships), `itemLibraries` (every library an item is in, kept by the item sync; `items.libraryId` holds only one of them).
 
 **System tables**: `jobResults` (execution log), `serverJobConfigurations` (per-server cron overrides), `activeSessions` (durable snapshot of current playback), `activityLogCursors` (pagination state).
 
@@ -201,6 +201,8 @@ if (requiresItemsJoin || otherCondition) {
 ```
 
 Additional helpers in `lib/db/exclusions.ts`: `buildUserExclusionCondition(ids)`, `buildLibraryExclusionCondition(ids)`, `getExcludedItemIds(serverId, ids)`, `addExclusionConditions(conditions, settings)`. For library-table queries use `librariesTableExclusion`, for user-table queries use `usersTableExclusion` — both returned by `getStatisticsExclusions()`.
+
+An item can be in several libraries, so `itemLibraryExclusion` keeps it when any of its libraries passes, reading the others from `itemLibraries`. Use it instead of comparing `items.libraryId` yourself, and only in queries on the unaliased `items` table, which it refers to by name.
 
 ### Internal vs External URLs
 

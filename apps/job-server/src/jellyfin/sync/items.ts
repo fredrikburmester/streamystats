@@ -22,6 +22,11 @@ import pMap from "p-map";
 import { sleep } from "../../utils/sleep";
 import { formatSyncLogLine } from "./sync-log";
 import { formatError } from "../../utils/format-error";
+import {
+  findUnlistedItemIds,
+  recordItemLibrary,
+  removeItemLibrary,
+} from "./item-libraries";
 
 type ItemSyncTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -119,6 +124,11 @@ export async function syncItems(
       })
     );
 
+    // The first library to list each item in this run, and for each library
+    // the items on record for it that it no longer lists
+    const listedIn = new Map<string, string>();
+    const unlistedByLibrary = new Map<string, string[]>();
+
     // Process libraries sequentially to avoid overwhelming Jellyfin / DB
     for (const library of serverLibraries) {
       const beforeLibraryMetrics = metrics.getCurrentMetrics();
@@ -139,12 +149,18 @@ export async function syncItems(
           })
         );
 
-        await syncLibraryItems(server, library, client, metrics, {
-          itemPageSize,
-          batchSize,
-          itemConcurrency,
-          apiRequestDelayMs,
-        });
+        const listedItemIds = await syncLibraryItems(
+          server,
+          library,
+          client,
+          metrics,
+          {
+            itemPageSize,
+            batchSize,
+            itemConcurrency,
+            apiRequestDelayMs,
+          }
+        );
         metrics.incrementLibrariesProcessed();
         const afterLibraryMetrics = metrics.getCurrentMetrics();
         const libraryErrors =
@@ -152,6 +168,23 @@ export async function syncItems(
         if (libraryErrors > 0) {
           errors.push(
             `Library ${library.name}: ${libraryErrors} item or page errors`
+          );
+        }
+
+        for (const itemId of listedItemIds) {
+          if (!listedIn.has(itemId)) {
+            listedIn.set(itemId, library.id);
+          }
+        }
+        // A listing cut short by an error says nothing about what is missing
+        if (libraryErrors === 0) {
+          unlistedByLibrary.set(
+            library.id,
+            await findUnlistedItemIds({
+              serverId: server.id,
+              libraryId: library.id,
+              listedItemIds,
+            })
           );
         }
 
@@ -197,6 +230,17 @@ export async function syncItems(
           }`
         );
       }
+    }
+
+    try {
+      await removeLeftLibraries({
+        serverId: server.id,
+        listedIn,
+        unlistedByLibrary,
+      });
+    } catch (error) {
+      metrics.incrementErrors();
+      errors.push(`Item libraries: ${formatError(error)}`);
     }
 
     const finalMetrics = metrics.finish();
@@ -278,10 +322,11 @@ async function syncLibraryItems(
     itemConcurrency: number;
     apiRequestDelayMs: number;
   }
-): Promise<void> {
+): Promise<string[]> {
   let startIndex = 0;
   let hasMoreItems = true;
   let page = 0;
+  const listedItemIds: string[] = [];
 
   while (hasMoreItems) {
     // Add delay between API requests
@@ -336,6 +381,17 @@ async function syncLibraryItems(
         },
         { concurrency: options.itemConcurrency }
       );
+
+      // An unchanged item is skipped above, and may still be new to this library
+      const pageItemIds = jellyfinItems.map((jellyfinItem) => jellyfinItem.Id);
+      await recordItemLibrary({
+        serverId: server.id,
+        libraryId: library.id,
+        itemIds: pageItemIds,
+      });
+      for (const itemId of pageItemIds) {
+        listedItemIds.push(itemId);
+      }
       const processMs = Date.now() - processStart;
 
       const afterPageMetrics = metrics.getCurrentMetrics();
@@ -388,6 +444,51 @@ async function syncLibraryItems(
       );
       metrics.incrementErrors();
       break; // Stop processing this library on API error
+    }
+  }
+
+  return listedItemIds;
+}
+
+/**
+ * An item that a library no longer lists has left it only if another library
+ * listed it in the same run. One that no library lists is gone from Jellyfin,
+ * and keeps its libraries for as long as its history is kept.
+ */
+async function removeLeftLibraries({
+  serverId,
+  listedIn,
+  unlistedByLibrary,
+}: {
+  serverId: number;
+  listedIn: Map<string, string>;
+  unlistedByLibrary: Map<string, string[]>;
+}): Promise<void> {
+  for (const [libraryId, unlistedItemIds] of unlistedByLibrary) {
+    const leftFor = new Map<string, string[]>();
+    for (const itemId of unlistedItemIds) {
+      const remainingLibraryId = listedIn.get(itemId);
+      if (remainingLibraryId === undefined) {
+        continue;
+      }
+      const itemIds = leftFor.get(remainingLibraryId);
+      if (itemIds) {
+        itemIds.push(itemId);
+      } else {
+        leftFor.set(remainingLibraryId, [itemId]);
+      }
+    }
+
+    for (const [remainingLibraryId, itemIds] of leftFor) {
+      await removeItemLibrary({
+        serverId,
+        libraryId,
+        remainingLibraryId,
+        itemIds,
+      });
+      console.info(
+        `[items-sync] serverId=${serverId} libraryId=${libraryId} removed ${itemIds.length} items that are now only in other libraries`
+      );
     }
   }
 }
@@ -647,6 +748,7 @@ export async function syncRecentlyAddedItems(
     let allMappedItems: NewItem[] = [];
     let allInvalidItems: Array<{ id: string; error: string }> = [];
     let allJellyfinItemsForMediaSync: JellyfinBaseItemDto[] = [];
+    const listedByLibrary: Array<{ libraryId: string; itemIds: string[] }> = [];
 
     // Collect recent items from all valid libraries with their already-known library IDs
     let page = 0;
@@ -678,6 +780,10 @@ export async function syncRecentlyAddedItems(
         allMappedItems = allMappedItems.concat(validItems);
         allInvalidItems = allInvalidItems.concat(invalidItems);
         allJellyfinItemsForMediaSync = allJellyfinItemsForMediaSync.concat(jellyfinItemsForMediaSync);
+        listedByLibrary.push({
+          libraryId: library.id,
+          itemIds: validItems.map((item) => item.id),
+        });
 
         console.info(
           formatSyncLogLine("recent-items-sync", {
@@ -773,6 +879,10 @@ export async function syncRecentlyAddedItems(
       itemsMigrated,
       sessionsMigrated,
     } = await processValidItems(allMappedItems, allInvalidItems, server.id);
+
+    for (const { libraryId, itemIds } of listedByLibrary) {
+      await recordItemLibrary({ serverId: server.id, libraryId, itemIds });
+    }
 
     // Sync media sources for all processed items
     await syncMediaSourcesBatch(allJellyfinItemsForMediaSync, server.id);
@@ -981,8 +1091,17 @@ async function processValidItems(
   itemsMigrated: number;
   sessionsMigrated: number;
 }> {
+  // An item in several libraries is listed by each of them, and can only be
+  // inserted once. The first listing wins, as it does in the full sync.
+  const uniqueItems = new Map<string, NewItem>();
+  for (const item of validItems) {
+    if (!uniqueItems.has(item.id)) {
+      uniqueItems.set(item.id, item);
+    }
+  }
+
   // Fetch existing item metadata to detect changes and backfill missing tags.
-  const jellyfinIds = validItems.map((item) => item.id);
+  const jellyfinIds = Array.from(uniqueItems.keys());
 
   const existingItems = await db
     .select({ id: items.id, etag: items.etag, tags: items.tags })
@@ -998,7 +1117,7 @@ async function processValidItems(
   const itemsToUpdate: NewItem[] = [];
   const unchangedItems: NewItem[] = [];
 
-  for (const item of validItems) {
+  for (const item of uniqueItems.values()) {
     const existingItem = existingMap.get(item.id);
 
     if (existingItem === undefined) {
