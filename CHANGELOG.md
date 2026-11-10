@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.21.0](https://github.com/fredrikburmester/streamystats/compare/v2.20.0...v2.21.0) (2026-11-10)
+
+
+### Features
+
+* add Google Gemini chat provider ([#578](https://github.com/fredrikburmester/streamystats/issues/578)) ([31c40d6](https://github.com/fredrikburmester/streamystats/commit/31c40d6dda4a906a8b314e2af375fc0d80f7ceae))
+* log in with Jellyfin Quick Connect ([#595](https://github.com/fredrikburmester/streamystats/issues/595)) ([d2c8005](https://github.com/fredrikburmester/streamystats/commit/d2c80052a4e715d725eaaca12ee9d86c07344060))
+* multi-select history filters with "all except" ([#594](https://github.com/fredrikburmester/streamystats/issues/594)) ([575188b](https://github.com/fredrikburmester/streamystats/commit/575188bb39a9e8ea1efd67154bcbeb851641fc03))
+* permanently merge old user accounts into replacements ([#582](https://github.com/fredrikburmester/streamystats/issues/582)) ([60ec890](https://github.com/fredrikburmester/streamystats/commit/60ec89025347f3d732c6c739a622c18cd3243de3))
+* stack weekday watch time by media type ([#599](https://github.com/fredrikburmester/streamystats/issues/599)) ([db12302](https://github.com/fredrikburmester/streamystats/commit/db12302d8e664c3aea4234615fa7e331ba2ea38a))
+
+
+### Bug Fixes
+
+* **database:** let the user merge migration run a second time ([#610](https://github.com/fredrikburmester/streamystats/issues/610)) ([f4aff94](https://github.com/fredrikburmester/streamystats/commit/f4aff94a71fc5d12b8018b5c0b9bd4192566b11d))
+* enable pgvector iterative scan so filtered similarity searches return full results ([#589](https://github.com/fredrikburmester/streamystats/issues/589)) ([871ad5e](https://github.com/fredrikburmester/streamystats/commit/871ad5e5c82f2ee5c86646315f609f767ac3a9b9))
+* render AI chat item links without blocked labels ([#580](https://github.com/fredrikburmester/streamystats/issues/580)) ([1a154af](https://github.com/fredrikburmester/streamystats/commit/1a154af6e59b5f6a5407f1e18704cc6bd5ac15bf))
+* repair drizzle snapshot chain so db:generate works again ([#588](https://github.com/fredrikburmester/streamystats/issues/588)) ([c85c492](https://github.com/fredrikburmester/streamystats/commit/c85c492b5c86bf6c8272a364b63e94bc4ef0ced7))
+* scope Jellyfin media identities by server ([#583](https://github.com/fredrikburmester/streamystats/issues/583)) ([1f5863e](https://github.com/fredrikburmester/streamystats/commit/1f5863e747398c677c59b4976a33ee8fd432bb5c))
+
 ## [2.20.0](https://github.com/fredrikburmester/streamystats/compare/v2.19.2...v2.20.0) (2026-09-12)
 
 
