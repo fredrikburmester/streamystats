@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.22.0](https://github.com/fredrikburmester/streamystats/compare/v2.21.1...v2.22.0) (2026-11-10)
+
+
+### Features
+
+* better transcoding charts ([#387](https://github.com/fredrikburmester/streamystats/issues/387)) ([152e57d](https://github.com/fredrikburmester/streamystats/commit/152e57db9daf2988103a8d5d8945c02fac8cca87))
+* read secrets from *_FILE variables in every image ([#591](https://github.com/fredrikburmester/streamystats/issues/591)) ([653595b](https://github.com/fredrikburmester/streamystats/commit/653595b354ec320f38b58cefd44d4fa1f3c16fb7))
+
 ## [2.21.1](https://github.com/fredrikburmester/streamystats/compare/v2.21.0...v2.21.1) (2026-11-10)
 
 
