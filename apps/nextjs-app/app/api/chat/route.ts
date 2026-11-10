@@ -6,6 +6,7 @@ import {
 } from "ai";
 import { type ChatConfig, createChatModel } from "@/lib/ai/providers";
 import { createChatTools } from "@/lib/ai/tools";
+import { getRecommendationProfile } from "@/lib/db/recommendation-profile";
 import { getServerWithSecrets } from "@/lib/db/server";
 import { getSession } from "@/lib/session";
 
@@ -28,7 +29,8 @@ const BASE_SYSTEM_PROMPT = `You are a helpful media assistant for Streamystats, 
 
 Your capabilities:
 - Find user's most watched movies and series
-- Provide personalized AI-powered recommendations based on watch history
+- Provide personalized AI-powered recommendations based on what the user rated highly and their watch history
+- Show what the user has rated (stars, likes, favorites), including individual episodes
 - Search the media library by name, genre, or semantic theme (embeddings)
 - Show recently added content
 - Get watch statistics (total time, streaks, etc.)
@@ -42,6 +44,7 @@ Guidelines:
 - If recommendations require embeddings and none are found, suggest the user configure AI embeddings in settings
 - For watch time, always convert seconds to human-readable format (hours/minutes)
 - When users ask about watching with someone else, use the shared recommendations tool
+- When the user asks for things like what they rated highly, check their ratings first: a highly rated episode shows the themes they enjoy, which you can then search the library for with semantic search. Only suggest items they have not watched or rated unless asked.
 - When the user asks for a themed pick they already have (e.g. "a Christmas movie that I have"), prefer semantic library search over genre search. "Christmas" is often a theme, not a reliable genre label.
 - Be conversational and friendly
 
@@ -56,11 +59,11 @@ This format allows the UI to render items as clickable cards with poster images.
 
 IMPORTANT - Recommendation format:
 When presenting recommendations, ALWAYS explain what each recommendation is based on using the "basedOn" and "reason" fields from the tool results. Format like:
-- "I recommend [title](item://id) because you watched [basedOn names]"
+- "I recommend [title](item://id) because you rated [basedOn names] highly"
 - "Since you enjoyed [basedOn names], you might like [title](item://id)"
 - "Based on your viewing of [basedOn names], I suggest [title](item://id)"
 
-Never list recommendations without mentioning what they're based on. The basedOn data shows which items from the user's watch history led to each recommendation.`;
+Never list recommendations without mentioning what they're based on. The basedOn data shows which items the user rated or watched led to each recommendation.`;
 
 export async function POST(req: Request) {
   try {
@@ -126,6 +129,20 @@ export async function POST(req: Request) {
     }
 
     const tools = createChatTools(server.id, session.id, session.isAdmin);
+    const profile = await getRecommendationProfile({
+      serverId: server.id,
+      userId: session.id,
+    });
+    const tasteContext = [
+      profile.likesText.trim() &&
+        `- Says they're into: ${profile.likesText.trim()}`,
+      profile.dislikesText.trim() &&
+        `- Says these are not for them: ${profile.dislikesText.trim()}`,
+      !profile.useWatchHistory &&
+        "- Watch history is often shared viewing: do not infer their taste from it; rely on ratings and the interests above",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const convertedMessages = convertToModelMessages(messages);
 
     const result = streamText({
@@ -135,6 +152,7 @@ export async function POST(req: Request) {
 Current user context:
 - Name: ${session.name}
 - ID: ${session.id}
+${tasteContext}
 `,
       messages: convertedMessages,
       tools,

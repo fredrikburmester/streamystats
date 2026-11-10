@@ -25,5 +25,7 @@ export * from "./user-merge-backup";
 // Export job defaults
 export * from "./job-defaults";
 
+export { embeddableItemCondition } from "./embeddable";
+
 // Export migration utilities
 export { migrate } from "./migrate";

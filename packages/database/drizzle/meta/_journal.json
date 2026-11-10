@@ -330,6 +330,20 @@
       "when": 1794261863483,
       "tag": "0046_permanent_user_merge",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794324330596,
+      "tag": "0047_user_item_ratings",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794324554598,
+      "tag": "0048_recommendation_profiles",
+      "breakpoints": true
     }
   ]
 }
