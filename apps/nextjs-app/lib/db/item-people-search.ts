@@ -119,7 +119,13 @@ export async function findItemsByPerson({
         eq(itemPeople.serverId, people.serverId),
       ),
     )
-    .innerJoin(items, eq(itemPeople.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(itemPeople.itemId, items.id),
+        eq(itemPeople.serverId, items.serverId),
+      ),
+    )
     .where(and(...conditions))
     .orderBy(desc(items.communityRating), items.name, itemPeople.sortOrder);
 
@@ -167,7 +173,13 @@ export async function findItemsByCharacter({
         eq(itemPeople.serverId, people.serverId),
       ),
     )
-    .innerJoin(items, eq(itemPeople.itemId, items.id))
+    .innerJoin(
+      items,
+      and(
+        eq(itemPeople.itemId, items.id),
+        eq(itemPeople.serverId, items.serverId),
+      ),
+    )
     .where(and(...conditions))
     .orderBy(desc(items.communityRating), items.name, itemPeople.sortOrder)
     .limit(getExpandedRowLimit(limit));

@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   XAxis,
+  YAxis,
 } from "recharts";
 import {
   Card,
@@ -17,23 +18,35 @@ import {
 import {
   type ChartConfig,
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { WatchTimePerWeekDay } from "@/lib/db/users";
 import { formatDuration } from "@/lib/utils";
-
-const _dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+import type { WatchTimePerWeekDayByType } from "@/lib/watch-time-per-week-day";
 
 const chartConfig = {
-  total_duration: {
-    label: "Watch Time",
+  Episode: {
+    label: "TV episodes",
     color: "hsl(var(--chart-1))",
+  },
+  Movie: {
+    label: "Movies",
+    color: "hsl(var(--chart-5))",
+  },
+  Music: {
+    label: "Music",
+    color: "hsl(var(--chart-2))",
+  },
+  Other: {
+    label: "Other",
+    color: "hsl(var(--chart-3))",
   },
 } satisfies ChartConfig;
 
 interface Props {
-  data: WatchTimePerWeekDay[];
+  data: WatchTimePerWeekDayByType[];
 }
 
 export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
@@ -42,7 +55,7 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
       <CardHeader>
         <CardTitle>Watch Time Per Day</CardTitle>
         <CardDescription>
-          Showing total watch time for each day of the week (Mon-Sun)
+          Total watch time for each day of the week, split by media type
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -61,33 +74,57 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
                 axisLine={false}
                 tick={{ fontSize: 12 }}
               />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                width={72}
+                tickFormatter={(value) =>
+                  formatDuration(Number(value), "seconds")
+                }
+              />
               <ChartTooltip
                 cursor={false}
-                formatter={(val) => (
-                  <div>
-                    <p>{formatDuration(Number(val), "seconds")}</p>
-                  </div>
-                )}
-                content={<ChartTooltipContent />}
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, name) => (
+                      <div className="flex w-full flex-row items-center justify-between gap-3">
+                        <span>
+                          {chartConfig[name as keyof typeof chartConfig]
+                            ?.label ?? name}
+                        </span>
+                        <span>{formatDuration(Number(value), "seconds")}</span>
+                      </div>
+                    )}
+                  />
+                }
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar
+                dataKey="Episode"
+                fill={chartConfig.Episode.color}
+                stackId="watchTime"
               />
               <Bar
-                dataKey="watchTime"
-                fill="hsl(var(--chart-1))"
+                dataKey="Movie"
+                fill={chartConfig.Movie.color}
+                stackId="watchTime"
+              />
+              <Bar
+                dataKey="Music"
+                fill={chartConfig.Music.color}
+                stackId="watchTime"
+              />
+              <Bar
+                dataKey="Other"
+                fill={chartConfig.Other.color}
                 radius={[4, 4, 0, 0]}
-                name="Watch Time"
+                stackId="watchTime"
               />
             </BarChart>
           </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
-      {/* <CardFooter className="flex-col items-start gap-2 text-sm">
-        <div className="flex gap-2 font-medium leading-none">
-          Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
-        </div>
-        <div className="leading-none text-muted-foreground">
-          Showing total visitors for the last 6 months
-        </div>
-      </CardFooter> */}
     </Card>
   );
 };

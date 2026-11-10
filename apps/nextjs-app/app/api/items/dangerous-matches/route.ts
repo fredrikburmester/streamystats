@@ -131,7 +131,12 @@ export async function GET(request: Request) {
         const sessionCount = await db
           .select({ count: sql<number>`count(*)::int` })
           .from(sessions)
-          .where(eq(sessions.itemId, match.deletedId));
+          .where(
+            and(
+              eq(sessions.itemId, match.deletedId),
+              eq(sessions.serverId, serverIdNum),
+            ),
+          );
 
         return {
           deletedItem: {

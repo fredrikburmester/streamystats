@@ -1,5 +1,6 @@
 import {
   db,
+  getMergedUserTarget,
   activities,
   activityLocations,
   sessions,
@@ -27,23 +28,7 @@ const JOB_NAMES = {
 
 export { JOB_NAMES as GEOLOCATION_JOB_NAMES };
 
-// In-memory fingerprint cache to avoid repeated DB reads during batch processing
-// Key: `${serverId}:${userId}`, Value: fingerprint data or null if not exists
-type CachedFingerprint = {
-  knownCountries: string[];
-  knownCities: string[];
-  knownDeviceIds: string[];
-} | null;
-
-const fingerprintCache = new Map<string, CachedFingerprint>();
-
-function getFingerprintCacheKey(serverId: number, userId: string): string {
-  return `${serverId}:${userId}`;
-}
-
-function clearFingerprintCache(): void {
-  fingerprintCache.clear();
-}
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
  * Geolocate activities that don't have location data yet.
@@ -58,9 +43,6 @@ export async function geolocateActivitiesJob(job: {
   console.log(
     `[geolocation] action=start serverId=${serverId} batchSize=${batchSize}`
   );
-
-  // Clear fingerprint cache at start of each batch
-  clearFingerprintCache();
 
   try {
     // Find activities without location data that have IP in shortOverview
@@ -133,15 +115,15 @@ export async function geolocateActivitiesJob(job: {
 
       // Check for anomalies if we have a userId and valid geo data
       if (activity.userId && geo.countryCode && !isPrivateIp) {
-        const anomaly = await checkActivityAnomaly(
+        const anomaly = await checkActivityAnomaly({
           serverId,
-          activity.userId,
-          activity.id,
+          sourceUserId: activity.userId,
+          activityId: activity.id,
           geo,
-          activity.date,
-          activity.name,
-          activity.type
-        );
+          activityDate: activity.date,
+          activityName: activity.name,
+          activityType: activity.type,
+        });
         if (anomaly) {
           anomalyCount++;
         }
@@ -168,49 +150,67 @@ export async function geolocateActivitiesJob(job: {
 /**
  * Check an activity for anomalies against the user's fingerprint
  */
-async function checkActivityAnomaly(
-  serverId: number,
-  userId: string,
-  activityId: string,
+type ActivityAnomalyInput = {
+  serverId: number;
+  sourceUserId: string;
+  activityId: string;
   geo: {
     countryCode: string | null;
     country: string | null;
     city: string | null;
     latitude: number | null;
     longitude: number | null;
-  },
-  activityDate: Date,
-  activityName: string,
-  activityType: string
+  };
+  activityDate: Date;
+  activityName: string;
+  activityType: string;
+};
+
+async function checkActivityAnomaly(
+  input: ActivityAnomalyInput
 ): Promise<NewAnomalyEvent | null> {
-  const cacheKey = getFingerprintCacheKey(serverId, userId);
-  
-  // Check cache first, then fetch from DB if not cached
-  let cachedFp = fingerprintCache.get(cacheKey);
-  let fingerprint: typeof cachedFp extends undefined ? null : typeof cachedFp = null;
-  
-  if (cachedFp === undefined) {
-    // Not in cache, fetch from DB
-    const dbFingerprint = await db.query.userFingerprints.findFirst({
-      where: and(
-        eq(userFingerprints.userId, userId),
-        eq(userFingerprints.serverId, serverId)
-      ),
+  const detected = await db.transaction(async (database) => {
+    // Keep ownership and the security baseline stable until detection commits.
+    await database.execute(
+      sql`SELECT pg_advisory_xact_lock_shared(582, ${input.serverId})`
+    );
+    const userId = (await getMergedUserTarget({
+      serverId: input.serverId, userId: input.sourceUserId, database,
+    })) ?? input.sourceUserId;
+    return detectActivityAnomalies({ ...input, userId, database });
+  });
+  for (const anomaly of detected) {
+    publishJobEvent({
+      type: "anomaly_detected",
+      serverId: input.serverId,
+      timestamp: nowIsoMicroUtc(),
+      data: {
+        anomalyType: anomaly.anomalyType,
+        severity: anomaly.severity,
+        userId: anomaly.userId,
+      },
     });
-    
-    if (dbFingerprint) {
-      cachedFp = {
-        knownCountries: (dbFingerprint.knownCountries as string[]) || [],
-        knownCities: (dbFingerprint.knownCities as string[]) || [],
-        knownDeviceIds: (dbFingerprint.knownDeviceIds as string[]) || [],
-      };
-    } else {
-      cachedFp = null;
-    }
-    fingerprintCache.set(cacheKey, cachedFp);
   }
-  
-  fingerprint = cachedFp;
+  return detected[0] ?? null;
+}
+
+async function detectActivityAnomalies({
+  serverId, userId, activityId, geo, activityDate, activityName, activityType, database,
+}: Omit<ActivityAnomalyInput, "sourceUserId"> & {
+  userId: string;
+  database: Transaction;
+}): Promise<NewAnomalyEvent[]> {
+  const dbFingerprint = await database.query.userFingerprints.findFirst({
+    where: and(
+      eq(userFingerprints.userId, userId),
+      eq(userFingerprints.serverId, serverId)
+    ),
+  });
+  const fingerprint = dbFingerprint ? {
+    knownCountries: dbFingerprint.knownCountries ?? [],
+    knownCities: dbFingerprint.knownCities ?? [],
+    knownDeviceIds: dbFingerprint.knownDeviceIds ?? [],
+  } : null;
 
   // Get device/client from activity name (primary source - always available)
   const deviceFromActivity = getDeviceOrClientFromActivity(
@@ -219,7 +219,7 @@ async function checkActivityAnomaly(
   );
 
   // Get user's most recent session as fallback for additional context
-  const recentSession = await db
+  const recentSession = await database
     .select({
       deviceId: sessions.deviceId,
       deviceName: sessions.deviceName,
@@ -231,7 +231,7 @@ async function checkActivityAnomaly(
     .limit(1);
 
   // Get user's most recent geolocated activity (excluding current)
-  const recentActivity = await db
+  const recentActivity = await database
     .select({
       activityId: activityLocations.activityId,
       latitude: activityLocations.latitude,
@@ -438,8 +438,8 @@ async function checkActivityAnomaly(
         }
       }
 
-      // Update both DB and cache
-      await db
+      // Persist new baseline entries for subsequent activities
+      await database
         .update(userFingerprints)
         .set({
           knownCountries: updatedCountries,
@@ -453,70 +453,41 @@ async function checkActivityAnomaly(
             eq(userFingerprints.serverId, serverId)
           )
         );
-
-      // Update cache so subsequent activities in this batch use updated fingerprint
-      fingerprintCache.set(cacheKey, {
-        knownCountries: updatedCountries,
-        knownCities: updatedCities,
-        knownDeviceIds: updatedDeviceIds,
-      });
     }
   } else if (geo.countryCode) {
-    // No fingerprint yet - create initial one and cache it
-    const normalizedDevice = deviceLabel?.trim().toLowerCase() ?? null;
-
-    await createInitialFingerprint(serverId, userId, geo, deviceLabel);
-    fingerprintCache.set(cacheKey, {
-      knownCountries: geo.countryCode ? [geo.countryCode] : [],
-      knownCities: geo.city ? [geo.city] : [],
-      knownDeviceIds: normalizedDevice ? [normalizedDevice] : [],
-    });
+    await createInitialFingerprint({ serverId, userId, geo, deviceLabel, database });
   }
 
-  // Insert anomalies and publish events
+  // The caller publishes events after this transaction commits.
   if (anomalies.length > 0) {
-    await db.insert(anomalyEvents).values(anomalies);
+    await database.insert(anomalyEvents).values(anomalies);
     console.log(
       `[anomaly] userId=${userId} count=${anomalies.length} types=${anomalies
         .map((a) => a.anomalyType)
         .join(",")}`
     );
-
-    // Publish SSE event for each anomaly
-    for (const anomaly of anomalies) {
-      publishJobEvent({
-        type: "anomaly_detected",
-        serverId,
-        timestamp: nowIsoMicroUtc(),
-        data: {
-          anomalyType: anomaly.anomalyType,
-          severity: anomaly.severity,
-          userId: anomaly.userId,
-        },
-      });
-    }
-
-    return anomalies[0];
   }
-
-  return null;
+  return anomalies;
 }
 
 /**
  * Create initial fingerprint for a user
  */
-async function createInitialFingerprint(
-  serverId: number,
-  userId: string,
+async function createInitialFingerprint({
+  serverId, userId, geo, deviceLabel = null, database,
+}: {
+  serverId: number;
+  userId: string;
   geo: {
     countryCode: string | null;
     country: string | null;
     city: string | null;
     latitude: number | null;
     longitude: number | null;
-  },
-  deviceLabel: string | null = null
-): Promise<void> {
+  };
+  deviceLabel?: string | null;
+  database: Transaction;
+}): Promise<void> {
   const now = new Date().toISOString();
   // Normalize for matching, keep original for display
   const normalizedDevice = deviceLabel?.trim().toLowerCase() ?? null;
@@ -556,7 +527,7 @@ async function createInitialFingerprint(
     lastCalculatedAt: new Date(),
   };
 
-  await db.insert(userFingerprints).values(fingerprint).onConflictDoNothing();
+  await database.insert(userFingerprints).values(fingerprint).onConflictDoNothing();
 }
 
 /**
@@ -595,7 +566,10 @@ export async function calculateFingerprintsJob(job: {
     let processedCount = 0;
 
     for (const userId of userIds) {
-      await calculateUserFingerprint(serverId, userId);
+      await db.transaction(async (database) => {
+        await database.execute(sql`SELECT pg_advisory_xact_lock_shared(582, ${serverId})`);
+        await calculateUserFingerprint({ serverId, userId, database });
+      });
       processedCount++;
     }
 
@@ -614,12 +588,15 @@ export async function calculateFingerprintsJob(job: {
 /**
  * Calculate fingerprint for a single user
  */
-async function calculateUserFingerprint(
-  serverId: number,
-  userId: string
-): Promise<void> {
+async function calculateUserFingerprint({
+  serverId, userId, database,
+}: {
+  serverId: number;
+  userId: string;
+  database: Transaction;
+}): Promise<void> {
   // Get all activities with location data for this user
-  const userActivities = await db
+  const userActivities = await database
     .select({
       activityId: activities.id,
       date: activities.date,
@@ -641,7 +618,7 @@ async function calculateUserFingerprint(
     );
 
   // Get device data from sessions
-  const userSessions = await db
+  const userSessions = await database
     .select({
       deviceId: sessions.deviceId,
       deviceName: sessions.deviceName,
@@ -793,7 +770,7 @@ async function calculateUserFingerprint(
   };
 
   // Upsert fingerprint
-  await db
+  await database
     .insert(userFingerprints)
     .values(fingerprintData)
     .onConflictDoUpdate({

@@ -49,12 +49,24 @@ export async function POST(request: Request) {
       db
         .select()
         .from(items)
-        .where(and(eq(items.id, leftId), isNull(items.deletedAt)))
+        .where(
+          and(
+            eq(items.id, leftId),
+            eq(items.serverId, session.serverId),
+            isNull(items.deletedAt),
+          ),
+        )
         .limit(1),
       db
         .select()
         .from(items)
-        .where(and(eq(items.id, rightId), isNull(items.deletedAt)))
+        .where(
+          and(
+            eq(items.id, rightId),
+            eq(items.serverId, session.serverId),
+            isNull(items.deletedAt),
+          ),
+        )
         .limit(1),
     ]);
 
@@ -166,7 +178,9 @@ export async function POST(request: Request) {
         )
         .returning({ id: hiddenRecommendations.id });
 
-      await tx.delete(items).where(eq(items.id, leftId));
+      await tx
+        .delete(items)
+        .where(and(eq(items.id, leftId), eq(items.serverId, session.serverId)));
 
       return {
         sessionsMigrated: migratedSessions.length,

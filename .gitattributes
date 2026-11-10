@@ -1,0 +1,3 @@
+# Generated database snapshots and build output are expandable in GitHub diffs.
+packages/database/drizzle/meta/*_snapshot.json linguist-generated=true
+packages/database/dist/** linguist-generated=true
