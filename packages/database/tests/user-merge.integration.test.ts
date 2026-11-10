@@ -8,6 +8,7 @@ import {
   test,
 } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -361,6 +362,26 @@ describe.skipIf(!url)("permanent user merge (PostgreSQL)", () => {
         .values({ serverId, userId: sourceId })
         .returning(),
     ).toHaveLength(0);
+  });
+  test("its migration can run again and keeps earlier merges", async () => {
+    // A database that ran it under its earlier number (0045, in the PR builds
+    // of #582) runs it a second time, after 0045_server_scoped_media_ids.
+    await mergeUsersPermanently(await request());
+    const statements = readFileSync(
+      new URL("../drizzle/0046_permanent_user_merge.sql", import.meta.url),
+      "utf8",
+    ).split("--> statement-breakpoint");
+    await database.transaction(async (tx) => {
+      for (const statement of statements) await tx.execute(sql.raw(statement));
+    });
+    expect(
+      await getMergedUserTarget({ serverId, userId: sourceId, database }),
+    ).toBe(targetId);
+    const [late] = await database
+      .insert(sessions)
+      .values(playback(sourceId))
+      .returning();
+    expect(late.userId).toBe(targetId);
   });
   test("flattens consecutive merges and retains destination preferences", async () => {
     await database
