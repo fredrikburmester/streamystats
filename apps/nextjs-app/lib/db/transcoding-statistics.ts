@@ -19,6 +19,11 @@ import { getExclusionSettings, getStatisticsExclusions } from "./exclusions";
 
 type UnknownRecord = Record<string, unknown>;
 
+const itemsJoinCondition = and(
+  eq(sessions.itemId, items.id),
+  eq(sessions.serverId, items.serverId),
+);
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -101,7 +106,7 @@ export async function getTranscodingStatistics(
   userId?: string,
 ): Promise<TranscodingStatisticsResponse> {
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
+  const { userExclusion, itemLibraryExclusion, requiresItemsJoin } =
     await getStatisticsExclusions(serverId);
 
   // Get all sessions with transcoding data for the specified date range
@@ -125,7 +130,7 @@ export async function getTranscodingStatistics(
     whereConditions.push(itemLibraryExclusion);
   }
 
-  const sessionData = await db
+  const sessionDataQuery = db
     .select({
       isTranscoded: sessions.isTranscoded,
       playMethod: sessions.playMethod,
@@ -143,8 +148,9 @@ export async function getTranscodingStatistics(
       rawData: sessions.rawData,
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
-    .where(and(...whereConditions));
+    .$dynamic();
+  if (requiresItemsJoin) sessionDataQuery.innerJoin(items, itemsJoinCondition);
+  const sessionData = await sessionDataQuery.where(and(...whereConditions));
 
   const totalSessions = sessionData.length;
 
@@ -630,7 +636,7 @@ export async function getTranscodingStatisticsOverTime(
   userId?: string,
 ): Promise<TranscodingHistoryStat[]> {
   // Get exclusion settings
-  const { userExclusion, itemLibraryExclusion } =
+  const { userExclusion, itemLibraryExclusion, requiresItemsJoin } =
     await getStatisticsExclusions(serverId);
 
   const whereConditions: SQL[] = [eq(sessions.serverId, serverId)];
@@ -670,7 +676,7 @@ export async function getTranscodingStatisticsOverTime(
   const filter = and(...whereConditions);
 
   // Query 1: Aggregate direct play vs transcode counts per day
-  const dailyStats = await db
+  const dailyStatsQuery = db
     .select({
       date: sql<string>`DATE(${sessions.startTime})`.as("date"),
       directPlay: sql<number>`COALESCE(SUM(${isDirectPlayCase}), 0)`.as(
@@ -682,21 +688,25 @@ export async function getTranscodingStatisticsOverTime(
       total: count().as("total"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .$dynamic();
+  if (requiresItemsJoin) dailyStatsQuery.innerJoin(items, itemsJoinCondition);
+  const dailyStats = await dailyStatsQuery
     .where(filter)
     .groupBy(sql`DATE(${sessions.startTime})`)
     .orderBy(sql`DATE(${sessions.startTime})`);
 
   // Query 2: Aggregate transcode reason counts per day
   // Only for sessions that are transcoded
-  const reasonRows = await db
+  const reasonRowsQuery = db
     .select({
       date: sql<string>`DATE(${sessions.startTime})`.as("date"),
       reason: sql<string>`unnest(${sessions.transcodeReasons})`.as("reason"),
       count: count().as("count"),
     })
     .from(sessions)
-    .innerJoin(items, eq(sessions.itemId, items.id))
+    .$dynamic();
+  if (requiresItemsJoin) reasonRowsQuery.innerJoin(items, itemsJoinCondition);
+  const reasonRows = await reasonRowsQuery
     .where(
       and(
         ...whereConditions,
