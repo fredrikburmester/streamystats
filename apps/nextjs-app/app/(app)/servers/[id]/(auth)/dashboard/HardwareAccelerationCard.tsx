@@ -113,8 +113,12 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
             />
             <RadialBar dataKey="count" background cornerRadius={10} />
             <ChartLegend
-              content={<ChartLegendContent nameKey="configKey" />}
-              className="flex-wrap gap-2 justify-center"
+              content={
+                <ChartLegendContent
+                  nameKey="configKey"
+                  className="flex-wrap gap-2"
+                />
+              }
             />
           </RadialBarChart>
         </ChartContainer>
