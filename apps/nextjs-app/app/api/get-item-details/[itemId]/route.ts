@@ -93,6 +93,7 @@ export async function GET(
 
     // Get item details
     const itemDetails = await getItemDetails({
+      serverId: server.id,
       itemId,
     });
 

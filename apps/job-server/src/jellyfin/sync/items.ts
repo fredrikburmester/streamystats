@@ -313,7 +313,7 @@ async function syncLibraryItems(
         jellyfinItems,
         async (jellyfinItem) => {
           try {
-            await processItem(jellyfinItem, library.id, metrics);
+            await processItem({ jellyfinItem, libraryId: library.id, serverId: server.id, metrics });
           } catch (error) {
             console.error(
               formatSyncLogLine("items-sync", {
@@ -392,11 +392,17 @@ async function syncLibraryItems(
   }
 }
 
-async function processItem(
-  jellyfinItem: JellyfinBaseItemDto,
-  libraryId: string,
-  metrics: SyncMetricsTracker
-): Promise<void> {
+async function processItem({
+  jellyfinItem,
+  libraryId,
+  serverId,
+  metrics,
+}: {
+  jellyfinItem: JellyfinBaseItemDto;
+  libraryId: string;
+  serverId: number;
+  metrics: SyncMetricsTracker;
+}): Promise<void> {
   // Check if item already exists and compare etag for changes
   const existingItem = await db
     .select({
@@ -407,7 +413,7 @@ async function processItem(
       mediaSourcesSynced: items.mediaSourcesSynced,
     })
     .from(items)
-    .where(eq(items.id, jellyfinItem.Id))
+    .where(and(eq(items.id, jellyfinItem.Id), eq(items.serverId, serverId)))
     .limit(1);
 
   const isNewItem = existingItem.length === 0;
@@ -456,7 +462,6 @@ async function processItem(
     !needsItemTagsUpdate &&
     needsMediaSourcesSync
   ) {
-    const serverId = await getServerIdFromLibrary(libraryId);
     await syncMediaSources(jellyfinItem, serverId);
     metrics.incrementItemsProcessed();
     return;
@@ -473,8 +478,6 @@ async function processItem(
     metrics.incrementItemsProcessed();
     return; // Skip if item hasn't changed and has no missing metadata to backfill
   }
-
-  const serverId = await getServerIdFromLibrary(libraryId);
 
   const itemData: NewItem = {
     id: jellyfinItem.Id,
@@ -550,7 +553,7 @@ async function processItem(
       .insert(items)
       .values(itemData)
       .onConflictDoUpdate({
-        target: items.id,
+        target: [items.serverId, items.id],
         set: {
           ...itemData,
           deletedAt: null, // Clear deletion flag if item is back
@@ -580,29 +583,6 @@ async function processItem(
   }
 
   metrics.incrementItemsProcessed();
-}
-
-// Cache for server ID lookups
-const serverIdCache = new Map<string, number>();
-
-async function getServerIdFromLibrary(libraryId: string): Promise<number> {
-  if (serverIdCache.has(libraryId)) {
-    return serverIdCache.get(libraryId)!;
-  }
-
-  const library = await db
-    .select({ serverId: libraries.serverId })
-    .from(libraries)
-    .where(eq(libraries.id, libraryId))
-    .limit(1);
-
-  if (library.length === 0) {
-    throw new Error(`Library not found: ${libraryId}`);
-  }
-
-  const [{ serverId }] = library;
-  serverIdCache.set(libraryId, serverId);
-  return serverId;
 }
 
 export async function syncRecentlyAddedItems(
@@ -1221,7 +1201,7 @@ async function checkAndMigrateDeletedItem({
   const migratedSessions = await tx
     .update(sessions)
     .set({ itemId: newItem.id })
-    .where(eq(sessions.itemId, deletedMatch.id))
+    .where(and(eq(sessions.itemId, deletedMatch.id), eq(sessions.serverId, newItem.serverId)))
     .returning({ id: sessions.id });
 
   result.sessionsMigrated = migratedSessions.length;
@@ -1230,14 +1210,14 @@ async function checkAndMigrateDeletedItem({
   const migratedRecs = await tx
     .update(hiddenRecommendations)
     .set({ itemId: newItem.id })
-    .where(eq(hiddenRecommendations.itemId, deletedMatch.id))
+    .where(and(eq(hiddenRecommendations.itemId, deletedMatch.id), eq(hiddenRecommendations.serverId, newItem.serverId)))
     .returning({ id: hiddenRecommendations.id });
 
   result.hiddenRecsMigrated = migratedRecs.length;
   result.migrated = true;
 
   // Hard-delete the old item since all related data has been migrated
-  await tx.delete(items).where(eq(items.id, deletedMatch.id));
+  await tx.delete(items).where(and(eq(items.id, deletedMatch.id), eq(items.serverId, newItem.serverId)));
 
   console.info(
     `[items-sync] Migrated ${result.sessionsMigrated} sessions and ${result.hiddenRecsMigrated} hidden recommendations from ${deletedMatch.id} to ${newItem.id}, deleted old item`
@@ -1446,7 +1426,7 @@ async function syncMediaSources(
     await db
       .update(items)
       .set({ mediaSourcesSynced: true })
-      .where(eq(items.id, jellyfinItem.Id));
+      .where(and(eq(items.id, jellyfinItem.Id), eq(items.serverId, serverId)));
     return;
   }
 
@@ -1468,7 +1448,7 @@ async function syncMediaSources(
     await db
       .update(items)
       .set({ mediaSourcesSynced: true })
-      .where(eq(items.id, jellyfinItem.Id));
+      .where(and(eq(items.id, jellyfinItem.Id), eq(items.serverId, serverId)));
     return;
   }
 
@@ -1477,8 +1457,9 @@ async function syncMediaSources(
       .insert(mediaSources)
       .values(mediaSourceRecords)
       .onConflictDoUpdate({
-        target: mediaSources.id,
+        target: [mediaSources.serverId, mediaSources.id],
         set: {
+          itemId: sql`EXCLUDED.item_id`,
           size: sql`EXCLUDED.size`,
           bitrate: sql`EXCLUDED.bitrate`,
           container: sql`EXCLUDED.container`,
@@ -1494,7 +1475,7 @@ async function syncMediaSources(
     await db
       .update(items)
       .set({ mediaSourcesSynced: true })
-      .where(eq(items.id, jellyfinItem.Id));
+      .where(and(eq(items.id, jellyfinItem.Id), eq(items.serverId, serverId)));
   } catch (error) {
     console.error(
       `[items-sync] Error syncing media sources for item ${jellyfinItem.Id}: ${
@@ -1555,8 +1536,9 @@ async function syncMediaSourcesBatch(
           .insert(mediaSources)
           .values(batch)
           .onConflictDoUpdate({
-            target: mediaSources.id,
+            target: [mediaSources.serverId, mediaSources.id],
             set: {
+              itemId: sql`EXCLUDED.item_id`,
               size: sql`EXCLUDED.size`,
               bitrate: sql`EXCLUDED.bitrate`,
               container: sql`EXCLUDED.container`,
@@ -1574,7 +1556,7 @@ async function syncMediaSourcesBatch(
     await db
       .update(items)
       .set({ mediaSourcesSynced: true })
-      .where(inArray(items.id, allItemIds));
+      .where(and(inArray(items.id, allItemIds), eq(items.serverId, serverId)));
   } catch (error) {
     console.error(
       `[items-sync] Error syncing media sources batch: ${

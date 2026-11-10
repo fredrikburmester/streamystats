@@ -69,7 +69,7 @@ export async function syncPeopleForServer(
     const candidates = await db
       .select({ id: items.id })
       .from(items)
-      .innerJoin(libraries, eq(items.libraryId, libraries.id))
+      .innerJoin(libraries, and(eq(items.libraryId, libraries.id), eq(items.serverId, libraries.serverId)))
       .where(
         and(
           eq(items.serverId, serverId),
@@ -159,7 +159,7 @@ export async function syncPeopleForServer(
   const remainingCount = await db
     .select({ count: sql<number>`count(*)` })
     .from(items)
-    .innerJoin(libraries, eq(items.libraryId, libraries.id))
+    .innerJoin(libraries, and(eq(items.libraryId, libraries.id), eq(items.serverId, libraries.serverId)))
     .where(
       and(
         eq(items.serverId, serverId),

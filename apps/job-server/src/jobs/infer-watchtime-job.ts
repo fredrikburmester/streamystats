@@ -210,7 +210,7 @@ export async function inferWatchtimeJob(
 
           // Verify item exists in our database
           const dbItem = await db.query.items.findFirst({
-            where: eq(items.id, item.Id),
+            where: and(eq(items.id, item.Id), eq(items.serverId, serverId)),
           });
 
           if (!dbItem) {

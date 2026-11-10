@@ -19,6 +19,8 @@ export {
 
 // Export all schema tables and types
 export * from "./schema";
+export * from "./user-merge";
+export * from "./user-merge-backup";
 
 // Export job defaults
 export * from "./job-defaults";

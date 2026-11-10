@@ -22,7 +22,7 @@ import {
   getUsers,
   getUserWatchStats,
   getViewerUserId,
-  getWatchTimePerWeekDay,
+  getWatchTimePerWeekDayByType,
   isUserAdmin,
 } from "@/lib/db/users";
 import { getSession } from "@/lib/session";
@@ -104,7 +104,7 @@ export default async function User({
     inferredSessionCount,
   ] = await Promise.all([
     getUserWatchStats({ serverId: server.id, userId: user.id }),
-    getWatchTimePerWeekDay({
+    getWatchTimePerWeekDayByType({
       serverId: server.id,
       userId: user.id,
       viewerUserId,

@@ -137,6 +137,7 @@ async function getSeriesRecommendations(
   viewerUserId?: string,
 ): Promise<SeriesRecommendationItem[]> {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
   cacheTag(
     `series-recommendations-${serverIdNum}`,
@@ -526,6 +527,7 @@ export const getSimilarSeriesForItem = async (
   limit = 10,
 ): Promise<SeriesRecommendationItem[]> => {
   "use cache";
+  cacheTag("user-analytics");
   cacheLife("hours");
   cacheTag(
     `series-recommendations-${serverId}`,

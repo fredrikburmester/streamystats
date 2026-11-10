@@ -53,7 +53,7 @@ export async function GET(request: Request) {
           isNotNull(items.deletedAt),
           sql`NOT EXISTS (
             SELECT 1 FROM items e 
-            WHERE e.season_id = ${items.id}
+            WHERE e.server_id = ${items.serverId} AND e.season_id = ${items.id}
           )`,
         ),
       );
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
           isNotNull(items.deletedAt),
           sql`NOT EXISTS (
             SELECT 1 FROM items e 
-            WHERE e.series_id = ${items.id}
+            WHERE e.server_id = ${items.serverId} AND e.series_id = ${items.id}
           )`,
         ),
       );
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
           isNotNull(items.deletedAt),
           sql`NOT EXISTS (
             SELECT 1 FROM items e 
-            WHERE e.season_id = ${items.id}
+            WHERE e.server_id = ${items.serverId} AND e.season_id = ${items.id}
           )`,
         ),
       )
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
           isNotNull(items.deletedAt),
           sql`NOT EXISTS (
             SELECT 1 FROM items e 
-            WHERE e.series_id = ${items.id}
+            WHERE e.server_id = ${items.serverId} AND e.series_id = ${items.id}
           )`,
         ),
       )
