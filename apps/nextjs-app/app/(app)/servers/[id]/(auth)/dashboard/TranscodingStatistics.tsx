@@ -1,22 +1,30 @@
 "use client";
 
-import type { TranscodingStatisticsResponse } from "@/lib/db/transcoding-statistics";
+import type {
+  TranscodingHistoryStat,
+  TranscodingStatisticsResponse,
+} from "@/lib/db/transcoding-statistics";
 import { BitrateDistributionCard } from "./BitrateDistributionCard";
 import { CodecUsageCard } from "./CodecUsageCard";
 import { ContainerFormatCard } from "./ContainerFormatCard";
 import { DirectnessCard } from "./DirectnessCard";
 import { HardwareAccelerationCard } from "./HardwareAccelerationCard";
 import { ResolutionStatisticsCard } from "./ResolutionStatisticsCard";
+import { TranscodingDirectnessHistoryCard } from "./TranscodingDirectnessHistoryCard";
 import { TranscodingReasonsCard } from "./TranscodingReasonsCard";
+import { TranscodingReasonsHistoryCard } from "./TranscodingReasonsHistoryCard";
 
 export const TranscodingStatistics = ({
   data,
+  history,
 }: {
   data: TranscodingStatisticsResponse;
+  history: TranscodingHistoryStat[];
 }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <DirectnessCard data={data.directness} />
+      <TranscodingDirectnessHistoryCard data={history} />
       <BitrateDistributionCard data={data.transcodingBitrate} />
       <CodecUsageCard
         audioCodecs={data.transcodingAudioCodec}
@@ -30,8 +38,9 @@ export const TranscodingStatistics = ({
       <HardwareAccelerationCard
         data={data.transcodingHardwareAccelerationType}
       />
+      <TranscodingReasonsCard data={data.transcodingReasons} />
       <div className="md:col-span-2">
-        <TranscodingReasonsCard data={data.transcodingReasons} />
+        <TranscodingReasonsHistoryCard data={history} />
       </div>
 
       {/* Audio Channels */}
