@@ -18,9 +18,11 @@ import { type FilterOption, MultiSelectFilter } from "./MultiSelectFilter";
 
 const DATE_PARAM_FORMAT = "yyyy-MM-dd";
 
+// No "Series": plays are recorded per episode, so it filtered on episodes too
+// and unticking one of the two contradicted the other. Old ?itemType=Series
+// links still work.
 const ITEM_TYPE_OPTIONS: FilterOption[] = [
   { value: "Movie", label: "Movie" },
-  { value: "Series", label: "Series" },
   { value: "Episode", label: "Episode" },
   { value: "Audio", label: "Audio" },
   { value: "MusicAlbum", label: "Music Album" },
