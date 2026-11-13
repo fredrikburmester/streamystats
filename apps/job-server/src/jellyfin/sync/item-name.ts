@@ -1,5 +1,7 @@
 import type { JellyfinBaseItemDto } from "../client";
 
+export const UNTITLED_ITEM_NAME = "Untitled";
+
 // Name is declared required on the DTO, but Jellyfin omits it for some items
 // (virtual specials, for one), so the input admits a missing or null Name.
 type NamedItem = Pick<JellyfinBaseItemDto, "Type" | "IndexNumber"> & {
@@ -27,5 +29,5 @@ export function resolveItemName(item: NamedItem): string {
     }
   }
 
-  return "Untitled";
+  return UNTITLED_ITEM_NAME;
 }

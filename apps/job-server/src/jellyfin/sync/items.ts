@@ -21,7 +21,7 @@ import {
 import pMap from "p-map";
 import { sleep } from "../../utils/sleep";
 import { formatSyncLogLine } from "./sync-log";
-import { resolveItemName } from "./item-name";
+import { resolveItemName, UNTITLED_ITEM_NAME } from "./item-name";
 import { formatError } from "../../utils/format-error";
 import {
   findUnlistedItemIds,
@@ -1505,8 +1505,14 @@ async function findDeletedItemMatch({
     }
   }
 
-  // Series: name + type + production_year
-  if (newItem.type === "Series" && newItem.name && newItem.productionYear) {
+  // Series: name + type + production_year. The fallback name says nothing about
+  // which series it is, so it must not pull in another series' history.
+  if (
+    newItem.type === "Series" &&
+    newItem.name &&
+    newItem.name !== UNTITLED_ITEM_NAME &&
+    newItem.productionYear
+  ) {
     const deletedSeries = await tx
       .select({ id: items.id })
       .from(items)
