@@ -21,6 +21,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
+import { isUnsupportedDimensionsParamError } from "@/lib/ai/embedding-errors";
 import { getItemEmbeddingComparison } from "@/lib/db/embedding-comparison";
 import { getHistoryByFilters } from "@/lib/db/history";
 import {
@@ -205,20 +206,36 @@ async function embedTextForServer({
       headers.Authorization = `Bearer ${apiKey}`;
     }
 
-    const body: Record<string, unknown> = { model, input: text };
-    if (typeof dimensions === "number" && dimensions > 0) {
-      body.dimensions = dimensions;
-    }
+    const sendDimensions = typeof dimensions === "number" && dimensions > 0;
+    const body = {
+      model,
+      input: text,
+      ...(sendDimensions ? { dimensions } : {}),
+    };
 
     const normalized = normalizeBaseUrl(baseUrl);
     const embeddingsUrl = normalized.endsWith("/v1")
       ? `${normalized}/embeddings`
       : `${normalized}/v1/embeddings`;
-    const res = await fetch(embeddingsUrl, {
+    let res = await fetch(embeddingsUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     });
+
+    // Some OpenAI-compatible providers (Mistral, for one) reject the optional
+    // `dimensions` field outright, so retry once without it, as the job server does.
+    if (
+      !res.ok &&
+      sendDimensions &&
+      isUnsupportedDimensionsParamError(await res.text())
+    ) {
+      res = await fetch(embeddingsUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model, input: text }),
+      });
+    }
 
     if (!res.ok) {
       return {
