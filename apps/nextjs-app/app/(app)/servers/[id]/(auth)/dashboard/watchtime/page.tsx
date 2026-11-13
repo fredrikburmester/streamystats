@@ -20,6 +20,7 @@ import Graph from "../Graph";
 import TotalWatchTime from "../TotalWatchTime";
 import { UserActivityWrapper } from "../UserActivityWrapper";
 import { WatchTimePerHour } from "../WatchTimePerHour";
+import WatchTimePeriodTotals from "../WatchTimePeriodTotals";
 import { WatchTimePerWeekDay } from "../WatchTimePerWeekDay";
 import { WatchtimeDateRangeFilter } from "./WatchtimeDateRangeFilter";
 import { WatchtimeHighlights } from "./WatchtimeHighlights";
@@ -146,6 +147,9 @@ async function WatchtimeStats({
           endDate={endDate}
         />
       </div>
+      <Suspense fallback={<Skeleton className="h-24 w-full" />}>
+        <WatchTimePeriodTotals server={server} />
+      </Suspense>
       <Suspense fallback={<Skeleton className="h-48 w-full" />}>
         <Graph server={server} startDate={startDate} endDate={endDate} />
       </Suspense>
