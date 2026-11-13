@@ -21,6 +21,7 @@ import {
 import pMap from "p-map";
 import { sleep } from "../../utils/sleep";
 import { formatSyncLogLine } from "./sync-log";
+import { resolveItemName } from "./item-name";
 import { formatError } from "../../utils/format-error";
 import {
   findUnlistedItemIds,
@@ -584,7 +585,7 @@ async function processItem({
     id: jellyfinItem.Id,
     serverId,
     libraryId,
-    name: jellyfinItem.Name,
+    name: resolveItemName(jellyfinItem),
     type: jellyfinItem.Type,
     originalTitle: jellyfinItem.OriginalTitle || null,
     etag: jellyfinItem.Etag || null,
@@ -1017,7 +1018,7 @@ function mapJellyfinItem(
     id: jellyfinItem.Id,
     serverId,
     libraryId,
-    name: jellyfinItem.Name,
+    name: resolveItemName(jellyfinItem),
     type: jellyfinItem.Type,
     originalTitle: jellyfinItem.OriginalTitle || null,
     etag: jellyfinItem.Etag || null,
