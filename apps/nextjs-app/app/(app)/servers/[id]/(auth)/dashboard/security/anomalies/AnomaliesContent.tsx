@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSecurityEvents } from "@/hooks/useSecurityEvents";
+import type { AnomalyFilterParams } from "@/lib/anomaly-filters";
 import type { Anomaly } from "@/lib/db/locations";
 import {
   resolveAllAnomalies,
@@ -27,6 +28,7 @@ interface AnomaliesContentProps {
   currentPage: number;
   pageSize: number;
   hasLocationFilters: boolean;
+  filters: AnomalyFilterParams;
 }
 
 export function AnomaliesContent({
@@ -36,6 +38,7 @@ export function AnomaliesContent({
   currentPage,
   pageSize,
   hasLocationFilters,
+  filters,
 }: AnomaliesContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,7 +62,7 @@ export function AnomaliesContent({
   };
 
   const handleResolveAll = async () => {
-    await resolveAllAnomalies(serverId);
+    await resolveAllAnomalies(serverId, { filters });
     startTransition(() => {
       router.refresh();
     });

@@ -10,7 +10,14 @@ import {
   userFingerprints,
   users,
 } from "@streamystats/database";
+import type { SQL } from "drizzle-orm";
 import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+import {
+  type AnomalyFilterParams,
+  type AnomalyFilters,
+  parseAnomalyFilters,
+  unresolvedAnomalyFilters,
+} from "@/lib/anomaly-filters";
 
 export interface LocationPoint {
   latitude: number;
@@ -341,17 +348,46 @@ export async function getUserAnomalies(
   };
 }
 
+// Shared by the anomalies list, its count and "mark all as resolved", so the
+// anomalies resolved are always the ones the page counts.
+function buildAnomalyConditions({
+  serverId,
+  filters,
+}: {
+  serverId: number;
+  filters: AnomalyFilters;
+}): SQL[] {
+  const conditions: SQL[] = [eq(anomalyEvents.serverId, serverId)];
+
+  if (filters.resolved !== undefined) {
+    conditions.push(eq(anomalyEvents.resolved, filters.resolved));
+  }
+
+  if (filters.severity) {
+    conditions.push(eq(anomalyEvents.severity, filters.severity));
+  }
+
+  if (filters.userId) {
+    conditions.push(eq(anomalyEvents.userId, filters.userId));
+  }
+
+  if (filters.dateFrom) {
+    conditions.push(gte(anomalyEvents.createdAt, new Date(filters.dateFrom)));
+  }
+
+  if (filters.dateTo) {
+    conditions.push(lte(anomalyEvents.createdAt, new Date(filters.dateTo)));
+  }
+
+  return conditions;
+}
+
 /**
  * Get all anomalies for a server (admin view)
  */
 export async function getServerAnomalies(
   serverId: number,
-  options: {
-    resolved?: boolean;
-    severity?: string;
-    userId?: string;
-    dateFrom?: string;
-    dateTo?: string;
+  options: AnomalyFilterParams & {
     limit?: number;
     offset?: number;
   } = {},
@@ -360,39 +396,14 @@ export async function getServerAnomalies(
   severityBreakdown: Record<string, number>;
   total: number;
 }> {
-  const {
-    resolved,
-    severity,
-    userId,
-    dateFrom,
-    dateTo,
-    limit = 50,
-    offset = 0,
-  } = options;
+  const { limit = 50, offset = 0, ...filterParams } = options;
 
-  const conditions = [eq(anomalyEvents.serverId, serverId)];
-
-  if (resolved !== undefined) {
-    conditions.push(eq(anomalyEvents.resolved, resolved));
-  }
-
-  if (severity) {
-    conditions.push(eq(anomalyEvents.severity, severity));
-  }
-
-  if (userId) {
-    conditions.push(eq(anomalyEvents.userId, userId));
-  }
-
-  if (dateFrom) {
-    conditions.push(gte(anomalyEvents.createdAt, new Date(dateFrom)));
-  }
-
-  if (dateTo) {
-    conditions.push(lte(anomalyEvents.createdAt, new Date(dateTo)));
-  }
-
-  const whereClause = and(...conditions);
+  const whereClause = and(
+    ...buildAnomalyConditions({
+      serverId,
+      filters: parseAnomalyFilters(filterParams),
+    }),
+  );
 
   const [anomalies, totalResult, severityBreakdown] = await Promise.all([
     db
@@ -511,12 +522,21 @@ export async function resolveAnomaly(
 }
 
 /**
- * Resolve all unresolved anomalies for a server
+ * Resolve every unresolved anomaly matching the anomalies page's filters
  */
 export async function resolveAllAnomalies(
   serverId: number,
-  options: { resolvedBy?: string; resolutionNote?: string } = {},
+  options: {
+    filters?: AnomalyFilterParams;
+    resolvedBy?: string;
+    resolutionNote?: string;
+  } = {},
 ): Promise<number> {
+  const filters = unresolvedAnomalyFilters(
+    parseAnomalyFilters(options.filters ?? {}),
+  );
+  if (!filters) return 0;
+
   const result = await db
     .update(anomalyEvents)
     .set({
@@ -525,12 +545,7 @@ export async function resolveAllAnomalies(
       resolvedBy: options.resolvedBy ?? null,
       resolutionNote: options.resolutionNote ?? "Bulk resolved",
     })
-    .where(
-      and(
-        eq(anomalyEvents.serverId, serverId),
-        eq(anomalyEvents.resolved, false),
-      ),
-    )
+    .where(and(...buildAnomalyConditions({ serverId, filters })))
     .returning({ id: anomalyEvents.id });
 
   return result.length;

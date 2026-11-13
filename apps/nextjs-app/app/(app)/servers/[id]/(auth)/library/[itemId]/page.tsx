@@ -93,10 +93,15 @@ export default async function ItemDetailsPage({
     similarItems = await getSimilarItemsForItem(server.id, itemId, 20);
   }
 
-  // Get seasons and episodes for series
+  // A series removed from Jellyfin only has deleted episodes left, which
+  // are still worth listing on its page.
   const seasons =
     itemDetails.item.type === "Series"
-      ? await getSeasonsAndEpisodes({ serverId: server.id, seriesId: itemId })
+      ? await getSeasonsAndEpisodes({
+          serverId: server.id,
+          seriesId: itemId,
+          includeDeleted: itemDetails.item.deletedAt !== null,
+        })
       : [];
 
   // Get cast and crew for movies and series

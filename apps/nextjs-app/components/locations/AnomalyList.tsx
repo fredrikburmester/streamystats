@@ -407,8 +407,9 @@ export function AnomalyList({
           <DialogHeader>
             <DialogTitle>Resolve All Anomalies</DialogTitle>
             <DialogDescription>
-              Choose whether to resolve all anomalies on this page or all
-              anomalies on the server.
+              {hasFilters
+                ? "Choose whether to resolve the anomalies on this page or every anomaly matching the current filters."
+                : "Choose whether to resolve all anomalies on this page or all anomalies on the server."}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2">
@@ -416,8 +417,17 @@ export function AnomalyList({
               <strong>This page:</strong> {unresolvedCount} unresolved anomalies
             </p>
             <p className="text-sm text-muted-foreground">
-              <strong>All on server:</strong> All unresolved anomalies will be
-              marked as resolved
+              {hasFilters ? (
+                <>
+                  <strong>All matching:</strong> All unresolved anomalies
+                  matching the current filters will be marked as resolved
+                </>
+              ) : (
+                <>
+                  <strong>All on server:</strong> All unresolved anomalies will
+                  be marked as resolved
+                </>
+              )}
             </p>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -435,7 +445,11 @@ export function AnomalyList({
               {isLoading ? "Resolving..." : "Resolve on this page"}
             </Button>
             <Button onClick={handleResolveAllServer} disabled={isLoading}>
-              {isLoading ? "Resolving..." : "Resolve ALL on server"}
+              {isLoading
+                ? "Resolving..."
+                : hasFilters
+                  ? "Resolve ALL matching"
+                  : "Resolve ALL on server"}
             </Button>
           </DialogFooter>
         </DialogContent>
