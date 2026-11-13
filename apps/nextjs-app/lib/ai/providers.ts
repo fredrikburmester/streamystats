@@ -8,6 +8,7 @@ import {
   type LanguageModel,
   wrapLanguageModel,
 } from "ai";
+import { normalizeAnthropicBaseUrl } from "./anthropic-url";
 
 export type ChatProvider =
   | "openai-compatible"
@@ -133,7 +134,7 @@ export function createChatModel(config: ChatConfig): LanguageModel | null {
       }
       const anthropic = createAnthropic({
         apiKey: config.apiKey,
-        baseURL: config.baseUrl || undefined,
+        baseURL: normalizeAnthropicBaseUrl(config.baseUrl),
       });
       return anthropic(config.model);
     }

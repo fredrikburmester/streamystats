@@ -12,6 +12,7 @@ import OpenAI from "openai";
 import type { PgBossJob } from "../types/job-status";
 import { sleep } from "../utils/sleep";
 import { TIMEOUT_CONFIG } from "./config";
+import { isUnsupportedDimensionsParamError } from "./embedding-errors";
 import { logJobResult } from "./job-logger";
 
 // Embedding configuration passed from job data
@@ -92,18 +93,6 @@ function getErrorMessage(error: unknown): string {
   } catch {
     return sanitizeErrorMessage(String(error));
   }
-}
-
-function isUnsupportedDimensionsParamError(error: unknown): boolean {
-  const msg = getErrorMessage(error).toLowerCase();
-  return (
-    (msg.includes("dimension") || msg.includes("dimensions")) &&
-    (msg.includes("unknown") ||
-      msg.includes("unsupported") ||
-      msg.includes("unrecognized") ||
-      msg.includes("invalid") ||
-      msg.includes("unexpected"))
-  );
 }
 
 function getHttpStatus(error: unknown): number | null {
