@@ -222,4 +222,40 @@ describe.skipIf(!testUrl)("media queries with overlapping Jellyfin IDs", () => {
       expect(loaded?.items[0]?.item.name).toBe(server.name);
     }
   });
+
+  // Runs last because it adds an episode the aggregation tests above would count.
+  test("a replaced episode version is left out of the season list", async () => {
+    const server = fixtures[0];
+    if (!server) throw new Error("Missing fixture server");
+    const replacedId = `replaced-episode-${suffix}`;
+    await db.insert(items).values({
+      serverId: server.id,
+      id: replacedId,
+      libraryId,
+      name: `${server.name} replaced episode`,
+      type: "Episode",
+      seriesId,
+      parentId: seriesId,
+      parentIndexNumber: 1,
+      indexNumber: 1,
+      isFolder: false,
+      rawData: {},
+      deletedAt: new Date("2026-01-02T12:00:00Z"),
+    });
+
+    const seasons = await getSeasonsAndEpisodes({
+      serverId: server.id,
+      seriesId,
+    });
+    expect(seasons[0]?.episodes.map((item) => item.id)).toEqual([episodeId]);
+
+    const withDeleted = await getSeasonsAndEpisodes({
+      serverId: server.id,
+      seriesId,
+      includeDeleted: true,
+    });
+    expect(withDeleted[0]?.episodes.map((item) => item.id).sort()).toEqual(
+      [episodeId, replacedId].sort(),
+    );
+  });
 });
