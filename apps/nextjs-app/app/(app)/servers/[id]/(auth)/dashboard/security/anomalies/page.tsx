@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { AnomalyFilterParams } from "@/lib/anomaly-filters";
 import { getServerAnomalies } from "@/lib/db/locations";
 import { getServer } from "@/lib/db/server";
 import { AnomaliesContent } from "./AnomaliesContent";
@@ -31,13 +32,16 @@ export default async function AnomaliesPage({
   const currentPage = Math.max(1, Number(page) || 1);
   const offset = (currentPage - 1) * PAGE_SIZE;
 
-  const anomalyData = await getServerAnomalies(server.id, {
-    resolved:
-      resolved === "true" ? true : resolved === "false" ? false : undefined,
+  const filters: AnomalyFilterParams = {
+    resolved,
     severity,
     userId,
     dateFrom,
     dateTo,
+  };
+
+  const anomalyData = await getServerAnomalies(server.id, {
+    ...filters,
     limit: PAGE_SIZE,
     offset,
   });
@@ -52,6 +56,7 @@ export default async function AnomaliesPage({
       currentPage={currentPage}
       pageSize={PAGE_SIZE}
       hasLocationFilters={hasFilters}
+      filters={filters}
     />
   );
 }
