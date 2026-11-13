@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.22.3](https://github.com/fredrikburmester/streamystats/compare/v2.22.2...v2.22.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **ai:** mistral embeddings and the anthropic base url ([#620](https://github.com/fredrikburmester/streamystats/issues/620)) ([7e2c717](https://github.com/fredrikburmester/streamystats/commit/7e2c717efa93d8f6c32faf63909fdaad16c71f9f))
+* resolve only filtered anomalies and hide deleted episodes ([#621](https://github.com/fredrikburmester/streamystats/issues/621)) ([c874945](https://github.com/fredrikburmester/streamystats/commit/c87494584d3056a623f4cbf83591669695fb4eda))
+* **sync:** store items that have no name in jellyfin ([#619](https://github.com/fredrikburmester/streamystats/issues/619)) ([0f86567](https://github.com/fredrikburmester/streamystats/commit/0f865678fa36585101fafddfad72c1885f0d995f))
+
 ## [2.22.2](https://github.com/fredrikburmester/streamystats/compare/v2.22.1...v2.22.2) (2026-11-10)
 
 
