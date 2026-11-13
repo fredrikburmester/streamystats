@@ -4,6 +4,7 @@ import { db, items, jobResults, servers } from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { generateText } from "ai";
 import { and, count, desc, eq, sql } from "drizzle-orm";
+import { normalizeAnthropicBaseUrl } from "@/lib/ai/anthropic-url";
 import { type ChatProvider, createChatModel } from "@/lib/ai/providers";
 import { parseDeviceName } from "@/lib/device";
 import { jellyfinHeaders } from "@/lib/jellyfin-auth";
@@ -965,7 +966,7 @@ export const testChatConnection = async ({
 
     if (config.provider === "anthropic") {
       const response = await fetch(
-        `${config.baseUrl || "https://api.anthropic.com"}/v1/messages`,
+        `${normalizeAnthropicBaseUrl(config.baseUrl)}/messages`,
         {
           method: "POST",
           headers: {
