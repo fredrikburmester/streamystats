@@ -1,6 +1,7 @@
 import { getMergedUserTarget, type Server } from "@streamystats/database";
 import type { NextRequest } from "next/server";
 import { authenticateMediaBrowserForServer } from "@/lib/api-auth";
+import { alternate } from "@/lib/db/rating-signals-pick";
 import {
   hasServerIdentifier,
   parseServerIdentifier,
@@ -130,9 +131,14 @@ function getRecommendationReason(args: {
   recommendation: {
     item: { name: string; genres: string[] | null };
     basedOn: Array<{ name: string; genres: string[] | null }>;
+    matchedThemes?: string[];
   };
 }): string {
   const { recommendation } = args;
+  const themes = recommendation.matchedThemes ?? [];
+  if (themes.length > 0) {
+    return `Matches your interest in ${themes.slice(0, 3).join(", ")}`;
+  }
   if (!recommendation.basedOn || recommendation.basedOn.length === 0) {
     return "Popular on this server";
   }
@@ -140,8 +146,8 @@ function getRecommendationReason(args: {
   const baseNames = recommendation.basedOn.slice(0, 3).map((b) => b.name);
   const baseReason =
     baseNames.length === 1
-      ? `Because you watched "${baseNames[0]}"`
-      : `Because you watched "${baseNames.slice(0, -1).join('", "')}" and "${
+      ? `Similar to "${baseNames[0]}"`
+      : `Similar to "${baseNames.slice(0, -1).join('", "')}" and "${
           baseNames[baseNames.length - 1]
         }"`;
 
@@ -300,9 +306,10 @@ async function buildRecommendationsResponse(args: {
     });
   }
 
-  // Combine and sort by similarity (both types have compatible structure)
-  const combined = [...movieResults, ...seriesResults].sort(
-    (a, b) => b.similarity - a.similarity,
+  // Both types have compatible structure; each list keeps its engine's order.
+  const combined = alternate<RecommendationItem | SeriesRecommendationItem>(
+    movieResults,
+    seriesResults,
   );
 
   const limitedResults = combined.slice(0, params.limit);

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.userMergeAudit = exports.userMerges = exports.users = exports.libraries = exports.servers = void 0;
+exports.itemPeopleRelations = exports.peopleRelations = exports.watchlistItemsRelations = exports.watchlistsRelations = exports.hiddenRecommendationsRelations = exports.anomalyEventsRelations = exports.userFingerprintsRelations = exports.activityLocationsRelations = exports.sessionsRelations = exports.itemsRelations = exports.activitiesRelations = exports.usersRelations = exports.librariesRelations = exports.serverJobConfigurationsRelations = exports.serversRelations = exports.watchlistItems = exports.watchlists = exports.itemPeople = exports.people = exports.anomalyEvents = exports.userFingerprints = exports.activityLocations = exports.userItemRatings = exports.userRecommendationProfiles = exports.hiddenRecommendations = exports.activityLogCursors = exports.activeSessions = exports.sessions = exports.mediaSources = exports.items = exports.serverJobConfigurations = exports.jobResults = exports.activities = exports.userMergeAudit = exports.userMerges = exports.users = exports.libraries = exports.servers = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 // Custom vector type that supports variable dimensions
 // This allows storing embeddings of any size without hardcoding dimensions
@@ -542,6 +542,63 @@ exports.hiddenRecommendations = (0, pg_core_1.pgTable)("hidden_recommendations",
         foreignColumns: [exports.items.serverId, exports.items.id],
     }).onDelete("cascade"),
     (0, pg_core_1.index)("hidden_recommendations_server_user_idx").on(table.serverId, table.userId),
+]);
+// How each user wants their recommendations steered. Themes are embedded with
+// the server's embedding model when saved, so they compare directly against
+// item embeddings.
+exports.userRecommendationProfiles = (0, pg_core_1.pgTable)("user_recommendation_profiles", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    serverId: (0, pg_core_1.integer)("server_id")
+        .references(() => exports.servers.id, { onDelete: "cascade" })
+        .notNull(),
+    userId: (0, pg_core_1.text)("user_id").notNull(), // Jellyfin user ID
+    likesText: (0, pg_core_1.text)("likes_text").default("").notNull(),
+    dislikesText: (0, pg_core_1.text)("dislikes_text").default("").notNull(),
+    likeThemes: (0, pg_core_1.jsonb)("like_themes").$type().default([]).notNull(),
+    dislikeThemes: (0, pg_core_1.jsonb)("dislike_themes").$type().default([]).notNull(),
+    // Off: watch history no longer steers recommendations (watched titles are
+    // still never recommended). For shared viewing that isn't your taste.
+    useWatchHistory: (0, pg_core_1.boolean)("use_watch_history").default(true).notNull(),
+    // On: skip anything started at all (any session, any episode of a series,
+    // or another copy of the same title), not only what was watched past half.
+    excludeStarted: (0, pg_core_1.boolean)("exclude_started").default(false).notNull(),
+    updatedAt: (0, pg_core_1.timestamp)("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    (0, pg_core_1.unique)("user_recommendation_profiles_server_user_unique").on(table.serverId, table.userId),
+]);
+// Explicit per-user opinions on items, normalized to a 0-5 scale. Watch history
+// only says what someone sat through; ratings say what they actually liked, and
+// an episode rating says which content they liked, not just which series.
+// Rows are replaced per (server, user, source) on every ratings sync, so a
+// rating removed in Jellyfin disappears here too.
+exports.userItemRatings = (0, pg_core_1.pgTable)("user_item_ratings", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    serverId: (0, pg_core_1.integer)("server_id")
+        .references(() => exports.servers.id, { onDelete: "cascade" })
+        .notNull(),
+    userId: (0, pg_core_1.text)("user_id").notNull(), // Jellyfin user ID
+    // Null when the rated title is not (or no longer) in the library; kept so
+    // it matches as soon as the item is added.
+    itemId: (0, pg_core_1.text)("item_id"),
+    // "jellyfin-enhanced" (plugin star reviews) or "jellyfin" (likes/favorites)
+    source: (0, pg_core_1.text)("source").notNull(),
+    // Stable key within the source: "movie:603" / "tv:1418:s4:e12" for
+    // Jellyfin Enhanced, the Jellyfin item ID for native user data.
+    sourceKey: (0, pg_core_1.text)("source_key").notNull(),
+    rating: (0, pg_core_1.doublePrecision)("rating").notNull(),
+    review: (0, pg_core_1.text)("review"),
+    ratedAt: (0, pg_core_1.timestamp)("rated_at", { withTimezone: true }),
+    createdAt: (0, pg_core_1.timestamp)("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    // Migration limits SET NULL to item_id, preserving the rating's server.
+    (0, pg_core_1.foreignKey)({
+        name: "user_item_ratings_items_server_fk",
+        columns: [table.serverId, table.itemId],
+        foreignColumns: [exports.items.serverId, exports.items.id],
+    }).onDelete("set null"),
+    (0, pg_core_1.unique)("user_item_ratings_unique").on(table.serverId, table.userId, table.source, table.sourceKey),
+    (0, pg_core_1.index)("user_item_ratings_server_user_rating_idx").on(table.serverId, table.userId, table.rating),
+    (0, pg_core_1.index)("user_item_ratings_item_idx").on(table.itemId),
 ]);
 // Activity locations table - geolocated IP data for activities
 exports.activityLocations = (0, pg_core_1.pgTable)("activity_locations", {

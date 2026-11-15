@@ -1,6 +1,12 @@
 import "server-only";
 
-import { db, items, jobResults, servers } from "@streamystats/database";
+import {
+  db,
+  embeddableItemCondition,
+  items,
+  jobResults,
+  servers,
+} from "@streamystats/database";
 import type { EmbeddingJobResult, Server } from "@streamystats/database/schema";
 import { generateText } from "ai";
 import { and, count, desc, eq, sql } from "drizzle-orm";
@@ -353,12 +359,7 @@ export const getEmbeddingProgress = async ({
     const totalResult = await db
       .select({ count: count() })
       .from(items)
-      .where(
-        and(
-          eq(items.serverId, serverId),
-          sql`${items.type} IN ('Movie', 'Series')`,
-        ),
-      );
+      .where(and(eq(items.serverId, serverId), embeddableItemCondition()));
 
     const total = totalResult[0]?.count || 0;
 
@@ -370,7 +371,7 @@ export const getEmbeddingProgress = async ({
         and(
           eq(items.serverId, serverId),
           eq(items.processed, true),
-          sql`${items.type} IN ('Movie', 'Series')`,
+          embeddableItemCondition(),
         ),
       );
 

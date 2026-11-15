@@ -28,6 +28,7 @@ import {
 import { getSession } from "@/lib/session";
 import { formatDuration } from "@/lib/utils";
 import { HistoryTable } from "../../history/HistoryTable";
+import { RecommendationProfileSetting } from "../../user-settings/RecommendationProfileSetting";
 import { AlmostDone } from "./AlmostDone";
 import { GenreStatsGraph } from "./GenreStatsGraph";
 import { InferWatchtimeManager } from "./InferWatchtimeManager";
@@ -199,6 +200,15 @@ export default async function User({
       <div className="mt-6 mb-4">
         <UserSimilarity serverId={server.id} userId={user.id} />
       </div>
+      {(isCurrentUser || isAdmin) && (
+        <div className="mb-4">
+          <RecommendationProfileSetting
+            serverId={server.id}
+            userId={user.id}
+            userName={isCurrentUser ? undefined : user.name}
+          />
+        </div>
+      )}
       {(isCurrentUser || isAdmin) && (
         <div className="mb-4">
           <InferWatchtimeManager

@@ -15,6 +15,7 @@ import {
   desc,
   eq,
   gte,
+  inArray,
   isNotNull,
   isNull,
   lte,
@@ -25,6 +26,14 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import { getItemEmbeddingComparison } from "./embedding-comparison";
 import { getStatisticsExclusions } from "./exclusions";
+import { getDislikeRelevances, getUserRatingSignals } from "./rating-signals";
+import { isNearerToDislike, relativeSimilarity } from "./rating-signals-pick";
+import {
+  getRecommendationProfile,
+  getThemeSeedCards,
+} from "./recommendation-profile";
+import { withMatchedThemes } from "./recommendation-profile-pick";
+import { getExcludedStartedIds } from "./started-items";
 import { getMe } from "./users";
 
 const debugLog = (..._args: unknown[]) => {};
@@ -38,6 +47,8 @@ export interface RecommendationItem {
   item: RecommendationCardItem;
   similarity: number;
   basedOn: RecommendationCardItem[];
+  /** The user's own stated interests this matches (see taste profile). */
+  matchedThemes?: string[];
 }
 
 export interface RecommendationCardItem {
@@ -123,6 +134,28 @@ const stripEmbedding = (
 };
 
 const RECOMMENDATION_POOL_SIZE = 500;
+
+async function getLikedSeedCards({
+  serverId,
+  likedItemIds,
+}: {
+  serverId: number;
+  likedItemIds: string[];
+}): Promise<RecommendationCardItemWithEmbedding[]> {
+  if (likedItemIds.length === 0) return [];
+  const rows = await db
+    .select(itemCardWithEmbeddingSelect)
+    .from(items)
+    .where(
+      and(
+        eq(items.serverId, serverId),
+        inArray(items.id, likedItemIds),
+        isNotNull(items.embedding),
+      ),
+    );
+  const order = new Map(likedItemIds.map((id, index) => [id, index]));
+  return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
 
 async function getRecommendations(
   serverIdNum: number,
@@ -277,7 +310,15 @@ async function getUserSpecificRecommendations(
     );
   });
 
-  if (userWatchHistory.length === 0) {
+  const ratingSignals = await getUserRatingSignals({ serverId, userId });
+  const profile = await getRecommendationProfile({ serverId, userId });
+  const themeSeeds = getThemeSeedCards(profile);
+
+  if (
+    userWatchHistory.length === 0 &&
+    ratingSignals.likedItemIds.length === 0 &&
+    themeSeeds.length === 0
+  ) {
     debugLog("❌ No watch history found, returning empty recommendations");
     return [];
   }
@@ -285,6 +326,18 @@ async function getUserSpecificRecommendations(
   // Extract watched items and their IDs
   const watchedItems = userWatchHistory.map((w) => w.item);
   const watchedItemIds = watchedItems.map((item) => item.id);
+  // Anything the user rated is something they already know.
+  const excludedItemIds = [
+    ...new Set([
+      ...watchedItemIds,
+      ...ratingSignals.knownItemIds,
+      ...(await getExcludedStartedIds({
+        serverId,
+        userId,
+        enabled: profile.excludeStarted,
+      })),
+    ]),
+  ];
 
   // Get hidden recommendations for this user
   let hiddenItems: { itemId: string }[] = [];
@@ -364,13 +417,33 @@ async function getUserSpecificRecommendations(
     (item) => !recentIds.has(item.id),
   );
 
-  const baseMovies = [...recentWatches, ...additionalTopWatched].slice(0, 15);
+  // Liked items lead: a rating is a deliberate signal of taste, where a
+  // watch only says something was sat through. A liked episode seeds on that
+  // episode's own content, not on the series as a whole.
+  // The user's own stated interests lead, then their ratings; watch history
+  // only seeds when they allow it (shared viewing is not always their taste).
+  const likedSeeds = await getLikedSeedCards({
+    serverId,
+    likedItemIds: ratingSignals.likedItemIds,
+  });
+  const likedSeedIds = new Set([
+    ...themeSeeds.map((seed) => seed.id),
+    ...likedSeeds.map((item) => item.id),
+  ]);
+  const watchSeeds = profile.useWatchHistory
+    ? [...recentWatches, ...additionalTopWatched]
+        .filter((item) => !likedSeedIds.has(item.id))
+        .slice(0, 15)
+    : [];
+  const baseMovies = [...themeSeeds, ...likedSeeds, ...watchSeeds];
   debugLog(`🎬 Final base movies for similarity (${baseMovies.length}):`);
   baseMovies.forEach((item, index) => {
-    const isRecent = recentIds.has(item.id);
-    debugLog(
-      `  ${index + 1}. "${item.name}" (${isRecent ? "recent" : "top watched"})`,
-    );
+    const origin = likedSeedIds.has(item.id)
+      ? "rated"
+      : recentIds.has(item.id)
+        ? "recent"
+        : "top watched";
+    debugLog(`  ${index + 1}. "${item.name}" (${origin})`);
   });
 
   if (baseMovies.length === 0) {
@@ -384,6 +457,8 @@ async function getUserSpecificRecommendations(
     {
       item: RecommendationCardItem;
       similarities: number[];
+      /** Similarity relative to each seed's own nearest neighbour (0-1]. */
+      relevances: number[];
       basedOn: RecommendationCardItemWithEmbedding[];
     }
   >();
@@ -416,7 +491,9 @@ async function getUserSpecificRecommendations(
           eq(items.type, "Movie"),
           isNotNull(items.embedding),
           dimensionFilter,
-          notInArray(items.id, watchedItemIds), // Exclude already watched items
+          excludedItemIds.length > 0
+            ? notInArray(items.id, excludedItemIds)
+            : sql`true`, // Exclude already watched or rated items
           hiddenItemIds.length > 0
             ? notInArray(items.id, hiddenItemIds)
             : sql`true`, // Exclude hidden items
@@ -456,6 +533,7 @@ async function getUserSpecificRecommendations(
     }
 
     // Add similarities to candidate items
+    const topSimilarity = Number(similarItems[0]?.similarity ?? 0);
     for (const result of similarItems) {
       const itemId = result.item.id;
       const simScore = Number(result.similarity);
@@ -464,6 +542,7 @@ async function getUserSpecificRecommendations(
         candidateItems.set(itemId, {
           item: result.item,
           similarities: [],
+          relevances: [],
           basedOn: [],
         });
       }
@@ -471,7 +550,20 @@ async function getUserSpecificRecommendations(
       const candidate = candidateItems.get(itemId);
       if (!candidate) continue;
       candidate.similarities.push(simScore);
+      candidate.relevances.push(relativeSimilarity(simScore, topSimilarity));
       candidate.basedOn.push(watchedItem);
+    }
+  }
+
+  const dislikeRelevance = await getDislikeRelevances({
+    serverId,
+    dislikedItemIds: ratingSignals.dislikedItemIds,
+    dislikedEmbeddings: profile.dislikeThemes.map((theme) => theme.embedding),
+    candidateIds: [...candidateItems.keys()],
+  });
+  for (const [itemId, candidate] of candidateItems) {
+    if (isNearerToDislike(candidate.relevances, dislikeRelevance.get(itemId))) {
+      candidateItems.delete(itemId);
     }
   }
 
@@ -522,8 +614,21 @@ async function getUserSpecificRecommendations(
     }
   }
 
-  // Sort guaranteed recommendations by similarity
-  guaranteedRecommendations.sort((a, b) => b.similarity - a.similarity);
+  // Picks for rated items lead, in seed order (highest rated, most recent
+  // first): raw similarity is not comparable across seeds -- an episode's
+  // short text scores lower against everything than a movie's -- so sorting
+  // by it would bury every episode-seeded pick. Watch-seeded picks keep their
+  // similarity order.
+  const seedOrder = new Map(baseMovies.map((m, index) => [m.id, index]));
+  const seedIndex = (rec: RecommendationItem) =>
+    seedOrder.get(rec.basedOn[0]?.id ?? "") ?? Number.MAX_SAFE_INTEGER;
+  guaranteedRecommendations.sort((a, b) => {
+    const aRated = likedSeedIds.has(a.basedOn[0]?.id ?? "");
+    const bRated = likedSeedIds.has(b.basedOn[0]?.id ?? "");
+    if (aRated && bRated) return seedIndex(a) - seedIndex(b);
+    if (aRated !== bRated) return aRated ? -1 : 1;
+    return b.similarity - a.similarity;
+  });
 
   // Get multi-movie matches for remaining slots
   const multiMovieMatches = Array.from(candidateItems.values())
@@ -563,7 +668,9 @@ async function getUserSpecificRecommendations(
   ];
 
   // Take the top recommendations
-  const finalRecommendations = qualifiedCandidates.slice(0, limit);
+  const finalRecommendations = qualifiedCandidates
+    .slice(0, limit)
+    .map(withMatchedThemes);
   recommendations.push(...finalRecommendations);
 
   debugLog(`\n✅ Final ${finalRecommendations.length} recommendations:`);
