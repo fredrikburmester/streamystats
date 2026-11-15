@@ -337,6 +337,13 @@
       "when": 1794324661230,
       "tag": "0047_item_libraries",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794743898461,
+      "tag": "0048_user_item_ratings",
+      "breakpoints": true
     }
   ]
 }

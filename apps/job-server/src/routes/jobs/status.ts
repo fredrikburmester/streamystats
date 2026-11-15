@@ -113,6 +113,12 @@ app.get("/servers/:serverId/status", async (c) => {
         name: JELLYFIN_JOB_NAMES.PEOPLE_SYNC,
         category: "background",
       },
+      {
+        key: "jellyfin-ratings-sync",
+        label: "Jellyfin ratings",
+        name: JELLYFIN_JOB_NAMES.RATINGS_SYNC,
+        category: "background",
+      },
     ];
 
     const jobNames = jobDefinitions.map((j) => j.name);
@@ -309,6 +315,7 @@ app.get("/server-status", async (c) => {
       boss.getQueueStats(JELLYFIN_JOB_NAMES.RECENT_ITEMS_SYNC),
       boss.getQueueStats(JELLYFIN_JOB_NAMES.RECENT_ACTIVITIES_SYNC),
       boss.getQueueStats(JELLYFIN_JOB_NAMES.PEOPLE_SYNC),
+      boss.getQueueStats(JELLYFIN_JOB_NAMES.RATINGS_SYNC),
     ]);
     const jellyfinQueueSizes = jellyfinQueueStats.map(
       (s) => latestQueueStats(s)?.queuedCount ?? 0,
@@ -383,6 +390,7 @@ app.get("/server-status", async (c) => {
         jellyfinRecentItemsSync: jellyfinQueueSizes[5],
         jellyfinRecentActivitiesSync: jellyfinQueueSizes[6],
         jellyfinPeopleSync: jellyfinQueueSizes[7],
+        jellyfinRatingsSync: jellyfinQueueSizes[8],
         totalQueued: [...queueSizes, ...jellyfinQueueSizes].reduce(
           (sum, stat) => sum + stat,
           0
