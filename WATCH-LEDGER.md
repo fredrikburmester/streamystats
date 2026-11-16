@@ -35,6 +35,8 @@ The per-user **Include imported/estimated watches in statistics** switch default
 
 Raw-session, device, transcoding, library, and genre measurements remain based on actual sessions. Other upstream Wrapped panels retain their existing calculations. Titles outside Jellyfin can appear in viewing rankings without a fabricated library link. User exclusions and known library exclusions apply; an external title with no library match has no assigned library.
 
+Ledger hides playback sessions whose duration would display as 0m. These sessions are excluded from Ledger cards, session counts, watch-time totals, activity, and recaps, including existing history. The underlying records and accumulated completion coverage remain available; Raw Sessions and other Streamystats statistics keep their original data. Standalone manual logs and SIMKL imports are preserved even when their runtime is missing or under a minute.
+
 ## Watches and corrections
 
 Sessions for an unfinished episode are combined across pauses, days, and devices. Legacy recordings lack sufficient coverage data to reliably infer repeat viewings, so they are grouped conservatively and can be corrected manually. New recordings accumulate unique watched portions. A restart near the beginning after completion opens a tentative new watch, counted as a completed rewatch only after reaching the completion threshold.
