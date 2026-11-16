@@ -25,3 +25,10 @@ bun run build:nextjs
 ```
 
 No live Docker deployment or Jellyfin connection was available. Existing containers and the user's database were not modified. No new database migration or dependency is required. Supported limits and measurement distinctions are documented in WATCH-LEDGER.md. Previous review resolutions remain documented in REVIEW-FIXES.md.
+
+
+Zero-minute Ledger display follow-up, 2026-11-16:
+
+- Ledger-only filtering uses the same whole-minute formatting boundary as the UI. Existing raw playback records and coverage are preserved.
+- Regression checks cover 0s/15s/59.4s hidden, 59.5s/60s visible, removal from cards/session counts/activity/recaps/totals/pagination, no extra day from a short resume, retained completion and corrections, and unchanged standalone imported/manual entries.
+- All 51 ledger tests, database build, Next.js TypeScript, production compilation, and Git whitespace checks pass. No live server deployment was performed for this follow-up.

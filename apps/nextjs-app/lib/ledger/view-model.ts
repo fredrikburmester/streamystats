@@ -1,4 +1,5 @@
 import { watchesForStatistics } from "./statistics-model";
+import { ledgerMinutes } from "./duration";
 import type { getWatchLedger } from "./store";
 import { dayKey, groupHistoryDays, type Watch, type Title } from "./engine";
 
@@ -14,7 +15,33 @@ export function buildLedgerView(ledger: Ledger, query: URLSearchParams) {
     today = dayKey(new Date().toISOString(), zone);
   const kind = query.get("kind") ?? "all",
     search = (query.get("search") ?? "").toLowerCase().slice(0, 300);
-  const watches = ledger.watches.filter(
+  // Keep the underlying watch and coverage intact; this filter only affects Ledger's view.
+  const visibleWatches = ledger.watches.flatMap((watch): Watch[] => {
+    if (!watch.sessions.length) return [watch];
+    const sessions = watch.sessions.filter((session) => ledgerMinutes(session.seconds) > 0);
+    if (!sessions.length) return [];
+    if (sessions.length === watch.sessions.length) return [watch];
+    return [
+      {
+        ...watch,
+        sessions,
+        measuredSeconds: sessions.reduce((sum, session) => sum + session.seconds, 0),
+        start: watch.dateCorrected
+          ? watch.start
+          : sessions.reduce(
+              (first, session) => (session.start < first ? session.start : first),
+              sessions[0].start,
+            ),
+        end: watch.dateCorrected
+          ? watch.end
+          : sessions.reduce(
+              (last, session) => (session.end > last ? session.end : last),
+              sessions[0].end,
+            ),
+      },
+    ];
+  });
+  const watches = visibleWatches.filter(
     (w) =>
       (kind === "all" || w.title.kind === kind) &&
       `${w.title.name} ${w.episodeTitle}`.toLowerCase().includes(search),
@@ -230,9 +257,11 @@ export function buildLedgerView(ledger: Ledger, query: URLSearchParams) {
     titles: ledger.titles,
     settings: ledger.settings,
     images: Object.fromEntries(Object.entries(ledger.images).filter(([id]) => sessionIds.has(id))),
-    sessionCount: ledger.sessionCount,
+    sessionCount: new Set(
+      visibleWatches.flatMap((watch) => watch.sessions.map((session) => session.id)),
+    ).size,
     hiddenCount: ledger.hiddenCount,
-    totalWatches: ledger.watches.length,
+    totalWatches: visibleWatches.length,
     totals: {
       recorded: statistical.reduce((sum, watch) => sum + watch.measuredSeconds, 0),
       imported: statistical.reduce((sum, watch) => sum + watch.estimatedSeconds, 0),
