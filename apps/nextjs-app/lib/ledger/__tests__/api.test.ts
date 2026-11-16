@@ -5,6 +5,7 @@ let authorized = true,
   admin = false,
   currentAdmin = true;
 let seen: unknown = null;
+const importOptions: boolean[] = [];
 const writes: unknown[] = [],
   invalidations: unknown[] = [];
 const userList = [
@@ -30,7 +31,9 @@ mock.module("@/lib/ledger/persistence", () => ({
     serverId: number;
     userId: string;
     rows: Record<string, unknown>[];
+    useIncomingDates?: boolean;
   }) => {
+    importOptions.push(args.useIncomingDates === true);
     writes.push(
       ...args.rows.map((row) => ({ ...row, serverId: args.serverId, userId: args.userId })),
     );
@@ -75,6 +78,7 @@ afterEach(() => {
   currentAdmin = true;
   seen = null;
   writes.length = 0;
+  importOptions.length = 0;
   invalidations.length = 0;
 });
 test("session and server boundaries are enforced", async () => {
@@ -191,4 +195,58 @@ test("the shared source switch accepts true and false without replacing other se
   expect(writes[0]).toMatchObject({ payload: { includeImportedStats: true } });
   expect(writes[1]).toMatchObject({ payload: { includeImportedStats: false } });
   expect(invalidations).toContainEqual(["ledger-stats-1", { expire: 0 }]);
+});
+
+const importRequest = ({
+  mode,
+  name = "backup.json",
+  suffix = "",
+}: {
+  mode?: string;
+  name?: string;
+  suffix?: string;
+}) => {
+  const form = new FormData();
+  form.set(
+    "file",
+    new File(
+      [
+        JSON.stringify({
+          shows: [
+            {
+              show: { title: "Example", ids: { simkl: 1 }, runtime: 54 },
+              seasons: [
+                { number: 1, episodes: [{ number: 1, watched_at: "2026-03-01T12:00:00Z" }] },
+              ],
+            },
+          ],
+        }),
+      ],
+      name,
+    ),
+  );
+  if (mode !== undefined) form.set("importMode", mode);
+  return new NextRequest(`http://localhost/api/ledger?serverId=1${suffix}`, {
+    method: "POST",
+    headers: { origin: "http://localhost" },
+    body: form,
+  });
+};
+test("only explicit JSON reimports enable corrected earlier dates and invalidate statistics", async () => {
+  expect((await POST(importRequest({}))).status).toBe(200);
+  expect(importOptions).toEqual([false]);
+  expect((await POST(importRequest({ mode: "use-import-dates" }))).status).toBe(200);
+  expect(importOptions).toEqual([false, true]);
+  expect(writes[1]).toMatchObject({ userId: "viewer", kind: "simkl-json" });
+  expect(invalidations).toContainEqual(["ledger-stats-1", { expire: 0 }]);
+});
+test("date replacement imports retain access checks and reject invalid modes and ZIPs", async () => {
+  expect(
+    (await POST(importRequest({ mode: "use-import-dates", suffix: "&userId=other" }))).status,
+  ).toBe(403);
+  expect((await POST(importRequest({ mode: "delete-everything" }))).status).toBe(400);
+  const zip = await POST(importRequest({ mode: "use-import-dates", name: "backup.zip" }));
+  expect(zip.status).toBe(400);
+  expect((await zip.json()).error).toContain("Extract the SIMKL ZIP");
+  expect(writes).toHaveLength(0);
 });

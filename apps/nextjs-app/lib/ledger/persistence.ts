@@ -14,10 +14,15 @@ const stableJson = (value: unknown) =>
       : current;
   });
 
-export function mergeImportPayload(
-  previous: Record<string, unknown>,
-  incoming: Record<string, unknown>,
-) {
+export function mergeImportPayload({
+  previous,
+  incoming,
+  useIncomingDates = false,
+}: {
+  previous: Record<string, unknown>;
+  incoming: Record<string, unknown>;
+  useIncomingDates?: boolean;
+}) {
   const history = new Map<string, Record<string, unknown>>();
   for (const source of [previous.history, incoming.history]) {
     if (!Array.isArray(source)) continue;
@@ -27,7 +32,13 @@ export function mergeImportPayload(
       const before = history.get(row.key);
       const timestamp = (entry: Record<string, unknown>) =>
         validDate(entry.originalWatchedAt ?? entry.watchedAt) ?? "";
-      if (!before || timestamp(row) >= timestamp(before)) history.set(row.key, row);
+      // Explicit date corrections may move backward; normal merges still protect newer history.
+      if (
+        !before ||
+        (useIncomingDates && Boolean(timestamp(row))) ||
+        timestamp(row) >= timestamp(before)
+      )
+        history.set(row.key, row);
     }
   }
   const latest = (value: unknown) =>
@@ -51,10 +62,12 @@ export async function saveLedgerRows({
   serverId,
   userId,
   rows,
+  useIncomingDates = false,
 }: {
   serverId: number;
   userId: string;
   rows: ImportedRecord[];
+  useIncomingDates?: boolean;
 }) {
   await db.transaction(async (tx) => {
     // One transaction per user prevents imports and resets racing with each other.
@@ -83,7 +96,12 @@ export async function saveLedgerRows({
             );
           continue;
         }
-        if (existing) payload = mergeImportPayload(existing.payload, payload);
+        if (existing)
+          payload = mergeImportPayload({
+            previous: existing.payload,
+            incoming: payload,
+            useIncomingDates: useIncomingDates && row.kind === "simkl-json",
+          });
       }
       await tx
         .insert(ledgerRecords)

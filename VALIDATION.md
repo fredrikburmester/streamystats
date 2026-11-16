@@ -26,6 +26,12 @@ bun run build:nextjs
 
 No live Docker deployment or Jellyfin connection was available. Existing containers and the user's database were not modified. No new database migration or dependency is required. Supported limits and measurement distinctions are documented in WATCH-LEDGER.md. Previous review resolutions remain documented in REVIEW-FIXES.md.
 
+Corrected-date reimport follow-up, 2026-11-04:
+
+- 50 ledger tests pass, including explicit JSON date replacement, default merge behavior, invalid import modes, ZIP extraction guidance, authorization, and cache invalidation.
+- PostgreSQL/PGlite verifies an earlier date replaces both source date fields, missing dates retain existing values, missing entries survive, recorded sessions and manual/correction records are unchanged, and daily imported runtime moves to the corrected day.
+- Database build, Next.js TypeScript check, production compilation, and Git whitespace checks pass. No live server import or browser interaction was performed for this follow-up.
+- No new database migration or dependency.
 
 Zero-minute Ledger display follow-up, 2026-11-16:
 

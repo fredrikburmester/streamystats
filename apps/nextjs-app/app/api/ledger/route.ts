@@ -94,11 +94,17 @@ export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Origin mismatch" }, { status: 403 });
   try {
     let rows: ImportedRecord[] = [];
+    let useIncomingDates = false;
     if (request.headers.get("content-type")?.includes("multipart/form-data")) {
       const form = await request.formData(),
         file = form.get("file");
       if (!(file instanceof File) || file.size > 20 * 1024 * 1024)
         throw new Error("Choose a SIMKL JSON/CSV file under 20 MB.");
+      const mode = z.enum(["merge", "use-import-dates"]).parse(form.get("importMode") ?? "merge");
+      if (file.name.toLowerCase().endsWith(".zip"))
+        throw new Error("Extract the SIMKL ZIP and choose the JSON file inside it.");
+      if (!/\.(json|csv)$/i.test(file.name)) throw new Error("Choose a SIMKL JSON or CSV file.");
+      useIncomingDates = mode === "use-import-dates" && file.name.toLowerCase().endsWith(".json");
       const text = await file.text();
       rows = file.name.toLowerCase().endsWith(".csv")
         ? parseSimklCsv(text)
@@ -159,7 +165,7 @@ export async function POST(request: NextRequest) {
       } else throw new Error("Unknown action");
     }
     if (rows.length > 10000) throw new Error("Import exceeds 10,000 titles.");
-    if (rows.length) await saveLedgerRows({ serverId: sid.data, userId, rows });
+    if (rows.length) await saveLedgerRows({ serverId: sid.data, userId, rows, useIncomingDates });
     invalidateLedger(sid.data, userId);
     return NextResponse.json({ ok: true, imported: rows.length });
   } catch (error) {

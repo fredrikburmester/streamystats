@@ -190,4 +190,85 @@ assert.equal(
     .length,
   0,
 );
+// A corrected backup can deliberately move dates backward without deleting anything else.
+const beforeProtected = await postgres.query(
+  "SELECT kind, source_key, payload FROM ledger_records WHERE server_id=1 AND user_id='viewer' AND kind <> 'simkl-json' ORDER BY kind, source_key",
+);
+const beforeSessions = await postgres.query("SELECT * FROM sessions ORDER BY id");
+const earlierDate = "2026-02-01T12:00:00.654321Z";
+await saveLedgerRows({
+  ...scope,
+  useIncomingDates: true,
+  rows: [
+    {
+      ...newer,
+      payload: {
+        history: [{ key: "ep1", watchedAt: earlierDate, originalWatchedAt: earlierDate }],
+      },
+    },
+  ],
+});
+assert.deepEqual((await read("simkl-json"))[0].payload.history, [
+  { key: "ep1", watchedAt: earlierDate, originalWatchedAt: earlierDate },
+  newer.payload.history[1],
+]);
+// A missing date is not an instruction to erase a previously supplied date.
+await saveLedgerRows({
+  ...scope,
+  useIncomingDates: true,
+  rows: [{ ...newer, payload: { history: [{ key: "ep1", watchedAt: null }] } }],
+});
+assert.deepEqual((await read("simkl-json"))[0].payload.history, [
+  { key: "ep1", watchedAt: earlierDate, originalWatchedAt: earlierDate },
+  newer.payload.history[1],
+]);
+await saveLedgerRows({
+  ...scope,
+  useIncomingDates: true,
+  rows: [
+    {
+      kind: "simkl-json",
+      sourceKey: "legacy-import",
+      payload: {
+        history: [
+          {
+            key: "legacy-history",
+            title: { key: "legacy-title", name: "Imported movie", kind: "movie" },
+            watchedAt: earlierDate,
+            originalWatchedAt: earlierDate,
+            accuracy: "accurate",
+            runtime: 100,
+            completed: true,
+            source: "simkl",
+          },
+        ],
+      },
+    },
+  ],
+});
+const corrected = await getWatchLedger(scope);
+assert.equal(
+  corrected.watches.find((watch) => watch.id === "import:legacy-history")?.end,
+  earlierDate,
+);
+const { buildLedgerView } = await import("../view-model");
+const view = buildLedgerView(
+  { ...corrected, settings: { ...corrected.settings, includeImportedStats: true } },
+  new URLSearchParams(),
+);
+assert.equal(view.days.find((day) => day.day === "2026-02-01")?.imported, 100);
+assert.equal(view.days.find((day) => day.day === "2026-04-25")?.imported, 0);
+assert.deepEqual(
+  (
+    await postgres.query(
+      "SELECT kind, source_key, payload FROM ledger_records WHERE server_id=1 AND user_id='viewer' AND kind <> 'simkl-json' ORDER BY kind, source_key",
+    )
+  ).rows,
+  beforeProtected.rows,
+);
+assert.deepEqual(
+  (await postgres.query("SELECT * FROM sessions ORDER BY id")).rows,
+  beforeSessions.rows,
+);
+assert.equal((await read("simkl-json")).length, 2);
 await postgres.close();

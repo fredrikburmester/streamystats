@@ -115,6 +115,9 @@ export function Ledger({
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [manual, setManual] = useState(false),
+    [importOpen, setImportOpen] = useState(false),
+    [importMode, setImportMode] = useState("merge"),
+    [importSelection, setImportSelection] = useState<File[]>([]),
     [edit, setEdit] = useState<Watch | null>(null),
     [settings, setSettings] = useState(false),
     [statusFilter, setStatusFilter] = useState("all"),
@@ -254,8 +257,20 @@ export function Ledger({
     3600,
     ...[...contributions.values()].map((v) => v.recorded + v.estimated),
   );
-  async function importFiles(files: FileList | null) {
-    if (!files) return;
+  function openImport() {
+    setImportMode("merge");
+    setImportSelection([]);
+    if (upload.current) upload.current.value = "";
+    setImportOpen(true);
+  }
+  async function importFiles(files: File[]) {
+    if (!files.length || mutating.current) return;
+    if (importMode === "use-import-dates" && !files.some((file) => /\.json$/i.test(file.name))) {
+      setError("Choose the JSON file from your SIMKL backup to correct episode dates.");
+      return;
+    }
+    mutating.current = true;
+    generation.current++;
     setBusy(true);
     setError("");
     try {
@@ -265,17 +280,22 @@ export function Ledger({
       )) {
         const form = new FormData();
         form.set("file", file);
+        form.set("importMode", importMode);
         const r = await fetch(endpoint, { method: "POST", body: form }),
           v = await r.json();
         if (!r.ok) throw new Error(v.error ?? "Import failed");
         count += v.imported;
       }
       await refresh();
-      setMessage(`Imported ${count} title records. Reimporting updates existing records.`);
+      setImportOpen(false);
+      setMessage(
+        `Imported ${count} title records.${importMode === "use-import-dates" ? " Matching imported dates now use this JSON, including earlier dates." : " Existing entries keep their latest dates."}`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
     } finally {
       setBusy(false);
+      mutating.current = false;
       if (upload.current) upload.current.value = "";
     }
   }
@@ -534,7 +554,7 @@ export function Ledger({
               </select>
             </label>
             <Link href={`/servers/${serverId}/history`}>Raw sessions</Link>
-            <button onClick={() => upload.current?.click()} disabled={busy}>
+            <button onClick={openImport} disabled={busy}>
               <Import size={16} /> Import SIMKL
             </button>
             <button
@@ -556,14 +576,6 @@ export function Ledger({
               <Settings2 size={17} />
             </button>
           </div>
-          <input
-            hidden
-            ref={upload}
-            type="file"
-            accept=".json,.csv"
-            multiple
-            onChange={(e) => void importFiles(e.target.files)}
-          />
         </header>
         {error && (
           <div className="wl-error" role="alert">
@@ -906,7 +918,7 @@ export function Ledger({
                       <p>
                         Import your SIMKL JSON and CSV, log a watch, or play something in Jellyfin.
                       </p>
-                      <button onClick={() => upload.current?.click()}>Import history</button>
+                      <button onClick={openImport}>Import history</button>
                     </>
                   )}
                 </div>
@@ -990,6 +1002,82 @@ export function Ledger({
             </button>
           )}
         </footer>
+        {importOpen && (
+          <Modal
+            label="Import SIMKL history"
+            onClose={() => {
+              if (!busy) setImportOpen(false);
+            }}
+          >
+            <section className="wl-dialog">
+              <div className="wl-section-heading">
+                <h2>Import SIMKL history</h2>
+                <button
+                  disabled={busy}
+                  aria-label="Close import"
+                  onClick={() => setImportOpen(false)}
+                >
+                  <X />
+                </button>
+              </div>
+              <p>
+                If your backup is a ZIP, extract it first and select the JSON inside. CSV is
+                optional for list metadata.
+              </p>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void importFiles(importSelection);
+                }}
+              >
+                <label>
+                  Reimport dates
+                  <select
+                    value={importMode}
+                    disabled={busy}
+                    onChange={(event) => setImportMode(event.target.value)}
+                  >
+                    <option value="merge">Keep latest dates</option>
+                    <option value="use-import-dates">Use dates from this import</option>
+                  </select>
+                </label>
+                <p>
+                  {importMode === "use-import-dates"
+                    ? "Use corrected JSON dates for matching imported watches, even when earlier. Missing dates keep the existing date. Entries absent from this file, recorded sessions, manual logs, and your watch corrections are preserved."
+                    : "Merge new history and keep the later date for existing imported watches. Choose Use dates from this import if you corrected dates in SIMKL."}
+                </p>
+                <input
+                  hidden
+                  ref={upload}
+                  type="file"
+                  accept=".json,.csv"
+                  multiple
+                  onChange={(e) => setImportSelection(Array.from(e.target.files ?? []))}
+                />
+                <button type="button" disabled={busy} onClick={() => upload.current?.click()}>
+                  Choose JSON / CSV files
+                </button>
+                <p role="status">
+                  {importSelection.length
+                    ? importSelection.map((file) => file.name).join(", ")
+                    : "No files selected"}
+                </p>
+                <button
+                  className="wl-primary"
+                  type="submit"
+                  disabled={busy || !importSelection.length}
+                >
+                  {busy ? "Importing…" : "Import history"}
+                </button>
+              </form>
+              {error && (
+                <p className="wl-error" role="alert">
+                  {error}
+                </p>
+              )}
+            </section>
+          </Modal>
+        )}
         {manual && (
           <Modal label="Log a watch" onClose={() => setManual(false)}>
             <section
