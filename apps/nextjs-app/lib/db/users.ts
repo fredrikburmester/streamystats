@@ -22,6 +22,11 @@ import {
   mapWatchTimePerWeekDayByType,
   type WatchTimePerWeekDayByType,
 } from "../watch-time-per-week-day";
+import {
+  getWatchTimePeriodStarts,
+  mapWatchTimePeriodTotals,
+  type WatchTimePeriodTotals,
+} from "../watch-time-periods";
 import { getStatisticsExclusions } from "./exclusions";
 import { isBetterDisplayName, normalizeGenre } from "./genres";
 import { getServer } from "./server";
@@ -358,6 +363,62 @@ export const getTotalWatchTime = async ({
     .where(and(...whereConditions));
 
   return Number(result[0]?.playDuration || 0);
+};
+
+/**
+ * Total watch time over all time, plus the watch time since the start of the
+ * current year, month and week. Unlike getTotalWatchTime this ignores any
+ * selected date range, so the numbers are always comparable.
+ */
+export const getWatchTimePeriodTotals = async ({
+  serverId,
+  userId,
+  viewerUserId,
+  now,
+}: {
+  serverId: string | number;
+  userId?: string | number;
+  viewerUserId?: string;
+  now?: Date;
+}): Promise<WatchTimePeriodTotals> => {
+  const starts = getWatchTimePeriodStarts(now);
+
+  const { userExclusion, itemLibraryExclusion } = await getStatisticsExclusions(
+    Number(serverId),
+    viewerUserId,
+  );
+
+  const whereConditions: SQL[] = [eq(sessions.serverId, Number(serverId))];
+  if (userId !== undefined) {
+    whereConditions.push(eq(sessions.userId, String(userId)));
+  }
+  if (userExclusion) {
+    whereConditions.push(userExclusion);
+  }
+  if (itemLibraryExclusion) {
+    whereConditions.push(itemLibraryExclusion);
+  }
+
+  const since = (start: Date) =>
+    sql<
+      string | null
+    >`sum(${sessions.playDuration}) filter (where ${gte(sessions.startTime, start)})`;
+
+  const result = await db
+    .select({
+      total: sum(sessions.playDuration),
+      year: since(starts.year),
+      month: since(starts.month),
+      week: since(starts.week),
+    })
+    .from(sessions)
+    .leftJoin(
+      items,
+      and(eq(sessions.itemId, items.id), eq(sessions.serverId, items.serverId)),
+    )
+    .where(and(...whereConditions));
+
+  return mapWatchTimePeriodTotals(result[0]);
 };
 
 interface UserWithWatchTime {
