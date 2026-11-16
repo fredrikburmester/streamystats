@@ -30,14 +30,9 @@ import {
   type Watch,
 } from "@/lib/ledger/engine";
 import { basePath, getJellyfinImageUrl } from "@/lib/utils";
+import { formatLedgerDuration as seconds } from "@/lib/ledger/duration";
 import "./ledger.css";
 type Data = Awaited<ReturnType<typeof getLedgerView>>;
-const seconds = (value: number) => {
-  const n = Math.max(0, Math.round(value));
-  return n >= 3600
-    ? `${Math.floor(n / 3600)}h ${Math.floor((n % 3600) / 60)}m`
-    : `${Math.floor(n / 60)}m`;
-};
 const label = (watch: Watch) =>
   watch.title.kind === "movie"
     ? watch.title.name
@@ -608,7 +603,7 @@ export function Ledger({
             <span>COMPLETED WATCHES</span>
             <strong>{data.totals.completed.toLocaleString("en-US")}</strong>
             <small>
-              {data.totals.completedTitles} titles · {data.sessionCount} raw sessions
+              {data.totals.completedTitles} titles · {data.sessionCount} sessions
             </small>
           </div>
           <div>

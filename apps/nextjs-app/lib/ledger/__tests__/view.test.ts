@@ -183,3 +183,106 @@ test("week and month boundaries stay chronological across year changes", () => {
   ]);
   expect(new Set(markers.map((entry) => entry.key)).size).toBe(markers.length);
 });
+
+test("sessions displayed as 0m are absent from Ledger cards, activity, totals, and pagination", () => {
+  const playbacks: Playback[] = [0, 15, 59.4, 59.5, 60].map((seconds, index) => ({
+    id: `tiny-${index}`,
+    itemId: `item-${index}`,
+    title: { key: `title-${index}`, name: `Title ${index}`, kind: "movie" },
+    episodeTitle: `Title ${index}`,
+    start: "2026-10-02T12:00:00Z",
+    end: "2026-10-02T12:01:00Z",
+    seconds,
+    runtime: 100,
+    position: seconds,
+    completed: false,
+    inferred: false,
+    device: "TV",
+    ranges: null,
+    startPosition: null,
+  }));
+  const watches = buildWatches({ playbacks, history: [], titles: [] });
+  const before = structuredClone(watches);
+  const view = buildLedgerView(
+    { ...ledger, watches, sessionCount: 5 },
+    new URLSearchParams({ month: "2026-10" }),
+  );
+  expect(view.watches.map((watch) => watch.itemId).sort()).toEqual(["item-3", "item-4"]);
+  expect(view.pagination.total).toBe(2);
+  expect(view.totalWatches).toBe(2);
+  expect(view.sessionCount).toBe(2);
+  expect(view.totals.recorded).toBe(119.5);
+  expect(view.recaps.month.recorded).toBe(119.5);
+  expect(view.days[0].recorded).toBe(119.5);
+  expect(watches).toEqual(before);
+  const empty = buildLedgerView(
+    { ...ledger, watches: watches.filter((watch) => watch.measuredSeconds < 59.5) },
+    new URLSearchParams(),
+  );
+  expect(empty.pagination.total).toBe(0);
+  expect(empty.days).toHaveLength(0);
+  expect(empty.sessionCount).toBe(0);
+});
+
+test("a tiny resume creates no extra day and preserves accumulated completion and corrections", () => {
+  const first: Playback = {
+    id: "long",
+    itemId: "episode",
+    title: { key: "show", name: "Show", kind: "tv" },
+    season: 1,
+    episode: 1,
+    episodeTitle: "Pilot",
+    start: "2026-10-01T12:00:00Z",
+    end: "2026-10-01T12:01:20Z",
+    seconds: 80,
+    runtime: 100,
+    position: 80,
+    completed: false,
+    inferred: false,
+    device: "TV",
+    ranges: [[0, 80]],
+    startPosition: 0,
+  };
+  const watches = buildWatches({
+    playbacks: [
+      first,
+      {
+        ...first,
+        id: "short",
+        start: "2026-10-02T12:00:00Z",
+        end: "2026-10-02T12:00:20Z",
+        seconds: 20,
+        position: 100,
+        completed: true,
+        ranges: [[80, 100]],
+        startPosition: 80,
+      },
+    ],
+    history: [],
+    titles: [],
+  });
+  const view = buildLedgerView({ ...ledger, watches }, new URLSearchParams());
+  expect(view.grouped.map(([day]) => day)).toEqual(["2026-10-01"]);
+  expect(view.grouped[0][1][0].completed).toBe(true);
+  expect(view.watches[0].coverage).toBe(1);
+  expect(view.watches[0].id).toBe(watches[0].id);
+  expect(view.watches[0].sessions.map((session) => session.id)).toEqual(["long"]);
+  expect(view.totals.recorded).toBe(80);
+  expect(view.totals.completed).toBe(1);
+  expect(view.days.some((day) => day.day === "2026-10-02")).toBe(false);
+  expect(watches[0].sessions).toHaveLength(2);
+  const corrected = buildLedgerView(
+    { ...ledger, watches: [{ ...watches[0], dateCorrected: true, end: "2026-10-03T12:00:00Z" }] },
+    new URLSearchParams(),
+  );
+  expect(corrected.watches[0].end).toBe("2026-10-03T12:00:00Z");
+});
+
+test("the 0m session filter leaves standalone manual and imported history visible", () => {
+  const entries: HistoryEntry[] = [
+    { ...history[0], runtime: 30, source: "manual" },
+    { ...history[1], runtime: 0, source: "simkl" },
+  ];
+  const watches = buildWatches({ playbacks: [], history: entries, titles: [] });
+  expect(buildLedgerView({ ...ledger, watches }, new URLSearchParams()).pagination.total).toBe(2);
+});
